@@ -63,6 +63,7 @@ The product shape is simple: repository context on the left, AI agent work in th
 Start here:
 
 - [Documentation index](docs/README.md)
+- [Toolchain requirements](docs/toolchain-requirements.md)
 - [Architecture and implementation plan](docs/plans/architecture-and-implementation-plan.md)
 - [Roadmap](docs/plans/roadmap.md)
 - [Product spec](docs/design/product-spec.md)
@@ -94,6 +95,13 @@ Start here:
 - [Communication flows](docs/engineering/communication-flows.md)
 - [Design patterns](docs/engineering/design-patterns.md)
 - [Risk analysis](docs/engineering/risk-analysis.md)
+
+### Project Files
+
+- [License](LICENSE)
+- [Contributing guide](CONTRIBUTING.md)
+- [Security policy](SECURITY.md)
+- [Agent rules](AGENTS.md)
 
 ### Architecture Decision Records
 
