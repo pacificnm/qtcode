@@ -5,6 +5,7 @@
 #include "core/ProjectManager.h"
 #include "core/SettingsService.h"
 #include "git/GitService.h"
+#include "github/GitHubService.h"
 #include "core/ContextManager.h"
 #include "memory/MemoryService.h"
 #include "settings/ProjectModels.h"
@@ -91,6 +92,10 @@ bool ApplicationController::initialize(QString *errorMessage)
     m_contextManager = std::make_unique<ContextManager>(
         m_memoryService.get(),
         m_mcpServerService.get());
+    m_gitHubService = std::make_unique<github::GitHubService>(*m_storageService);
+    if (m_cliCapabilityService->isGhAvailable()) {
+        m_gitHubService->setGhExecutablePath(m_cliCapabilityService->snapshot().gh.executablePath);
+    }
 
     if (agents::AgentAdapter *registeredAdapter = m_agentManager->adapter(QStringLiteral("codex"));
         registeredAdapter != nullptr) {
@@ -274,6 +279,11 @@ memory::MemoryService *ApplicationController::memoryService() const
 ContextManager *ApplicationController::contextManager() const
 {
     return m_contextManager.get();
+}
+
+github::GitHubService *ApplicationController::gitHubService() const
+{
+    return m_gitHubService.get();
 }
 
 bool ApplicationController::runSmokeTestAgentPromptIfRequested(

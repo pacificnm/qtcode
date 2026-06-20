@@ -50,6 +50,7 @@ void MainWindow::configureLayout()
         m_controller != nullptr ? m_controller->gitService() : nullptr,
         m_controller != nullptr ? m_controller->projectManager() : nullptr,
         m_controller != nullptr ? m_controller->cliCapabilityService() : nullptr,
+        m_controller != nullptr ? m_controller->gitHubService() : nullptr,
         this);
     m_agentPanel = new AgentPanel(
         m_controller != nullptr ? m_controller->cliCapabilityService() : nullptr,

@@ -4,6 +4,7 @@
 
 #include "git/GitCommitSummary.h"
 #include "git/GitStatus.h"
+#include "github/GitHubModels.h"
 
 class QLabel;
 class QListView;
@@ -19,12 +20,22 @@ class ProjectManager;
 class CliCapabilityService;
 } // namespace qtcode::core
 
+namespace qtcode::github {
+class GitHubService;
+} // namespace qtcode::github
+
 template <typename T>
 class QFutureWatcher;
 
 namespace qtcode::ui {
 
 class RepositoryListModel;
+
+struct RepositoryRefreshBundle
+{
+    qtcode::git::RepositoryGitSnapshot git;
+    qtcode::github::GitHubIssueListResult issues;
+};
 
 class RepositoryPanel final : public QWidget
 {
@@ -35,6 +46,7 @@ public:
         qtcode::git::GitService *gitService,
         qtcode::core::ProjectManager *projectManager,
         qtcode::core::CliCapabilityService *cliCapabilityService,
+        qtcode::github::GitHubService *gitHubService,
         QWidget *parent = nullptr);
     ~RepositoryPanel() override;
 
@@ -49,18 +61,20 @@ private slots:
 
 private:
     void configureLayout();
-    void startRefresh(const QString &repositoryPath);
+    void startRefresh(const QString &projectId, const QString &repositoryPath);
     void setRefreshing(bool refreshing);
     void showEmptyState(const QString &message);
     void showErrorState(const QString &message);
     void applySnapshot(const qtcode::git::RepositoryGitSnapshot &snapshot);
     void showChangedFiles(const qtcode::git::GitWorkingTreeStatus &status);
     void showRecentCommits(const QList<qtcode::git::GitCommitSummary> &commits);
+    void showGitHubIssues(const qtcode::github::GitHubIssueListResult &result);
     void refreshCapabilityState();
 
     qtcode::git::GitService *m_gitService = nullptr;
     qtcode::core::ProjectManager *m_projectManager = nullptr;
     qtcode::core::CliCapabilityService *m_cliCapabilityService = nullptr;
+    qtcode::github::GitHubService *m_gitHubService = nullptr;
     RepositoryListModel *m_repositoryModel = nullptr;
     QListView *m_repositoryList = nullptr;
     QLabel *m_projectLabel = nullptr;
@@ -69,9 +83,11 @@ private:
     QLabel *m_commitsStateLabel = nullptr;
     QListWidget *m_changedFilesList = nullptr;
     QListWidget *m_commitsList = nullptr;
+    QLabel *m_issuesStateLabel = nullptr;
+    QListWidget *m_issuesList = nullptr;
     QPushButton *m_addRepositoryButton = nullptr;
     QPushButton *m_refreshButton = nullptr;
-    QFutureWatcher<qtcode::git::RepositoryGitSnapshot> *m_refreshWatcher = nullptr;
+    QFutureWatcher<RepositoryRefreshBundle> *m_refreshWatcher = nullptr;
 };
 
 } // namespace qtcode::ui

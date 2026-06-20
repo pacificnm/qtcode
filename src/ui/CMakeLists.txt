@@ -16,6 +16,7 @@ target_link_libraries(qtcode_ui
         qtcode_shared
         qtcode_memory
         qtcode_git
+        qtcode_github
         qtcode_terminal
         Qt6::Widgets
         Qt6::Concurrent
