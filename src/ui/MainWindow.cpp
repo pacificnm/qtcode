@@ -1,5 +1,6 @@
 #include "ui/MainWindow.h"
 
+#include "shared/Logging.h"
 #include "ui/panels/AgentPanel.h"
 #include "ui/panels/RepositoryPanel.h"
 #include "ui/panels/TerminalPanel.h"
@@ -48,6 +49,8 @@ void MainWindow::configureLayout()
 
     m_horizontalSplitter->setSizes({360, 920});
     m_verticalSplitter->setSizes({560, 240});
+
+    qCInfo(qtcodeUi) << "Initialized repository, agent, and terminal panel layout";
 }
 
 } // namespace qtcode::ui
