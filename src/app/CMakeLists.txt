@@ -11,6 +11,7 @@ target_compile_definitions(qtcode
 target_link_libraries(qtcode
     PRIVATE
         qtcode_ui
+        qtcode_shared
         Qt6::Widgets
         KF6::CoreAddons
         KF6::I18n

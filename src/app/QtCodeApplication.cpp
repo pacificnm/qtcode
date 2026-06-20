@@ -1,11 +1,13 @@
 #include "app/QtCodeApplication.h"
 
+#include "shared/Logging.h"
 #include "ui/MainWindow.h"
 
 #include <KAboutData>
 #include <KLocalizedString>
 
 #include <QGuiApplication>
+#include <QSysInfo>
 
 namespace {
 
@@ -21,6 +23,10 @@ QtCodeApplication::QtCodeApplication(int &argc, char **argv)
     : m_application(std::make_unique<QApplication>(argc, argv))
 {
     configureMetadata();
+    qtcode::shared::configureLogging();
+
+    qCInfo(qtcodeApp) << "QTCode" << QCoreApplication::applicationVersion()
+                      << "starting with Qt" << qVersion();
 }
 
 QtCodeApplication::~QtCodeApplication() = default;
@@ -29,6 +35,8 @@ int QtCodeApplication::run()
 {
     qtcode::ui::MainWindow mainWindow;
     mainWindow.show();
+
+    qCInfo(qtcodeApp) << "Main window shown";
 
     return QApplication::exec();
 }
