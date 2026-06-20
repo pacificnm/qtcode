@@ -1,5 +1,7 @@
 #include "app/QtCodeApplication.h"
 
+#include "ui/MainWindow.h"
+
 #include <KAboutData>
 #include <KLocalizedString>
 
@@ -25,6 +27,9 @@ QtCodeApplication::~QtCodeApplication() = default;
 
 int QtCodeApplication::run()
 {
+    qtcode::ui::MainWindow mainWindow;
+    mainWindow.show();
+
     return QApplication::exec();
 }
 

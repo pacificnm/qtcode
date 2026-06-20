@@ -1,7 +1,15 @@
 #pragma once
 
+#include <QWidget>
+
 namespace qtcode::ui {
 
-// Placeholder for the terminal panel.
+class TerminalPanel final : public QWidget
+{
+    Q_OBJECT
+
+public:
+    explicit TerminalPanel(QWidget *parent = nullptr);
+};
 
 } // namespace qtcode::ui
