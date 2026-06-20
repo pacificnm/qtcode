@@ -3,6 +3,10 @@
 #include <QApplication>
 #include <memory>
 
+namespace qtcode::core {
+class ApplicationController;
+} // namespace qtcode::core
+
 class QtCodeApplication
 {
 public:
@@ -19,4 +23,5 @@ private:
     void configureMetadata();
 
     std::unique_ptr<QApplication> m_application;
+    std::unique_ptr<qtcode::core::ApplicationController> m_controller;
 };

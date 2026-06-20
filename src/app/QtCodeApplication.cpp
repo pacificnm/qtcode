@@ -1,5 +1,6 @@
 #include "app/QtCodeApplication.h"
 
+#include "core/ApplicationController.h"
 #include "shared/Logging.h"
 #include "ui/MainWindow.h"
 
@@ -33,12 +34,26 @@ QtCodeApplication::~QtCodeApplication() = default;
 
 int QtCodeApplication::run()
 {
+    m_controller = std::make_unique<qtcode::core::ApplicationController>();
+
+    QString initializationError;
+    if (!m_controller->initialize(&initializationError)) {
+        qCCritical(qtcodeApp) << "Failed to initialize application services:"
+                                << initializationError;
+        return 1;
+    }
+
     qtcode::ui::MainWindow mainWindow;
     mainWindow.show();
 
     qCInfo(qtcodeApp) << "Main window shown";
 
-    return QApplication::exec();
+    const int exitCode = QApplication::exec();
+
+    m_controller->shutdown();
+    m_controller.reset();
+
+    return exitCode;
 }
 
 QApplication &QtCodeApplication::application() noexcept
