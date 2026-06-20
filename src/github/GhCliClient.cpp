@@ -68,6 +68,93 @@ GitHubIssueListResult parseIssueListJson(const QByteArray &jsonBytes, QString *e
     return result;
 }
 
+GitHubPullRequest pullRequestFromJsonObject(const QJsonObject &object)
+{
+    GitHubPullRequest pullRequest;
+    pullRequest.number = object.value(QStringLiteral("number")).toInt();
+    pullRequest.title = object.value(QStringLiteral("title")).toString().trimmed();
+    pullRequest.state = object.value(QStringLiteral("state")).toString().trimmed();
+    pullRequest.url = object.value(QStringLiteral("url")).toString().trimmed();
+    pullRequest.updatedAt = object.value(QStringLiteral("updatedAt")).toString().trimmed();
+
+    const QJsonValue authorValue = object.value(QStringLiteral("author"));
+    if (authorValue.isObject()) {
+        pullRequest.author = authorValue.toObject().value(QStringLiteral("login")).toString().trimmed();
+    }
+
+    return pullRequest;
+}
+
+GitHubPullRequestListResult parsePullRequestListJson(const QByteArray &jsonBytes, QString *errorMessage)
+{
+    GitHubPullRequestListResult result;
+
+    const QJsonDocument document = QJsonDocument::fromJson(jsonBytes);
+    if (!document.isArray()) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("GitHub CLI pull request list returned invalid JSON.");
+        }
+        return result;
+    }
+
+    const QJsonArray pullRequestArray = document.array();
+    result.pullRequests.reserve(pullRequestArray.size());
+
+    for (const QJsonValue &value : pullRequestArray) {
+        if (!value.isObject()) {
+            continue;
+        }
+
+        const GitHubPullRequest pullRequest = pullRequestFromJsonObject(value.toObject());
+        if (pullRequest.number <= 0 || pullRequest.title.isEmpty()) {
+            continue;
+        }
+
+        result.pullRequests.append(pullRequest);
+    }
+
+    result.success = true;
+    return result;
+}
+
+GitHubPullRequestDetailResult parsePullRequestDetailJson(const QByteArray &jsonBytes, QString *errorMessage)
+{
+    GitHubPullRequestDetailResult result;
+
+    const QJsonDocument document = QJsonDocument::fromJson(jsonBytes);
+    if (!document.isObject()) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("GitHub CLI pull request view returned invalid JSON.");
+        }
+        return result;
+    }
+
+    const QJsonObject object = document.object();
+    result.detail.number = object.value(QStringLiteral("number")).toInt();
+    result.detail.title = object.value(QStringLiteral("title")).toString().trimmed();
+    result.detail.state = object.value(QStringLiteral("state")).toString().trimmed();
+    result.detail.url = object.value(QStringLiteral("url")).toString().trimmed();
+    result.detail.body = object.value(QStringLiteral("body")).toString().trimmed();
+    result.detail.baseRef = object.value(QStringLiteral("baseRefName")).toString().trimmed();
+    result.detail.headRef = object.value(QStringLiteral("headRefName")).toString().trimmed();
+    result.detail.updatedAt = object.value(QStringLiteral("updatedAt")).toString().trimmed();
+
+    const QJsonValue authorValue = object.value(QStringLiteral("author"));
+    if (authorValue.isObject()) {
+        result.detail.author = authorValue.toObject().value(QStringLiteral("login")).toString().trimmed();
+    }
+
+    if (result.detail.number <= 0 || result.detail.title.isEmpty()) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("GitHub CLI pull request view returned incomplete data.");
+        }
+        return result;
+    }
+
+    result.success = true;
+    return result;
+}
+
 } // namespace
 
 void GhCliClient::setExecutablePath(const QString &executablePath)
@@ -135,6 +222,111 @@ GitHubIssueListResult GhCliClient::listIssues(
     }
 
     return parseIssueListJson(processResult.standardOutput.toUtf8(), &result.errorMessage);
+}
+
+GitHubPullRequestListResult GhCliClient::listPullRequests(
+    const QString &owner,
+    const QString &name,
+    int limit) const
+{
+    GitHubPullRequestListResult result;
+
+    if (!isConfigured()) {
+        result.errorMessage = QStringLiteral("GitHub CLI executable is not configured.");
+        return result;
+    }
+
+    if (owner.isEmpty() || name.isEmpty()) {
+        result.errorMessage = QStringLiteral("GitHub owner and repository name are required.");
+        return result;
+    }
+
+    if (limit <= 0) {
+        limit = 25;
+    }
+
+    const shared::ProcessResult processResult = shared::ProcessRunner::run(
+        m_executablePath,
+        {QStringLiteral("pr"),
+         QStringLiteral("list"),
+         QStringLiteral("--repo"),
+         repositorySlug(owner, name),
+         QStringLiteral("--json"),
+         QStringLiteral("number,title,state,url,updatedAt,author"),
+         QStringLiteral("--limit"),
+         QString::number(limit)},
+        kGhCommandTimeoutMs);
+
+    if (!processResult.started) {
+        result.errorMessage = QStringLiteral("Failed to start GitHub CLI: %1")
+                                  .arg(processResult.standardError);
+        return result;
+    }
+
+    if (processResult.exitCode != 0) {
+        const QString details =
+            QStringLiteral("%1\n%2").arg(processResult.standardOutput, processResult.standardError).trimmed();
+        result.errorMessage = details.isEmpty()
+            ? QStringLiteral("GitHub CLI pull request list failed.")
+            : details;
+        qCWarning(qtcodeGithub) << "gh pr list failed for" << repositorySlug(owner, name) << details;
+        return result;
+    }
+
+    return parsePullRequestListJson(processResult.standardOutput.toUtf8(), &result.errorMessage);
+}
+
+GitHubPullRequestDetailResult GhCliClient::viewPullRequest(
+    const QString &owner,
+    const QString &name,
+    int pullRequestNumber) const
+{
+    GitHubPullRequestDetailResult result;
+
+    if (!isConfigured()) {
+        result.errorMessage = QStringLiteral("GitHub CLI executable is not configured.");
+        return result;
+    }
+
+    if (owner.isEmpty() || name.isEmpty()) {
+        result.errorMessage = QStringLiteral("GitHub owner and repository name are required.");
+        return result;
+    }
+
+    if (pullRequestNumber <= 0) {
+        result.errorMessage = QStringLiteral("Pull request number must be positive.");
+        return result;
+    }
+
+    const shared::ProcessResult processResult = shared::ProcessRunner::run(
+        m_executablePath,
+        {QStringLiteral("pr"),
+         QStringLiteral("view"),
+         QString::number(pullRequestNumber),
+         QStringLiteral("--repo"),
+         repositorySlug(owner, name),
+         QStringLiteral("--json"),
+         QStringLiteral("number,title,state,url,body,author,baseRefName,headRefName,updatedAt")},
+        kGhCommandTimeoutMs);
+
+    if (!processResult.started) {
+        result.errorMessage = QStringLiteral("Failed to start GitHub CLI: %1")
+                                  .arg(processResult.standardError);
+        return result;
+    }
+
+    if (processResult.exitCode != 0) {
+        const QString details =
+            QStringLiteral("%1\n%2").arg(processResult.standardOutput, processResult.standardError).trimmed();
+        result.errorMessage = details.isEmpty()
+            ? QStringLiteral("GitHub CLI pull request view failed.")
+            : details;
+        qCWarning(qtcodeGithub) << "gh pr view failed for" << repositorySlug(owner, name)
+                                << pullRequestNumber << details;
+        return result;
+    }
+
+    return parsePullRequestDetailJson(processResult.standardOutput.toUtf8(), &result.errorMessage);
 }
 
 GitHubRepositoryInfo GhCliClient::viewRepository(

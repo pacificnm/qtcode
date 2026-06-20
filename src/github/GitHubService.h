@@ -17,8 +17,23 @@ public:
 
     void setGhExecutablePath(const QString &executablePath);
     [[nodiscard]] GitHubIssueListResult listIssuesForProject(const QString &projectId) const;
+    [[nodiscard]] GitHubPullRequestListResult listPullRequestsForProject(const QString &projectId) const;
+    [[nodiscard]] GitHubPullRequestDetailResult viewPullRequestForProject(
+        const QString &projectId,
+        int pullRequestNumber) const;
 
 private:
+    struct ResolvedGitHubRepository
+    {
+        QString repositoryId;
+        QString owner;
+        QString name;
+        QString errorMessage;
+        bool success = false;
+    };
+
+    [[nodiscard]] ResolvedGitHubRepository resolvePrimaryGitHubRepository(
+        const QString &projectId) const;
     [[nodiscard]] GitHubIssueListResult listIssues(
         const QString &repositoryId,
         const QString &owner,
@@ -28,6 +43,22 @@ private:
     [[nodiscard]] bool persistIssuesToCache(
         const QString &repositoryId,
         const QList<GitHubIssue> &issues) const;
+    [[nodiscard]] GitHubPullRequestListResult listPullRequests(
+        const QString &repositoryId,
+        const QString &owner,
+        const QString &name,
+        int limit) const;
+    [[nodiscard]] GitHubPullRequestListResult loadPullRequestsFromCache(
+        const QString &repositoryId) const;
+    [[nodiscard]] bool persistPullRequestsToCache(
+        const QString &repositoryId,
+        const QList<GitHubPullRequest> &pullRequests) const;
+    [[nodiscard]] GitHubPullRequestDetailResult loadPullRequestFromCache(
+        const QString &repositoryId,
+        int pullRequestNumber) const;
+    [[nodiscard]] bool persistPullRequestToCache(
+        const QString &repositoryId,
+        const GitHubPullRequestDetail &detail) const;
 
     qtcode::storage::StorageService &m_storageService;
     GhCliClient m_ghClient;

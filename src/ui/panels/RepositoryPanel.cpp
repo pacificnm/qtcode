@@ -147,6 +147,21 @@ void RepositoryPanel::configureLayout()
     m_issuesList = new QListWidget(this);
     m_issuesList->setSelectionMode(QAbstractItemView::NoSelection);
 
+    auto *pullRequestsTitle = new QLabel(i18n("GitHub pull requests"), this);
+    pullRequestsTitle->setFont(sectionFont);
+
+    m_pullRequestsStateLabel = new QLabel(this);
+    m_pullRequestsStateLabel->setWordWrap(true);
+    m_pullRequestsStateLabel->setAlignment(Qt::AlignTop | Qt::AlignLeft);
+
+    m_pullRequestsList = new QListWidget(this);
+    m_pullRequestsList->setSelectionMode(QAbstractItemView::SingleSelection);
+    connect(
+        m_pullRequestsList,
+        &QListWidget::itemSelectionChanged,
+        this,
+        &RepositoryPanel::onPullRequestSelected);
+
     layout->addWidget(titleLabel);
     layout->addWidget(m_capabilityStateLabel);
     layout->addWidget(m_projectLabel);
@@ -162,7 +177,10 @@ void RepositoryPanel::configureLayout()
     layout->addWidget(m_commitsList);
     layout->addWidget(issuesTitle);
     layout->addWidget(m_issuesStateLabel);
-    layout->addWidget(m_issuesList, 1);
+    layout->addWidget(m_issuesList);
+    layout->addWidget(pullRequestsTitle);
+    layout->addWidget(m_pullRequestsStateLabel);
+    layout->addWidget(m_pullRequestsList, 1);
 }
 
 void RepositoryPanel::refreshStatus()
@@ -202,6 +220,7 @@ void RepositoryPanel::startRefresh(const QString &projectId, const QString &repo
             bundle.git = qtcode::git::loadRepositoryGitSnapshot(repositoryPath, 10);
             if (gitHubService != nullptr && bundle.git.success) {
                 bundle.issues = gitHubService->listIssuesForProject(projectId);
+                bundle.pullRequests = gitHubService->listPullRequestsForProject(projectId);
             }
             return bundle;
         }));
@@ -226,11 +245,14 @@ void RepositoryPanel::onRefreshFinished()
 
     applySnapshot(bundle.git);
     showGitHubIssues(bundle.issues);
+    showGitHubPullRequests(bundle.pullRequests);
+    m_activeProjectId = activeProject.id;
 
     qCInfo(qtcodeUi) << "Repository snapshot refreshed with"
                      << bundle.git.status.changedFiles.size() << "changed file(s),"
-                     << bundle.git.commits.size() << "recent commit(s), and"
-                     << bundle.issues.issues.size() << "GitHub issue(s)";
+                     << bundle.git.commits.size() << "recent commit(s),"
+                     << bundle.issues.issues.size() << "GitHub issue(s), and"
+                     << bundle.pullRequests.pullRequests.size() << "pull request(s)";
 }
 
 void RepositoryPanel::setRefreshing(bool refreshing)
@@ -247,6 +269,9 @@ void RepositoryPanel::setRefreshing(bool refreshing)
         m_issuesStateLabel->setText(i18n("Loading GitHub issues…"));
         m_issuesStateLabel->show();
         m_issuesList->hide();
+        m_pullRequestsStateLabel->setText(i18n("Loading GitHub pull requests…"));
+        m_pullRequestsStateLabel->show();
+        m_pullRequestsList->hide();
     }
 }
 
@@ -276,6 +301,11 @@ void RepositoryPanel::showEmptyState(const QString &message)
     m_issuesStateLabel->show();
     m_issuesList->clear();
     m_issuesList->hide();
+    m_pullRequestsStateLabel->setText(i18n("GitHub pull requests load after a repository is selected."));
+    m_pullRequestsStateLabel->show();
+    m_pullRequestsList->clear();
+    m_pullRequestsList->hide();
+    m_activeProjectId.clear();
     m_refreshButton->setEnabled(m_projectManager != nullptr && m_projectManager->hasActiveProject());
     m_addRepositoryButton->setEnabled(m_projectManager != nullptr);
 }
@@ -292,6 +322,9 @@ void RepositoryPanel::showErrorState(const QString &message)
     m_issuesStateLabel->hide();
     m_issuesList->clear();
     m_issuesList->hide();
+    m_pullRequestsStateLabel->hide();
+    m_pullRequestsList->clear();
+    m_pullRequestsList->hide();
     m_refreshButton->setEnabled(true);
 }
 
@@ -373,6 +406,71 @@ void RepositoryPanel::showGitHubIssues(const qtcode::github::GitHubIssueListResu
     }
 
     m_issuesList->show();
+}
+
+void RepositoryPanel::showGitHubPullRequests(const qtcode::github::GitHubPullRequestListResult &result)
+{
+    m_pullRequestsList->clear();
+
+    if (!result.success) {
+        m_pullRequestsStateLabel->setText(result.errorMessage);
+        m_pullRequestsStateLabel->show();
+        m_pullRequestsList->hide();
+        return;
+    }
+
+    if (result.pullRequests.isEmpty()) {
+        const QString message = result.fromCache
+            ? i18n("No cached GitHub pull requests are available for this repository.")
+            : i18n("No open GitHub pull requests were returned for this repository.");
+        m_pullRequestsStateLabel->setText(message);
+        m_pullRequestsStateLabel->show();
+        m_pullRequestsList->hide();
+        return;
+    }
+
+    m_pullRequestsStateLabel->hide();
+
+    for (const qtcode::github::GitHubPullRequest &pullRequest : result.pullRequests) {
+        auto *item = new QListWidgetItem(
+            i18n("#%1 — %2\n%3, %4",
+                 pullRequest.number,
+                 pullRequest.title,
+                 pullRequest.state,
+                 pullRequest.author));
+        item->setData(Qt::UserRole, pullRequest.number);
+        m_pullRequestsList->addItem(item);
+    }
+
+    m_pullRequestsList->show();
+}
+
+void RepositoryPanel::onPullRequestSelected()
+{
+    if (m_gitHubService == nullptr || m_pullRequestsList == nullptr || m_activeProjectId.isEmpty()) {
+        return;
+    }
+
+    const QList<QListWidgetItem *> selectedItems = m_pullRequestsList->selectedItems();
+    if (selectedItems.isEmpty()) {
+        return;
+    }
+
+    const int pullRequestNumber = selectedItems.first()->data(Qt::UserRole).toInt();
+    if (pullRequestNumber <= 0) {
+        return;
+    }
+
+    const qtcode::github::GitHubPullRequestDetailResult detailResult =
+        m_gitHubService->viewPullRequestForProject(m_activeProjectId, pullRequestNumber);
+    if (!detailResult.success) {
+        qCWarning(qtcodeUi) << "Failed to load pull request detail:" << detailResult.errorMessage;
+        m_pullRequestsStateLabel->setText(detailResult.errorMessage);
+        m_pullRequestsStateLabel->show();
+        return;
+    }
+
+    emit pullRequestContextSelected(detailResult.detail);
 }
 
 void RepositoryPanel::addRepository()

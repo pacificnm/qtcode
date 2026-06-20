@@ -15,6 +15,14 @@ public:
         const QString &owner,
         const QString &name,
         int limit = 25) const;
+    [[nodiscard]] GitHubPullRequestListResult listPullRequests(
+        const QString &owner,
+        const QString &name,
+        int limit = 25) const;
+    [[nodiscard]] GitHubPullRequestDetailResult viewPullRequest(
+        const QString &owner,
+        const QString &name,
+        int pullRequestNumber) const;
     [[nodiscard]] GitHubRepositoryInfo viewRepository(
         const QString &owner,
         const QString &name) const;

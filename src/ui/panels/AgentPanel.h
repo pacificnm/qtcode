@@ -21,6 +21,7 @@ class ProjectManager;
 } // namespace qtcode::core
 
 #include "core/ContextManager.h"
+#include "github/GitHubModels.h"
 
 namespace qtcode::settings {
 struct ProjectRecord;
@@ -42,6 +43,9 @@ public:
         qtcode::core::ProjectManager *projectManager,
         qtcode::core::ContextManager *contextManager,
         QWidget *parent = nullptr);
+
+public slots:
+    void attachPullRequestContext(const qtcode::github::GitHubPullRequestDetail &detail);
 
 private slots:
     void refreshCapabilityState();
@@ -99,6 +103,8 @@ private:
     int m_lastTotalResultCount = 0;
     bool m_lastMemoryUnavailable = false;
     QString m_lastRetrievalStatusMessage;
+    QStringList m_attachedGitHubContextExcerpts;
+    int m_attachedPullRequestNumber = 0;
 };
 
 } // namespace qtcode::ui

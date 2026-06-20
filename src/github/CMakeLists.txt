@@ -1,5 +1,6 @@
 qtcode_add_module_library(qtcode_github STATIC
     GhCliClient.cpp
+    GitHubContextFormatting.cpp
     GitHubRemoteResolver.cpp
     GitHubService.cpp
 )
