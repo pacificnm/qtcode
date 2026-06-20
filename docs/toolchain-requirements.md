@@ -100,7 +100,7 @@ For MVP GitHub workflows, install and authenticate:
 - `scripts/index-memory`
 - `scripts/search-memory "QTCode architecture"`
 - `scripts/run-memory-mcp`
-- `.venv/bin/python -m py_compile tools/index_memory.py tools/mcp_memory_server.py tools/search_memory.py tools/memory_common.py tools/agent_context.py tools/save_agent_context.py tools/search_agent_context.py`
+- `.venv/bin/python -m py_compile tools/index_memory.py tools/mcp_memory_server.py tools/search_memory.py tools/memory_common.py tools/agent_context.py tools/save_agent_context.py tools/search_agent_context.py tools/memory_retrieval.py .cursor/hooks/memory-workflow.py`
 - `git status --short`
 
 ## Script Reference

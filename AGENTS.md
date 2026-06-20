@@ -4,12 +4,17 @@ These rules apply to any agent working in this repository.
 
 ## 1. Search Memory First
 
-Before any implementation, refactor, or repository-specific answer, search the QTCode project memory first.
+Before any implementation, refactor, or repository-specific answer, search both memory stores:
 
-If Codex can reach the MCP tool, always use `search_project_memory` first.
-Use the local `scripts/search-memory` wrapper only if the MCP tool is unavailable in the current environment.
+1. `search_project_memory` for specs, ADRs, milestones, and engineering docs.
+2. `search_agent_context` for prior decisions, compaction notes, blockers, and task state for the active workspace scope.
+
+If MCP is available, always use those MCP tools first.
+Use `scripts/search-memory` and `scripts/search-agent-context` only when MCP is unavailable in the current environment.
 
 When conversation context is compacted or a long task spans multiple sessions, save durable task notes with `save_agent_context` and recover them with `search_agent_context` for the active repository scope.
+
+Cursor project hooks bootstrap both searches at session start and save compaction context automatically. Agents should still call the MCP tools directly during the session when the task changes.
 
 Preferred query pattern:
 
@@ -53,14 +58,15 @@ QTCode is a native KDE/Linux cockpit, not a full IDE.
 
 ## 5. Keep Memory And Context Central
 
-Project memory is part of the workflow, not an afterthought.
+Project memory and agent context memory are part of the workflow, not an afterthought.
 
-- Search memory before changing code.
+- Search project memory and agent context before changing code.
+- Save agent context after major decisions, completed steps, or before likely compaction.
 - Prefer retrieved context over stale assumptions.
 - Use memory results together with ADRs and milestone docs.
 - If memory and docs disagree, prefer the docs and call out the mismatch.
 - Prefer the wrapper scripts in `scripts/` for memory tooling and other repeated repo operations. Use `/usr/bin/python3` only for stdlib-only scripts; use `.venv/bin/python` for the memory tooling and any script that needs third-party packages.
-- When Codex is the active agent, the default memory path is the MCP `search_project_memory` tool, not the local search script.
+- When Codex is the active agent, the default memory path is the MCP tools on `qtcode-memory`: `search_project_memory`, `search_agent_context`, and `save_agent_context`.
 
 ## 6. Verify Before You Change
 

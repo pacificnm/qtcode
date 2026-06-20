@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "command": ".venv/bin/python .cursor/hooks/memory-workflow.py session-start"
+      }
+    ],
+    "preCompact": [
+      {
+        "command": ".venv/bin/python .cursor/hooks/memory-workflow.py pre-compact"
+      }
+    ],
+    "stop": [
+      {
+        "command": ".venv/bin/python .cursor/hooks/memory-workflow.py stop",
+        "matcher": "Stop"
+      }
+    ]
+  }
+}

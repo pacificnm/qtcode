@@ -1,0 +1,29 @@
+---
+description: Automatic QTCode project and agent context memory workflow
+alwaysApply: true
+---
+
+# Memory Workflow
+
+Before implementation, refactoring, or repository-specific answers:
+
+1. Call MCP `search_project_memory` with the subsystem, milestone, ADR, and user goal.
+2. Call MCP `search_agent_context` with the same `scope_key` as the active workspace root to recover prior decisions, blockers, and compaction notes.
+
+During and after meaningful work:
+
+3. Call MCP `save_agent_context` when you make durable decisions, finish a major step, or notice context is getting long.
+   - Use `context_type="decision"` for choices that should not be re-litigated.
+   - Use `context_type="task_state"` for blockers and next steps.
+   - Use `context_type="compaction"` when saving a manual summary before context loss.
+
+Binding order:
+
+1. Approved docs in the repo
+2. `search_project_memory`
+3. `search_agent_context`
+4. Existing code behavior
+
+If MCP is unavailable, use `scripts/search-memory`, `scripts/search-agent-context`, and `scripts/save-agent-context`.
+
+Cursor hooks also bootstrap memory at session start and save context before compaction. Do not skip the MCP searches just because bootstrap context was injected.

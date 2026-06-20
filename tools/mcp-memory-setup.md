@@ -260,6 +260,22 @@ It exposes four tools:
 After changing MCP config, reload MCP servers in Cursor or restart the editor.
 You should see `qtcode-memory` with the project-memory and agent-context tools.
 
+### Automatic Cursor hooks
+
+This repository also ships project hooks in `.cursor/hooks.json`:
+
+| Hook | Behavior |
+| --- | --- |
+| `sessionStart` | Injects retrieved project memory and agent context into the session. |
+| `preCompact` | Saves the current transcript excerpt to `agent_context_memory` before compaction. |
+| `stop` | Saves a completed-session summary to `agent_context_memory`. |
+
+The hook script is `.cursor/hooks/memory-workflow.py`. It uses the same PostgreSQL
+database and `.venv` Python environment as the MCP server.
+
+Cursor also loads `.cursor/rules/memory-workflow.mdc`, which tells agents to call
+`search_project_memory`, `search_agent_context`, and `save_agent_context` during work.
+
 ### Cursor project config
 
 This repository ships a portable project-level MCP entry in
@@ -372,3 +388,4 @@ saved agent context, then the remaining project notes and existing code behavior
 - `scripts/save-agent-context` stores one agent context chunk.
 - `scripts/search-agent-context` searches saved agent context for a scope.
 - `scripts/run-memory-mcp` starts the FastMCP server.
+- `.cursor/hooks.json` enables automatic memory bootstrap and compaction saves in Cursor.
