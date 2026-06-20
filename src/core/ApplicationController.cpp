@@ -8,6 +8,7 @@
 #include "storage/MigrationRunner.h"
 #include "storage/StorageService.h"
 #include "terminal/TerminalManager.h"
+#include "terminal/TerminalProfile.h"
 
 #include <QByteArray>
 
@@ -64,6 +65,82 @@ bool ApplicationController::initialize(QString *errorMessage)
             qCWarning(qtcodeCore) << "Failed to add repository from QTCODE_ADD_REPOSITORY:"
                                   << (errorMessage != nullptr ? *errorMessage : QString());
             return false;
+        }
+    }
+
+    if (m_terminalManager != nullptr) {
+        if (const QByteArray shellPath = qgetenv("QTCODE_TERMINAL_SHELL"); !shellPath.isEmpty()) {
+            terminal::TerminalProfile profile = m_terminalManager->globalProfile();
+            profile.shellPath = QString::fromUtf8(shellPath);
+            if (!m_terminalManager->setGlobalProfile(profile, errorMessage)) {
+                qCWarning(qtcodeCore) << "Failed to apply QTCODE_TERMINAL_SHELL:"
+                                      << (errorMessage != nullptr ? *errorMessage : QString());
+                return false;
+            }
+        }
+
+        if (const QByteArray workingDirectoryMode = qgetenv("QTCODE_TERMINAL_WD_MODE");
+            !workingDirectoryMode.isEmpty()) {
+            terminal::TerminalProfile profile = m_terminalManager->globalProfile();
+            bool modeOk = false;
+            profile.workingDirectoryMode = terminal::workingDirectoryModeFromString(
+                QString::fromUtf8(workingDirectoryMode),
+                &modeOk);
+            if (!modeOk) {
+                if (errorMessage != nullptr) {
+                    *errorMessage = QStringLiteral("Invalid QTCODE_TERMINAL_WD_MODE value.");
+                }
+                qCWarning(qtcodeCore) << "Invalid QTCODE_TERMINAL_WD_MODE:" << workingDirectoryMode;
+                return false;
+            }
+
+            if (const QByteArray customPath = qgetenv("QTCODE_TERMINAL_WD_PATH"); !customPath.isEmpty()) {
+                profile.customWorkingDirectory = QString::fromUtf8(customPath);
+            }
+
+            if (!m_terminalManager->setGlobalProfile(profile, errorMessage)) {
+                qCWarning(qtcodeCore) << "Failed to apply QTCODE_TERMINAL_WD_MODE:"
+                                      << (errorMessage != nullptr ? *errorMessage : QString());
+                return false;
+            }
+        }
+
+        if (m_projectManager != nullptr && m_projectManager->hasActiveProject()) {
+            const QString activeProjectId = m_projectManager->activeProjectId();
+            if (const QByteArray projectWorkingDirectoryMode = qgetenv("QTCODE_PROJECT_TERMINAL_WD_MODE");
+                !projectWorkingDirectoryMode.isEmpty()) {
+                terminal::TerminalProfile profile;
+                bool found = false;
+                if (!m_terminalManager->projectProfile(activeProjectId, &profile, &found, errorMessage)) {
+                    qCWarning(qtcodeCore) << "Failed to load project terminal profile:"
+                                          << (errorMessage != nullptr ? *errorMessage : QString());
+                    return false;
+                }
+
+                bool modeOk = false;
+                profile.workingDirectoryMode = terminal::workingDirectoryModeFromString(
+                    QString::fromUtf8(projectWorkingDirectoryMode),
+                    &modeOk);
+                if (!modeOk) {
+                    if (errorMessage != nullptr) {
+                        *errorMessage = QStringLiteral("Invalid QTCODE_PROJECT_TERMINAL_WD_MODE value.");
+                    }
+                    qCWarning(qtcodeCore) << "Invalid QTCODE_PROJECT_TERMINAL_WD_MODE:"
+                                          << projectWorkingDirectoryMode;
+                    return false;
+                }
+
+                if (const QByteArray customPath = qgetenv("QTCODE_PROJECT_TERMINAL_WD_PATH");
+                    !customPath.isEmpty()) {
+                    profile.customWorkingDirectory = QString::fromUtf8(customPath);
+                }
+
+                if (!m_terminalManager->setProjectProfile(activeProjectId, profile, errorMessage)) {
+                    qCWarning(qtcodeCore) << "Failed to apply QTCODE_PROJECT_TERMINAL_WD_MODE:"
+                                          << (errorMessage != nullptr ? *errorMessage : QString());
+                    return false;
+                }
+            }
         }
     }
 

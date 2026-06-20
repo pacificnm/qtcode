@@ -17,6 +17,4 @@ struct TerminalSession
     QString updatedAt;
 };
 
-inline constexpr auto kDefaultShellSettingKey = "app.default_shell";
-
 } // namespace qtcode::terminal
