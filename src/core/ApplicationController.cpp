@@ -11,6 +11,7 @@
 #include "settings/ProjectModels.h"
 #include "settings/ProjectModels.h"
 #include "shared/Logging.h"
+#include "shared/PerformanceTimer.h"
 #include "storage/MigrationRunner.h"
 #include "storage/StorageService.h"
 #include "terminal/TerminalManager.h"
@@ -43,6 +44,10 @@ bool ApplicationController::initialize(QString *errorMessage)
         return true;
     }
 
+    qtcode::shared::ScopedPerformanceTimer startupTimer(
+        qtcodeCore(),
+        QStringLiteral("ApplicationController initialization"));
+
     m_storageService = std::make_unique<storage::StorageService>();
     if (!m_storageService->open(errorMessage)) {
         qCWarning(qtcodeCore) << "StorageService failed to open";
@@ -63,10 +68,12 @@ bool ApplicationController::initialize(QString *errorMessage)
     m_projectManager = std::make_unique<ProjectManager>(*m_storageService, *m_gitService);
     m_terminalManager = std::make_unique<terminal::TerminalManager>(*m_storageService);
     m_cliCapabilityService = std::make_unique<CliCapabilityService>();
-
-    if (!m_cliCapabilityService->detectCapabilities()) {
-        qCWarning(qtcodeCore) << "CLI capability detection failed";
-    }
+    QObject::connect(
+        m_cliCapabilityService.get(),
+        &CliCapabilityService::capabilitiesDetected,
+        m_cliCapabilityService.get(),
+        [this]() { applyIntegrationPathsFromCapabilities(); });
+    m_cliCapabilityService->scheduleDetection();
 
     m_agentManager = std::make_unique<agents::AgentManager>(*m_storageService);
     if (!m_agentManager->registerBuiltInAdapters(errorMessage)) {
@@ -93,19 +100,7 @@ bool ApplicationController::initialize(QString *errorMessage)
         m_memoryService.get(),
         m_mcpServerService.get());
     m_gitHubService = std::make_unique<github::GitHubService>(*m_storageService);
-    if (m_cliCapabilityService->isGhAvailable()) {
-        m_gitHubService->setGhExecutablePath(m_cliCapabilityService->snapshot().gh.executablePath);
-    }
-
-    if (agents::AgentAdapter *registeredAdapter = m_agentManager->adapter(QStringLiteral("codex"));
-        registeredAdapter != nullptr) {
-        if (auto *codexAdapter = qobject_cast<agents::CodexAgentAdapter *>(registeredAdapter)) {
-            const CliToolCapability &agentCli = m_cliCapabilityService->snapshot().agentCli;
-            if (agentCli.toolId == QStringLiteral("codex") && !agentCli.executablePath.isEmpty()) {
-                codexAdapter->setExecutablePath(agentCli.executablePath);
-            }
-        }
-    }
+    applyIntegrationPathsFromCapabilities();
 
     if (!m_projectManager->restoreState(errorMessage)) {
         qCWarning(qtcodeCore) << "Failed to restore project state:"
@@ -510,6 +505,36 @@ bool ApplicationController::runSmokeTestMemorySearchIfRequested(QString *errorMe
         qCInfo(qtcodeCore) << "Memory result:" << result.title;
     }
     return true;
+}
+
+void ApplicationController::applyIntegrationPathsFromCapabilities()
+{
+    if (m_cliCapabilityService == nullptr) {
+        return;
+    }
+
+    if (m_gitHubService != nullptr && m_cliCapabilityService->isGhAvailable()) {
+        m_gitHubService->setGhExecutablePath(m_cliCapabilityService->snapshot().gh.executablePath);
+    }
+
+    if (m_agentManager == nullptr) {
+        return;
+    }
+
+    agents::AgentAdapter *registeredAdapter = m_agentManager->adapter(QStringLiteral("codex"));
+    if (registeredAdapter == nullptr) {
+        return;
+    }
+
+    auto *codexAdapter = qobject_cast<agents::CodexAgentAdapter *>(registeredAdapter);
+    if (codexAdapter == nullptr) {
+        return;
+    }
+
+    const CliToolCapability &agentCli = m_cliCapabilityService->snapshot().agentCli;
+    if (agentCli.toolId == QStringLiteral("codex") && !agentCli.executablePath.isEmpty()) {
+        codexAdapter->setExecutablePath(agentCli.executablePath);
+    }
 }
 
 void ApplicationController::scheduleStartupMcpHealthChecks()

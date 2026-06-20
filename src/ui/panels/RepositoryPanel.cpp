@@ -20,6 +20,7 @@
 #include <QListWidget>
 #include <QPushButton>
 #include <QSignalBlocker>
+#include <QTimer>
 #include <QVBoxLayout>
 #include <QtConcurrent>
 #include <QFutureWatcher>
@@ -90,7 +91,20 @@ RepositoryPanel::RepositoryPanel(
     }
 
     connect(m_refreshWatcher, &QFutureWatcher<RepositoryRefreshBundle>::finished, this, &RepositoryPanel::onRefreshFinished);
-    refreshStatus();
+
+    if (m_cliCapabilityService != nullptr) {
+        connect(
+            m_cliCapabilityService,
+            &qtcode::core::CliCapabilityService::capabilitiesDetected,
+            this,
+            [this]() {
+                if (m_projectManager != nullptr && m_projectManager->hasActiveProject()) {
+                    refreshStatus();
+                }
+            });
+    }
+
+    QTimer::singleShot(0, this, &RepositoryPanel::refreshStatus);
 }
 
 RepositoryPanel::~RepositoryPanel()
@@ -248,6 +262,7 @@ void RepositoryPanel::startRefresh(const QString &projectId, const QString &repo
 {
     m_projectLabel->setText(i18n("Active project loading…"));
     setRefreshing(true);
+    m_refreshTimer.start();
 
     qtcode::github::GitHubService *gitHubService = m_gitHubService;
     m_refreshWatcher->setFuture(QtConcurrent::run(
@@ -291,7 +306,8 @@ void RepositoryPanel::onRefreshFinished()
                      << bundle.git.status.changedFiles.size() << "changed file(s),"
                      << bundle.git.commits.size() << "recent commit(s),"
                      << bundle.issues.issues.size() << "GitHub issue(s), and"
-                     << bundle.pullRequests.pullRequests.size() << "pull request(s)";
+                     << bundle.pullRequests.pullRequests.size() << "pull request(s)"
+                     << "in" << m_refreshTimer.elapsed() << "ms";
 }
 
 void RepositoryPanel::setRefreshing(bool refreshing)

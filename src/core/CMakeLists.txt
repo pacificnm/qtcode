@@ -14,6 +14,7 @@ target_link_libraries(qtcode_core
         qtcode_storage
     PRIVATE
         Qt6::Core
+        Qt6::Concurrent
         qtcode_agents
         qtcode_terminal
         qtcode_git

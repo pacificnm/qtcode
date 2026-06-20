@@ -1,5 +1,6 @@
 qtcode_add_module_library(qtcode_shared STATIC
     Logging.cpp
+    PerformanceTimer.cpp
     ProcessRunner.cpp
     SecretStore.cpp
 )
