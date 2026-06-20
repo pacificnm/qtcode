@@ -1,6 +1,7 @@
 #pragma once
 
 #include "git/GitRepository.h"
+#include "git/GitStatus.h"
 
 #include <QString>
 
@@ -21,6 +22,10 @@ public:
     [[nodiscard]] bool inspectRepository(
         const QString &path,
         GitRepositoryInfo *info,
+        QString *errorMessage = nullptr) const;
+    [[nodiscard]] bool loadWorkingTreeStatus(
+        const QString &path,
+        GitWorkingTreeStatus *status,
         QString *errorMessage = nullptr) const;
 };
 

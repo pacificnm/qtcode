@@ -46,7 +46,7 @@ int QtCodeApplication::run()
 
     int exitCode = 0;
     {
-        qtcode::ui::MainWindow mainWindow(m_controller->settingsService());
+        qtcode::ui::MainWindow mainWindow(m_controller.get());
         mainWindow.show();
 
         qCInfo(qtcodeApp) << "Main window shown";

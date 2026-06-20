@@ -5,6 +5,7 @@
 class QSplitter;
 
 namespace qtcode::core {
+class ApplicationController;
 class SettingsService;
 } // namespace qtcode::core
 
@@ -23,7 +24,7 @@ class MainWindow final : public QMainWindow
     Q_OBJECT
 
 public:
-    explicit MainWindow(qtcode::core::SettingsService *settingsService, QWidget *parent = nullptr);
+    explicit MainWindow(qtcode::core::ApplicationController *controller, QWidget *parent = nullptr);
     ~MainWindow() override;
 
 private:
@@ -32,6 +33,7 @@ private:
     [[nodiscard]] qtcode::settings::PanelLayoutSettings currentPanelLayout() const;
     void persistPanelLayout();
 
+    qtcode::core::ApplicationController *m_controller = nullptr;
     qtcode::core::SettingsService *m_settingsService = nullptr;
     QSplitter *m_verticalSplitter = nullptr;
     QSplitter *m_horizontalSplitter = nullptr;
