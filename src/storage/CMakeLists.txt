@@ -3,6 +3,7 @@ qtcode_add_module_library(qtcode_storage STATIC
     StorageTransaction.cpp
     MigrationRunner.cpp
     repositories/SettingsRepository.cpp
+    repositories/ProjectRepository.cpp
 )
 
 target_link_libraries(qtcode_storage
