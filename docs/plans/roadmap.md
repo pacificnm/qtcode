@@ -44,7 +44,7 @@ Core outcomes:
 - GitHub REST API sync where `gh` is not enough.
 - Cross-repository memory and workspace-level context.
 - More capable review workflows for agent-generated changes.
-- Repo-native reusable AI commands under `.qtcode/` with templates, rules, examples, and validation.
+- [M7: QTCommands](../milestones/m07-qtcommands.md): repo-native reusable AI commands under `.qtcode/` with templates, rules, examples, and validation.
 - Agent suggestion flows that prefer approved project commands over free-form generation.
 - MCP discovery for command usage, command recommendation, and project vocabulary.
 

@@ -15,6 +15,7 @@ QTCode should become the central workspace for:
 - GitHub issues and pull requests
 - project memory, MCP tools, RAG, and vector search
 - saved agent sessions and reusable project context
+- repo-native QTCommands for repeatable AI and developer workflows
 
 The product shape is simple: repository context on the left, AI agent work in the main panel, and terminals across the bottom.
 
@@ -83,6 +84,12 @@ Start here:
 - [M4: MCP memory and context pipeline](docs/milestones/m04-mcp-memory-context-pipeline.md)
 - [M5: GitHub workflows](docs/milestones/m05-github-workflows.md)
 - [M6: Beta hardening and packaging](docs/milestones/m06-beta-hardening-and-packaging.md)
+- [M7: QTCommands](docs/milestones/m07-qtcommands.md)
+
+### Feature Specs
+
+- [QTCommands specification](docs/specs/qtcommands-spec.md)
+- [QTCommands design](docs/design/qtcommands-design.md)
 
 ### Engineering Specs
 
@@ -116,7 +123,8 @@ Start here:
 - [ADR 0006: Use libgit2, Git CLI, and GitHub CLI first](docs/adrs/0006-git-and-github-cli-first-integration.md)
 - [ADR 0007: Use QTermWidget for terminal tabs](docs/adrs/0007-qtermwidget-terminal-integration.md)
 - [ADR 0008: Treat KTextEditor as optional preview and review infrastructure](docs/adrs/0008-optional-ktexteditor-preview.md)
+- [ADR 0009: QTCommands must be repo-native](docs/adrs/0009-qtcommands-repo-native.md)
 
 ## Current Status
 
-QTCode is in the planning and architecture phase. The repository currently contains project documentation, milestone specs, ADRs, engineering specs, and design specs. Application code has not been generated yet.
+QTCode is implementing the M1 native app shell. The repository contains the native Qt/KDE application skeleton, SQLite storage, settings persistence, and the full planning documentation set for later milestones.

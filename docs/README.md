@@ -10,15 +10,16 @@ QTCode is a lightweight native KDE/Linux developer cockpit for AI-assisted devel
 2. `plans/roadmap.md`
 3. `design/product-spec.md`
 4. `design/ui-layout-spec.md`
-5. `engineering/architecture.md`
-6. `engineering/implementation-tasks.md`
-7. `toolchain-requirements.md`
-8. `github-repo-conventions.md`
-9. `scripts/README.md`
-10. `specs/`
-11. `milestones/`
-12. `adr/`
-13. `adrs/`
+5. `design/interaction-spec.md`
+6. `engineering/architecture.md`
+7. `engineering/implementation-tasks.md`
+8. `toolchain-requirements.md`
+9. `github-repo-conventions.md`
+10. `scripts/README.md`
+11. `specs/qtcommands-spec.md`
+12. `design/qtcommands-design.md`
+13. `milestones/`
+14. `adrs/`
 
 ## Folder Guide
 
@@ -26,9 +27,8 @@ QTCode is a lightweight native KDE/Linux developer cockpit for AI-assisted devel
 - `adrs/`: architecture decision records that preserve important technical choices.
 - `milestones/`: milestone-level specs with scope and exit criteria.
 - `engineering/`: technical specs for architecture, data, integrations, classes, and flows.
-- `design/`: product, UI, and interaction specs.
+- `design/`: product, UI, interaction, and feature design specs.
 - `specs/`: feature-level implementation specifications.
-- `adr/`: feature-specific architecture decisions and decision records.
 - `toolchain-requirements.md`: baseline build and scripting environment.
 - `github-repo-conventions.md`: issue, milestone, label, and pull request rules.
 - `scripts/README.md`: quick reference for the repo wrapper commands.

@@ -1,4 +1,4 @@
-# ADR: QTCommands Must Be Repo-Native
+# ADR 0009: QTCommands Must Be Repo-Native
 
 ## Status
 
@@ -117,13 +117,8 @@ Tradeoffs:
 - The schema should remain intentionally small to avoid duplicating a full workflow engine.
 - Teams must keep command files, examples, and rules synchronized.
 
-## Future Extensibility
+## Follow-Ups
 
-The `.qtcode/` layout can evolve without changing the decision:
-
-- Add new command categories such as refactors, scaffolds, or docs generators.
-- Add richer metadata for ownership, status, compatibility, or approvals.
-- Add command packs for subdirectories or monorepo packages.
-- Add optional policy checks for destructive operations or architectural boundaries.
-- Index commands in MCP so agents can search by intent, not just by filename.
-
+- Define the command schema and validation rules in `docs/specs/qtcommands-spec.md`.
+- Add the Command Library UI in `docs/design/qtcommands-design.md`.
+- Track delivery in `docs/milestones/m07-qtcommands.md`.

@@ -1,5 +1,11 @@
 # QTCommands Design
 
+Milestone: [M7: QTCommands](../milestones/m07-qtcommands.md)
+
+ADR: [ADR 0009: QTCommands must be repo-native](../adrs/0009-qtcommands-repo-native.md)
+
+Specification: [QTCommands specification](../specs/qtcommands-spec.md)
+
 ## Product Intent
 
 QTCommands makes QTCode a better long-lived AI cockpit by storing reusable project patterns in the repository itself. When context is reset, the command system preserves the project rules, vocabulary, examples, and templates that agents need to generate consistent code.

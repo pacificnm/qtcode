@@ -21,6 +21,7 @@ QTCode is a native KDE/Linux developer cockpit for AI-assisted coding, terminal 
 - Review and approve generated changes.
 - Track related GitHub issues and pull requests.
 - Save conversations and return to them later.
+- Reuse approved repo-native commands for repeatable AI and developer workflows.
 
 ## Product Non-Goals
 

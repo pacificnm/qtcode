@@ -30,3 +30,4 @@
 - Add pull request listing and context attachment.
 - Add terminal profile settings.
 - Add migration tests and adapter tests.
+- Implement QTCommands discovery, execution, validation, and suggestion per `docs/milestones/m07-qtcommands.md`.

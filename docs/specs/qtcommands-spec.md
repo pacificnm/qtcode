@@ -1,5 +1,11 @@
 # QTCommands Specification
 
+Milestone: [M7: QTCommands](../milestones/m07-qtcommands.md)
+
+ADR: [ADR 0009: QTCommands must be repo-native](../adrs/0009-qtcommands-repo-native.md)
+
+Design: [QTCommands design](../design/qtcommands-design.md)
+
 ## Purpose
 
 QTCommands defines a repo-native command system for reusable AI and developer workflows in QTCode. Commands live in `.qtcode/` so they can be versioned, reviewed, validated, and reused by any agent or developer working in the repository.
