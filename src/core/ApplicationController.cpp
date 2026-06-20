@@ -7,6 +7,7 @@
 #include "shared/Logging.h"
 #include "storage/MigrationRunner.h"
 #include "storage/StorageService.h"
+#include "terminal/TerminalManager.h"
 
 #include <QByteArray>
 
@@ -43,9 +44,16 @@ bool ApplicationController::initialize(QString *errorMessage)
     m_settingsService = std::make_unique<SettingsService>(*m_storageService);
     m_gitService = std::make_unique<git::GitService>();
     m_projectManager = std::make_unique<ProjectManager>(*m_storageService, *m_gitService);
+    m_terminalManager = std::make_unique<terminal::TerminalManager>(*m_storageService);
 
     if (!m_projectManager->restoreState(errorMessage)) {
         qCWarning(qtcodeCore) << "Failed to restore project state:"
+                              << (errorMessage != nullptr ? *errorMessage : QString());
+        return false;
+    }
+
+    if (!m_terminalManager->restoreState(errorMessage)) {
+        qCWarning(qtcodeCore) << "Failed to restore terminal state:"
                               << (errorMessage != nullptr ? *errorMessage : QString());
         return false;
     }
@@ -65,6 +73,7 @@ bool ApplicationController::initialize(QString *errorMessage)
 
 void ApplicationController::shutdown()
 {
+    m_terminalManager.reset();
     m_projectManager.reset();
     m_gitService.reset();
     m_settingsService.reset();
@@ -96,6 +105,11 @@ ProjectManager *ApplicationController::projectManager() const
 git::GitService *ApplicationController::gitService() const
 {
     return m_gitService.get();
+}
+
+terminal::TerminalManager *ApplicationController::terminalManager() const
+{
+    return m_terminalManager.get();
 }
 
 } // namespace qtcode::core
