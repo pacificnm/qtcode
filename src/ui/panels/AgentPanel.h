@@ -2,8 +2,10 @@
 
 #include <QWidget>
 
+class QComboBox;
 class QLabel;
 class QLineEdit;
+class QListWidget;
 class QPushButton;
 class QTextEdit;
 
@@ -32,7 +34,11 @@ public:
 
 private slots:
     void refreshCapabilityState();
+    void refreshAgentSelector();
+    void refreshSessionList();
     void sendPrompt();
+    void createNewSession();
+    void onSessionListSelectionChanged();
     void onSessionUpdated(qtcode::agents::AgentSession *session);
     void onActiveProjectChanged();
 
@@ -40,16 +46,23 @@ private:
     void configureLayout();
     void refreshConversation();
     void setPromptEnabled(bool enabled);
+    void selectSession(const QString &sessionId);
+    [[nodiscard]] QString selectedAgentKey() const;
+    [[nodiscard]] static QString sessionListLabel(const qtcode::agents::AgentSession *session);
     [[nodiscard]] bool ensureActiveSession(QString *errorMessage);
 
     qtcode::core::CliCapabilityService *m_cliCapabilityService = nullptr;
     qtcode::agents::AgentManager *m_agentManager = nullptr;
     qtcode::core::ProjectManager *m_projectManager = nullptr;
+    QComboBox *m_agentSelector = nullptr;
+    QListWidget *m_sessionList = nullptr;
+    QPushButton *m_newSessionButton = nullptr;
     QLabel *m_stateLabel = nullptr;
     QTextEdit *m_conversationView = nullptr;
     QLineEdit *m_promptInput = nullptr;
     QPushButton *m_sendButton = nullptr;
     QString m_activeSessionId;
+    bool m_refreshingSessionList = false;
 };
 
 } // namespace qtcode::ui
