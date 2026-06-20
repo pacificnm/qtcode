@@ -9,6 +9,7 @@ qtcode_add_module_library(qtcode_storage STATIC
     repositories/AgentSessionRepository.cpp
     repositories/ContextRetrievalRepository.cpp
     repositories/McpServerRepository.cpp
+    repositories/GitHubCacheRepository.cpp
 )
 
 target_link_libraries(qtcode_storage
