@@ -121,6 +121,12 @@ else
   fail "pkg-config is missing"
 fi
 
+if command_exists ldconfig && ldconfig -p 2>/dev/null | grep -q 'libpq\.so\.5'; then
+  ok "libpq runtime library"
+else
+  warn "libpq runtime library not visible; psycopg-binary can satisfy the memory tools in sandboxed environments"
+fi
+
 if command_exists gh; then
   ok "gh: $(gh --version | awk 'NR==1 {print $3}')"
 else

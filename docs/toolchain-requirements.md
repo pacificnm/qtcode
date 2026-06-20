@@ -19,6 +19,7 @@ This document records the baseline environment needed to build, run, and work on
 - QTermWidget development packages
 - SQLite development packages
 - libgit2 development packages
+- PostgreSQL client runtime libraries (`libpq5` on Ubuntu), or the bundled `psycopg-binary` wheel when the host runtime library is not visible to Python
 
 ## Recommended Compiler Versions
 
@@ -33,10 +34,11 @@ environment when they need third-party packages such as `openai`, `psycopg`, or
 
 ```bash
 sudo apt install python3-full
+sudo apt install libpq5
 python3 -m venv .venv
 . .venv/bin/activate
 python -m pip install --upgrade pip
-python -m pip install openai psycopg "mcp[cli]"
+python -m pip install openai psycopg-binary "mcp[cli]"
 ```
 
 Use `/usr/bin/python3` only for simple stdlib-only helper usage.
@@ -75,3 +77,5 @@ what each wrapper is for.
 ## Notes
 
 If the host distro ships newer compatible versions, prefer the distro packages. The main rule is that the toolchain must be stable enough for C++20 Qt development and the repository's Python helper scripts.
+
+On standard Linux installs, `psycopg` plus `libpq5` is fine. In snap-like or sandboxed shells where the host `libpq` path is not visible, `psycopg-binary` is the simplest way to keep the memory tools working.

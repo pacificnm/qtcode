@@ -6,7 +6,8 @@ These rules apply to any agent working in this repository.
 
 Before any implementation, refactor, or repository-specific answer, search the QTCode project memory first.
 
-Use `/usr/bin/python3 tools/search_memory.py ...`, or the MCP `search_project_memory` tool if that is the active path.
+If Codex can reach the MCP tool, always use `search_project_memory` first.
+Use the local `scripts/search-memory` wrapper only if the MCP tool is unavailable in the current environment.
 
 Preferred query pattern:
 
@@ -57,6 +58,7 @@ Project memory is part of the workflow, not an afterthought.
 - Use memory results together with ADRs and milestone docs.
 - If memory and docs disagree, prefer the docs and call out the mismatch.
 - Prefer the wrapper scripts in `scripts/` for memory tooling and other repeated repo operations. Use `/usr/bin/python3` only for stdlib-only scripts; use `.venv/bin/python` for the memory tooling and any script that needs third-party packages.
+- When Codex is the active agent, the default memory path is the MCP `search_project_memory` tool, not the local search script.
 
 ## 6. Verify Before You Change
 

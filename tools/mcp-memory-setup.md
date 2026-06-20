@@ -20,8 +20,9 @@ through the MCP tool `search_project_memory`.
 ## Required Services
 
 - PostgreSQL with the `pgvector` extension available.
-- Python 3 with the `openai`, `psycopg`, and `mcp` packages installed.
+- Python 3 with the `openai`, `psycopg` or `psycopg-binary`, and `mcp` packages installed.
 - An OpenAI API key in `~/.openAi/key` or in the `OPENAI_API_KEY` environment variable.
+- The PostgreSQL client runtime library (`libpq5` on Ubuntu), or `psycopg-binary` if the host library is not visible to the Python runtime.
 
 The default connection string is:
 
@@ -95,10 +96,11 @@ project virtual environment instead of the system Python:
 
 ```bash
 sudo apt install python3-full
+sudo apt install libpq5
 python3 -m venv .venv
 . .venv/bin/activate
 python -m pip install --upgrade pip
-python -m pip install openai psycopg "mcp[cli]"
+python -m pip install openai psycopg-binary "mcp[cli]"
 ```
 
 Create `.env` from the example if you want to override the default key path or
@@ -124,6 +126,10 @@ mkdir -p ~/.openAi
 printf '%s\n' 'sk-...' > ~/.openAi/key
 chmod 600 ~/.openAi/key
 ```
+
+If you are on a normal Linux desktop and want to use the system `libpq`
+runtime instead of the bundled wheel, install `psycopg` rather than
+`psycopg-binary` and keep the `libpq5` package installed.
 
 ## Index Project Memory
 
