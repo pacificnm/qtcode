@@ -23,6 +23,10 @@ namespace qtcode::terminal {
 class TerminalManager;
 } // namespace qtcode::terminal
 
+namespace qtcode::agents {
+class AgentManager;
+} // namespace qtcode::agents
+
 namespace qtcode::core {
 
 class ApplicationController
@@ -43,6 +47,7 @@ public:
     [[nodiscard]] git::GitService *gitService() const;
     [[nodiscard]] terminal::TerminalManager *terminalManager() const;
     [[nodiscard]] CliCapabilityService *cliCapabilityService() const;
+    [[nodiscard]] agents::AgentManager *agentManager() const;
 
 private:
     std::unique_ptr<storage::StorageService> m_storageService;
@@ -51,6 +56,7 @@ private:
     std::unique_ptr<ProjectManager> m_projectManager;
     std::unique_ptr<terminal::TerminalManager> m_terminalManager;
     std::unique_ptr<CliCapabilityService> m_cliCapabilityService;
+    std::unique_ptr<agents::AgentManager> m_agentManager;
 };
 
 } // namespace qtcode::core

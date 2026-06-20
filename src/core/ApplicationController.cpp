@@ -9,6 +9,7 @@
 #include "storage/MigrationRunner.h"
 #include "storage/StorageService.h"
 #include "terminal/TerminalManager.h"
+#include "agents/AgentManager.h"
 #include "terminal/TerminalProfile.h"
 
 #include <QByteArray>
@@ -51,6 +52,13 @@ bool ApplicationController::initialize(QString *errorMessage)
 
     if (!m_cliCapabilityService->detectCapabilities()) {
         qCWarning(qtcodeCore) << "CLI capability detection failed";
+    }
+
+    m_agentManager = std::make_unique<agents::AgentManager>();
+    if (!m_agentManager->registerBuiltInAdapters(errorMessage)) {
+        qCWarning(qtcodeCore) << "Failed to register built-in agent adapters:"
+                              << (errorMessage != nullptr ? *errorMessage : QString());
+        return false;
     }
 
     if (!m_projectManager->restoreState(errorMessage)) {
@@ -156,6 +164,7 @@ bool ApplicationController::initialize(QString *errorMessage)
 
 void ApplicationController::shutdown()
 {
+    m_agentManager.reset();
     m_cliCapabilityService.reset();
     m_terminalManager.reset();
     m_projectManager.reset();
@@ -199,6 +208,11 @@ terminal::TerminalManager *ApplicationController::terminalManager() const
 CliCapabilityService *ApplicationController::cliCapabilityService() const
 {
     return m_cliCapabilityService.get();
+}
+
+agents::AgentManager *ApplicationController::agentManager() const
+{
+    return m_agentManager.get();
 }
 
 } // namespace qtcode::core
