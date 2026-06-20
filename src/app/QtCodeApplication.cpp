@@ -65,6 +65,11 @@ int QtCodeApplication::run()
             qCWarning(qtcodeApp) << "Smoke-test diff artifact failed:" << diffSmokeError;
         }
 
+        QString memorySmokeError;
+        if (!m_controller->runSmokeTestMemorySearchIfRequested(&memorySmokeError)) {
+            qCWarning(qtcodeApp) << "Smoke-test memory search failed:" << memorySmokeError;
+        }
+
         if (qEnvironmentVariableIsSet("QTCODE_AUTO_QUIT")) {
             const int fallbackDelayMs = smokeTestSessionId.isEmpty() ? 200 : 120000;
             QTimer::singleShot(fallbackDelayMs, &mainWindow, &QWidget::close);

@@ -8,7 +8,6 @@
 #include <QtConcurrent>
 
 namespace qtcode::memory {
-
 MemoryService::MemoryService(QObject *parent)
     : QObject(parent)
 {
@@ -69,6 +68,25 @@ void MemoryService::startHealthCheck(
     watcher->setFuture(QtConcurrent::run([server, workingDirectory]() {
         return McpClient::checkServerHealth(server, workingDirectory);
     }));
+}
+
+MemorySearchOutcome MemoryService::searchProjectMemory(
+    const settings::McpServerRecord &server,
+    const QString &workingDirectory,
+    const QString &query,
+    const MemorySearchOptions &options) const
+{
+    const MemorySearchOutcome outcome =
+        McpClient::searchProjectMemory(server, workingDirectory, query, options);
+    if (!outcome.isSuccess()) {
+        qCWarning(qtcodeMemory) << "Project memory search failed for" << server.name
+                                << mcpClientErrorCodeLabel(outcome.error.code) << outcome.error.message
+                                << outcome.error.detail;
+    } else {
+        qCInfo(qtcodeMemory) << "Project memory search returned" << outcome.results.size()
+                             << "result(s) for" << server.name;
+    }
+    return outcome;
 }
 
 } // namespace qtcode::memory
