@@ -14,6 +14,8 @@
 Provides normalized methods:
 
 - `searchProjectMemory(project, query, options)`
+- `searchAgentContext(project, query, options)`
+- `saveAgentContext(project, session, content, options)`
 - `searchDocumentation(project, query, options)`
 - `getArchitectureDecisions(project, query)`
 - `getCodingStandards(project, query)`
@@ -32,7 +34,8 @@ Combines context sources:
 - Git status
 - selected issue or pull request
 - selected files or diffs
-- memory search results
+- project memory search results
+- saved agent context search results
 - project settings
 
 ## Agent Context Flow

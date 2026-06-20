@@ -25,6 +25,29 @@ CREATE INDEX IF NOT EXISTS project_memory_embedding_idx
 
 CREATE INDEX IF NOT EXISTS project_memory_source_path_idx
     ON project_memory (source_path);
+
+CREATE TABLE IF NOT EXISTS agent_context_memory (
+    id bigserial PRIMARY KEY,
+    scope_key text NOT NULL,
+    session_id text,
+    context_type text NOT NULL DEFAULT 'note',
+    title text,
+    content text NOT NULL,
+    content_hash text NOT NULL UNIQUE,
+    embedding vector(1536) NOT NULL,
+    metadata_json jsonb NOT NULL DEFAULT '{}'::jsonb,
+    created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS agent_context_memory_embedding_idx
+    ON agent_context_memory
+    USING hnsw (embedding vector_cosine_ops);
+
+CREATE INDEX IF NOT EXISTS agent_context_memory_scope_key_idx
+    ON agent_context_memory (scope_key);
+
+CREATE INDEX IF NOT EXISTS agent_context_memory_session_id_idx
+    ON agent_context_memory (session_id);
 SQL
 
 echo "Done."

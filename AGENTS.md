@@ -9,6 +9,8 @@ Before any implementation, refactor, or repository-specific answer, search the Q
 If Codex can reach the MCP tool, always use `search_project_memory` first.
 Use the local `scripts/search-memory` wrapper only if the MCP tool is unavailable in the current environment.
 
+When conversation context is compacted or a long task spans multiple sessions, save durable task notes with `save_agent_context` and recover them with `search_agent_context` for the active repository scope.
+
 Preferred query pattern:
 
 - project name and subsystem

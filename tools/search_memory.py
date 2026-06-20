@@ -4,7 +4,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from memory_common import database_url, load_openai_api_key, vector_literal
+from memory_common import database_url, embed_text_literal, load_openai_api_key, load_openai_api_key
 
 
 def parse_args() -> argparse.Namespace:
@@ -34,19 +34,13 @@ def main() -> int:
 
     try:
         import psycopg
-        from openai import OpenAI
 
-        api_key = load_openai_api_key()
-        if not api_key:
+        if not load_openai_api_key():
             raise RuntimeError(
                 f"Missing OpenAI API key. Set OPENAI_API_KEY or create {Path.home() / '.openAi' / 'key'}."
             )
 
-        client = OpenAI(api_key=api_key)
-        embedding = client.embeddings.create(
-            model="text-embedding-3-small",
-            input=query,
-        ).data[0].embedding
+        embedding = embed_text_literal(query)
 
         with psycopg.connect(database_url()) as conn:
             rows = conn.execute(
@@ -56,7 +50,7 @@ def main() -> int:
                 ORDER BY embedding <=> %s::vector
                 LIMIT %s
                 """,
-                (vector_literal(embedding), args.limit),
+                (embedding, args.limit),
             ).fetchall()
     except Exception as error:
         print(f"ERROR: QTCode memory search failed: {error}", file=sys.stderr)

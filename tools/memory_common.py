@@ -58,4 +58,27 @@ def vector_literal(values: Sequence[float]) -> str:
     return "[" + ",".join(str(float(value)) for value in values) + "]"
 
 
+def embed_text(text: str) -> list[float]:
+    """Create an OpenAI embedding vector for the given text."""
+    from openai import OpenAI
+
+    api_key = load_openai_api_key()
+    if not api_key:
+        raise RuntimeError(
+            f"Missing OpenAI API key. Set OPENAI_API_KEY or create {DEFAULT_OPENAI_KEY_PATH}."
+        )
+
+    client = OpenAI(api_key=api_key)
+    result = client.embeddings.create(
+        model="text-embedding-3-small",
+        input=text,
+    )
+    return result.data[0].embedding
+
+
+def embed_text_literal(text: str) -> str:
+    """Return a pgvector literal for the embedding of the given text."""
+    return vector_literal(embed_text(text))
+
+
 load_project_env()

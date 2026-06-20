@@ -3,7 +3,6 @@
 from pathlib import Path
 
 try:
-    import psycopg
     from mcp.server.fastmcp import FastMCP
 except ModuleNotFoundError as error:
     raise SystemExit(
@@ -11,7 +10,12 @@ except ModuleNotFoundError as error:
         "Run it with /usr/bin/python3 or install the project Python dependencies."
     ) from error
 
-from memory_common import database_url, vector_literal
+from agent_context import (
+    format_search_results,
+    save_agent_context as persist_agent_context,
+    search_agent_context as query_agent_context,
+)
+from memory_common import database_url, embed_text_literal, load_openai_api_key
 
 
 mcp = FastMCP("qtcode-memory")
@@ -20,20 +24,14 @@ mcp = FastMCP("qtcode-memory")
 @mcp.tool()
 def search_project_memory(query: str, limit: int = 8) -> str:
     """Search QTCode project memory for specs, decisions, issues, and build notes."""
-    from openai import OpenAI
-    from memory_common import load_openai_api_key
+    import psycopg
 
-    api_key = load_openai_api_key()
-    if not api_key:
+    if not load_openai_api_key():
         raise RuntimeError(
             f"Missing OpenAI API key. Set OPENAI_API_KEY or create {Path.home() / '.openAi' / 'key'}."
         )
 
-    client = OpenAI(api_key=api_key)
-    embedding = client.embeddings.create(
-        model="text-embedding-3-small",
-        input=query,
-    ).data[0].embedding
+    embedding = embed_text_literal(query)
 
     with psycopg.connect(database_url()) as conn:
         rows = conn.execute(
@@ -43,7 +41,7 @@ def search_project_memory(query: str, limit: int = 8) -> str:
             ORDER BY embedding <=> %s::vector
             LIMIT %s
             """,
-            (vector_literal(embedding), limit),
+            (embedding, limit),
         ).fetchall()
 
     if not rows:
@@ -54,6 +52,41 @@ def search_project_memory(query: str, limit: int = 8) -> str:
         output.append(f"--- {source_path} ---\n{content[:2000]}")
 
     return "\n\n".join(output)
+
+
+@mcp.tool()
+def save_agent_context(
+    content: str,
+    scope_key: str,
+    session_id: str | None = None,
+    context_type: str = "note",
+    title: str | None = None,
+) -> str:
+    """Save agent context for long-term retrieval after conversation compaction."""
+    return persist_agent_context(
+        content,
+        scope_key,
+        session_id=session_id,
+        context_type=context_type,
+        title=title,
+    )
+
+
+@mcp.tool()
+def search_agent_context(
+    query: str,
+    scope_key: str,
+    session_id: str | None = None,
+    limit: int = 8,
+) -> str:
+    """Search saved agent context for decisions, summaries, and prior task state."""
+    rows = query_agent_context(
+        query,
+        scope_key,
+        session_id=session_id,
+        limit=limit,
+    )
+    return format_search_results(rows)
 
 
 if __name__ == "__main__":

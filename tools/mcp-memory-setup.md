@@ -1,20 +1,26 @@
 # QTCode Memory MCP Setup
 
-This document describes the local setup for the QTCode project-memory MCP
+This document describes the local setup for the QTCode memory MCP
 server in `tools/mcp_memory_server.py`.
 
-The memory tools are development-time helpers only. They index repository
-documentation into PostgreSQL with `pgvector`, then expose semantic search
-through the MCP tool `search_project_memory`.
+The memory tools are development-time helpers only. They use PostgreSQL with
+`pgvector` for two related but separate stores:
+
+- **Project memory**: indexed repository docs, specs, ADRs, and build notes.
+- **Agent context memory**: saved decisions, summaries, and compaction notes so
+  agents can recover long-term task context after conversation compaction.
 
 ## Components
 
 | File | Purpose |
 | --- | --- |
-| `tools/memory_common.py` | Shared environment loading, default database URL, and pgvector literal formatting. |
+| `tools/memory_common.py` | Shared environment loading, embedding helpers, and pgvector literal formatting. |
 | `tools/index_memory.py` | Reads approved project context files and Markdown docs, creates OpenAI embeddings, and inserts chunks into PostgreSQL. |
 | `tools/search_memory.py` | Command-line semantic search against the local `project_memory` table. |
-| `tools/mcp_memory_server.py` | FastMCP stdio server exposing `search_project_memory(query, limit)`. |
+| `tools/agent_context.py` | Save and search helpers for episodic agent context memory. |
+| `tools/save_agent_context.py` | Command-line save helper for `agent_context_memory`. |
+| `tools/search_agent_context.py` | Command-line semantic search against `agent_context_memory`. |
+| `tools/mcp_memory_server.py` | FastMCP stdio server exposing project-memory and agent-context tools. |
 | `.env.example` | Template for `DATABASE_URL` and `OPENAI_API_KEY`. |
 
 ## Required Services
@@ -71,7 +77,41 @@ CREATE INDEX IF NOT EXISTS project_memory_embedding_idx
 
 CREATE INDEX IF NOT EXISTS project_memory_source_path_idx
     ON project_memory (source_path);
+
+CREATE TABLE IF NOT EXISTS agent_context_memory (
+    id bigserial PRIMARY KEY,
+    scope_key text NOT NULL,
+    session_id text,
+    context_type text NOT NULL DEFAULT 'note',
+    title text,
+    content text NOT NULL,
+    content_hash text NOT NULL UNIQUE,
+    embedding vector(1536) NOT NULL,
+    metadata_json jsonb NOT NULL DEFAULT '{}'::jsonb,
+    created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS agent_context_memory_embedding_idx
+    ON agent_context_memory
+    USING hnsw (embedding vector_cosine_ops);
+
+CREATE INDEX IF NOT EXISTS agent_context_memory_scope_key_idx
+    ON agent_context_memory (scope_key);
+
+CREATE INDEX IF NOT EXISTS agent_context_memory_session_id_idx
+    ON agent_context_memory (session_id);
 ```
+
+`scope_key` is usually a repository path or QTCode project id. Use it to keep
+agent context scoped to one workspace.
+
+`context_type` values:
+
+- `note`: general durable note
+- `decision`: an explicit decision the agent or user made
+- `summary`: a short recap of work completed
+- `compaction`: text saved before conversation compaction
+- `task_state`: current task, blockers, and next steps
 
 `tools/index_memory.py` uses OpenAI `text-embedding-3-small`, which produces the
 1536-dimension vectors expected by this table design.
@@ -209,11 +249,16 @@ The MCP server runs over stdio:
 scripts/run-memory-mcp
 ```
 
-It exposes one tool:
+It exposes four tools:
 
 | Tool | Arguments | Result |
 | --- | --- | --- |
 | `search_project_memory` | `query: str`, `limit: int = 8` | Matching project-memory snippets grouped by source path. |
+| `save_agent_context` | `content: str`, `scope_key: str`, `session_id: str \| None = None`, `context_type: str = "note"`, `title: str \| None = None` | Saves one agent context chunk for later semantic search. |
+| `search_agent_context` | `query: str`, `scope_key: str`, `session_id: str \| None = None`, `limit: int = 8` | Matching saved agent context for the active project scope. |
+
+After changing MCP config, reload MCP servers in Cursor or restart the editor.
+You should see `qtcode-memory` with the project-memory and agent-context tools.
 
 ### Cursor project config
 
@@ -233,10 +278,7 @@ This repository ships a portable project-level MCP entry in
 }
 ```
 
-After changing MCP config, reload MCP servers in Cursor or restart the editor.
-You should see `qtcode-memory` with the `search_project_memory` tool.
-
-### Other MCP clients
+### Cursor project config
 
 Example MCP client command configuration:
 
@@ -271,6 +313,8 @@ integrations.
 3. In Cursor, call `search_project_memory` with a query such as
    `MCP memory integration` and confirm snippets from `docs/engineering/`
    are returned.
+4. Save a compaction summary with `save_agent_context`, then confirm
+   `search_agent_context` can retrieve it for the same `scope_key`.
 
 ## Agent Usage
 
@@ -283,9 +327,23 @@ queries include:
 - known issue text or build failure text
 - build, release, recovery, or packaging instructions
 
+Before or after conversation compaction, agents should save durable task context
+with `save_agent_context` and recover it later with `search_agent_context`.
+Good things to store include:
+
+- decisions already made
+- files already changed
+- rejected approaches
+- open blockers and next steps
+- compact summaries of long conversations
+
+Use the same `scope_key` for the active repository or project across a session.
+Use `context_type="compaction"` for text saved specifically because the chat
+window was compacted.
+
 The memory result does not override approved documentation. Follow the binding
 order in `AGENTS.md`: `/doc` specifications first, then MCP project memory, then
-the remaining project notes and existing code behavior.
+saved agent context, then the remaining project notes and existing code behavior.
 
 ## Troubleshooting
 
@@ -297,6 +355,7 @@ the remaining project notes and existing code behavior.
 | `No module named pip` | The virtual environment was created without pip. | Run `python -m ensurepip --upgrade`, then install the memory packages. |
 | `qtcode-memory` missing in Cursor | MCP config was added or changed but not reloaded. | Reload MCP servers in Cursor or restart the editor. |
 | `relation "project_memory" does not exist` | The table has not been created in the configured database. | Run the SQL table setup in this document. |
+| `relation "agent_context_memory" does not exist` | The agent context table has not been created yet. | Re-run `scripts/setup-memory-db` or apply the SQL in this document. |
 | `type "vector" does not exist` | `pgvector` is not installed or `CREATE EXTENSION vector` has not been run. | Install the PostgreSQL `pgvector` package and enable the extension in `qtcode_memory`. |
 | Authentication or peer errors | The local PostgreSQL role does not match the OS user or lacks grants. | Create/grant the role or set `DATABASE_URL` to a connection string with explicit credentials. |
 | OpenAI authentication errors | `OPENAI_API_KEY` is missing or invalid, and `~/.openAi/key` is absent or unreadable. | Set the key in `.env`, export `OPENAI_API_KEY`, or create `~/.openAi/key`. |
@@ -310,4 +369,6 @@ the remaining project notes and existing code behavior.
 - `scripts/setup-memory-db` creates the `qtcode_memory` database and applies the schema.
 - `scripts/index-memory` indexes the repo docs and governance files.
 - `scripts/search-memory` searches indexed memory from the command line.
+- `scripts/save-agent-context` stores one agent context chunk.
+- `scripts/search-agent-context` searches saved agent context for a scope.
 - `scripts/run-memory-mcp` starts the FastMCP server.

@@ -4,7 +4,7 @@ import hashlib
 import sys
 from pathlib import Path
 
-from memory_common import database_url, load_openai_api_key, vector_literal
+from memory_common import database_url, embed_text_literal
 
 
 TEXT_EXTENSIONS = {".md", ".markdown", ".yml", ".yaml"}
@@ -28,21 +28,8 @@ def chunks(text, size=1800, overlap=200):
         i += size - overlap
 
 
-def embed(text):
-    from openai import OpenAI
-
-    api_key = load_openai_api_key()
-    if not api_key:
-        raise RuntimeError(
-            f"Missing OpenAI API key. Set OPENAI_API_KEY or create {Path.home() / '.openAi' / 'key'}."
-        )
-
-    client = OpenAI(api_key=api_key)
-    result = client.embeddings.create(
-        model="text-embedding-3-small",
-        input=text,
-    )
-    return vector_literal(result.data[0].embedding)
+def embed(text: str) -> str:
+    return embed_text_literal(text)
 
 
 def collect_documents(project_root: Path) -> list[Path]:
