@@ -10,10 +10,10 @@ function(qtcode_report_missing_dependency dependency purpose install_hint)
         "See ${_qtcode_toolchain_doc} for the full QTCode toolchain list.")
 endfunction()
 
-find_package(Qt6 QUIET COMPONENTS Core Widgets)
+find_package(Qt6 QUIET COMPONENTS Core Widgets Sql)
 if(NOT Qt6_FOUND)
     qtcode_report_missing_dependency(
-        "Qt 6 (Core, Widgets)"
+        "Qt 6 (Core, Widgets, Sql)"
         "native Qt/KDE application shell and UI widgets"
         "On Ubuntu/Debian: sudo apt install qt6-base-dev")
 endif()
@@ -82,6 +82,7 @@ add_library(QtCodeExternalDependencies INTERFACE)
 target_link_libraries(QtCodeExternalDependencies INTERFACE
     Qt6::Core
     Qt6::Widgets
+    Qt6::Sql
     KF6::CoreAddons
     KF6::I18n
     PkgConfig::QTermWidget
