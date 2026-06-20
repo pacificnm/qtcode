@@ -44,6 +44,9 @@ Core outcomes:
 - GitHub REST API sync where `gh` is not enough.
 - Cross-repository memory and workspace-level context.
 - More capable review workflows for agent-generated changes.
+- Repo-native reusable AI commands under `.qtcode/` with templates, rules, examples, and validation.
+- Agent suggestion flows that prefer approved project commands over free-form generation.
+- MCP discovery for command usage, command recommendation, and project vocabulary.
 
 ## Non-Goals Across All Phases
 
@@ -52,3 +55,4 @@ Core outcomes:
 - No VS Code extension compatibility layer.
 - No full-featured editor until the terminal/agent cockpit is excellent.
 - No hard dependency on one AI provider.
+- No cloud-only command registry.
