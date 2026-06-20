@@ -99,9 +99,18 @@ sudo apt install python3-full
 sudo apt install libpq5
 python3 -m venv .venv
 . .venv/bin/activate
+python -m ensurepip --upgrade
 python -m pip install --upgrade pip
-python -m pip install openai psycopg-binary "mcp[cli]"
+python -m pip install openai psycopg psycopg-binary "mcp[cli]"
 ```
+
+Install both `psycopg` and `psycopg-binary`. The binary wheel supplies the
+compiled adapter; the `psycopg` package provides the importable module. On
+Python 3.14, `psycopg-binary` alone can leave `import psycopg` failing with
+`No module named 'psycopg'`.
+
+If `.venv/bin/python -m pip` is missing, bootstrap pip with
+`python -m ensurepip --upgrade` before installing packages.
 
 Create `.env` from the example if you want to override the default key path or
 database URL:
@@ -182,6 +191,16 @@ Expected behavior:
 - A missing `OPENAI_API_KEY` fails during embedding creation.
 - A missing table or extension fails with a PostgreSQL error.
 
+Quick dependency check from the repository root:
+
+```bash
+scripts/check-toolchain
+```
+
+The memory tools are ready when the check reports `Python module openai`,
+`Python module psycopg`, `Python module mcp`, and either an OpenAI key source
+or a warning about the missing key.
+
 ## Run The MCP Server
 
 The MCP server runs over stdio:
@@ -195,6 +214,29 @@ It exposes one tool:
 | Tool | Arguments | Result |
 | --- | --- | --- |
 | `search_project_memory` | `query: str`, `limit: int = 8` | Matching project-memory snippets grouped by source path. |
+
+### Cursor project config
+
+This repository ships a portable project-level MCP entry in
+`.cursor/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "qtcode-memory": {
+      "command": "bash",
+      "args": [
+        "scripts/run-memory-mcp"
+      ]
+    }
+  }
+}
+```
+
+After changing MCP config, reload MCP servers in Cursor or restart the editor.
+You should see `qtcode-memory` with the `search_project_memory` tool.
+
+### Other MCP clients
 
 Example MCP client command configuration:
 
@@ -221,6 +263,15 @@ If `OPENAI_API_KEY` is not set, the tools will fall back to `~/.openAi/key`.
 Providing explicit environment values is usually clearer for editor and agent
 integrations.
 
+### Verify MCP search
+
+1. Confirm CLI search works with `scripts/search-memory`.
+2. Start the server with `scripts/run-memory-mcp`. It should wait on stdio
+   with no immediate error output.
+3. In Cursor, call `search_project_memory` with a query such as
+   `MCP memory integration` and confirm snippets from `docs/engineering/`
+   are returned.
+
 ## Agent Usage
 
 Implementation agents should query project memory before changing code. Useful
@@ -241,7 +292,10 @@ the remaining project notes and existing code behavior.
 | Symptom | Likely cause | Fix |
 | --- | --- | --- |
 | `Missing OpenAI API key` | Neither `OPENAI_API_KEY` nor `~/.openAi/key` is available. | Set the environment variable or create the key file. |
-| `Missing Python dependency for QTCode memory MCP` | The MCP server dependencies are not installed in the project virtual environment. | Activate `.venv` and install `openai psycopg "mcp[cli]"`. |
+| `Missing Python dependency for QTCode memory MCP` | The MCP server dependencies are not installed in the project virtual environment. | Activate `.venv` and install `openai psycopg psycopg-binary "mcp[cli]"`. |
+| `No module named 'psycopg'` | Only `psycopg-binary` is installed, or `.venv` is incomplete. | Run `python -m pip install psycopg psycopg-binary` in `.venv`. |
+| `No module named pip` | The virtual environment was created without pip. | Run `python -m ensurepip --upgrade`, then install the memory packages. |
+| `qtcode-memory` missing in Cursor | MCP config was added or changed but not reloaded. | Reload MCP servers in Cursor or restart the editor. |
 | `relation "project_memory" does not exist` | The table has not been created in the configured database. | Run the SQL table setup in this document. |
 | `type "vector" does not exist` | `pgvector` is not installed or `CREATE EXTENSION vector` has not been run. | Install the PostgreSQL `pgvector` package and enable the extension in `qtcode_memory`. |
 | Authentication or peer errors | The local PostgreSQL role does not match the OS user or lacks grants. | Create/grant the role or set `DATABASE_URL` to a connection string with explicit credentials. |
