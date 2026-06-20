@@ -67,6 +67,7 @@ private:
     [[nodiscard]] QString selectedAgentKey() const;
     [[nodiscard]] static QString sessionListLabel(const qtcode::agents::AgentSession *session);
     [[nodiscard]] bool ensureActiveSession(QString *errorMessage);
+    void refreshSavedContextRetrieval();
     void dispatchPromptWithContext(
         const QString &prompt,
         const qtcode::settings::ProjectRecord &project,
@@ -94,6 +95,10 @@ private:
     QString m_pendingPrompt;
     QString m_reviewablePrompt;
     bool m_hasReviewableContext = false;
+    QString m_lastRetrievalQuery;
+    int m_lastTotalResultCount = 0;
+    bool m_lastMemoryUnavailable = false;
+    QString m_lastRetrievalStatusMessage;
 };
 
 } // namespace qtcode::ui

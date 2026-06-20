@@ -55,7 +55,7 @@ void ContextResultsView::configureLayout()
 
     connect(m_resultList, &QListWidget::currentRowChanged, this, &ContextResultsView::onResultSelectionChanged);
     connect(m_resultList, &QListWidget::itemChanged, this, [this](QListWidgetItem *item) {
-        if (item == nullptr || m_resultList == nullptr) {
+        if (m_auditMode || item == nullptr || m_resultList == nullptr) {
             return;
         }
 
@@ -85,6 +85,8 @@ void ContextResultsView::configureLayout()
 
 void ContextResultsView::setRetrievalOutcome(const qtcode::core::ContextRetrievalOutcome &outcome)
 {
+    m_auditMode = false;
+    setControlsEnabled(true);
     m_statusMessage = outcome.statusMessage;
     m_memoryUnavailable = outcome.memoryUnavailable;
     m_results = outcome.results;
@@ -121,8 +123,64 @@ void ContextResultsView::setRetrievalOutcome(const qtcode::core::ContextRetrieva
     emit attachmentChanged();
 }
 
+void ContextResultsView::setPersistedRetrieval(
+    const storage::PersistedContextRetrieval &retrieval,
+    const QList<storage::PersistedContextResult> &results)
+{
+    m_auditMode = true;
+    setControlsEnabled(false);
+    m_statusMessage = retrieval.metadataJson.value(QStringLiteral("status_message")).toString();
+    m_memoryUnavailable = retrieval.metadataJson.value(QStringLiteral("memory_unavailable")).toBool();
+
+    m_results.clear();
+    m_attachedStates.clear();
+    m_results.reserve(results.size());
+    m_attachedStates.reserve(results.size());
+
+    for (const storage::PersistedContextResult &persisted : results) {
+        memory::ContextResult result;
+        result.sourceType = memory::ContextSourceType::ProjectMemory;
+        result.sourceUri = persisted.sourceUri;
+        result.title = persisted.title;
+        result.excerpt = persisted.excerpt;
+        result.score = persisted.score;
+        result.retrievedAt = persisted.metadataJson.value(QStringLiteral("retrieved_at")).toString();
+        m_results.append(result);
+        m_attachedStates.append(true);
+    }
+
+    const QSignalBlocker blocker(m_resultList);
+    m_resultList->clear();
+
+    if (m_results.isEmpty()) {
+        QStringList detailLines;
+        detailLines.append(i18n("Query: %1", retrieval.query));
+        detailLines.append(i18n("Provider: %1", retrieval.providerKey));
+        detailLines.append(i18n("Saved at: %1", retrieval.createdAt));
+        m_detailView->setPlainText(detailLines.join(QStringLiteral("\n")));
+        setEnabled(true);
+        emit attachmentChanged();
+        return;
+    }
+
+    setEnabled(true);
+    for (int index = 0; index < m_results.size(); ++index) {
+        auto *item = new QListWidgetItem(resultListLabel(m_results.at(index), true), m_resultList);
+        item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
+        item->setCheckState(Qt::Checked);
+    }
+
+    if (m_resultList->count() > 0) {
+        m_resultList->setCurrentRow(0);
+    }
+    refreshDetailView();
+    emit attachmentChanged();
+}
+
 void ContextResultsView::clearResults()
 {
+    m_auditMode = false;
+    setControlsEnabled(true);
     m_results.clear();
     m_attachedStates.clear();
     m_statusMessage.clear();
@@ -155,6 +213,22 @@ QList<memory::ContextResult> ContextResultsView::attachedResults() const
 QStringList ContextResultsView::attachedContextExcerpts() const
 {
     return qtcode::core::ContextManager::contextExcerptsFromResults(attachedResults());
+}
+
+void ContextResultsView::setControlsEnabled(bool enabled)
+{
+    if (m_attachAllButton != nullptr) {
+        m_attachAllButton->setEnabled(enabled);
+    }
+    if (m_detachAllButton != nullptr) {
+        m_detachAllButton->setEnabled(enabled);
+    }
+    if (m_attachSelectedButton != nullptr) {
+        m_attachSelectedButton->setEnabled(enabled);
+    }
+    if (m_detachSelectedButton != nullptr) {
+        m_detachSelectedButton->setEnabled(enabled);
+    }
 }
 
 void ContextResultsView::onResultSelectionChanged()
