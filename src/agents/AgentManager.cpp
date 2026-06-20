@@ -6,6 +6,7 @@
 #include "agents/DiffApplier.h"
 #include "shared/Logging.h"
 #include "storage/repositories/AgentSessionRepository.h"
+#include "storage/repositories/ContextRetrievalRepository.h"
 
 #include <QDateTime>
 #include <QUuid>
@@ -641,6 +642,74 @@ void AgentManager::connectAdapter(AgentAdapter *adapter)
         &AgentAdapter::requestFinished,
         this,
         &AgentManager::onAdapterRequestFinished);
+}
+
+bool AgentManager::persistContextRetrievalMetadata(
+    const QString &sessionId,
+    const QString &projectId,
+    const QString &query,
+    const QString &providerKey,
+    const QList<memory::ContextResult> &attachedResults,
+    int totalResultCount,
+    bool memoryUnavailable,
+    const QString &statusMessage,
+    QString *errorMessage)
+{
+    if (sessionId.isEmpty() || projectId.isEmpty() || query.trimmed().isEmpty()) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("Context retrieval metadata requires a session, project, and query.");
+        }
+        return false;
+    }
+
+    storage::PersistedContextRetrieval retrieval;
+    retrieval.id = createId();
+    retrieval.sessionId = sessionId;
+    retrieval.projectId = projectId;
+    retrieval.query = query.trimmed();
+    retrieval.providerKey = providerKey.trimmed().isEmpty() ? QStringLiteral("qtcode-memory") : providerKey.trimmed();
+    retrieval.resultCount = attachedResults.size();
+    retrieval.createdAt = QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs);
+    retrieval.metadataJson.insert(QStringLiteral("total_result_count"), totalResultCount);
+    retrieval.metadataJson.insert(QStringLiteral("attached_result_count"), attachedResults.size());
+    retrieval.metadataJson.insert(QStringLiteral("memory_unavailable"), memoryUnavailable);
+    if (!statusMessage.isEmpty()) {
+        retrieval.metadataJson.insert(QStringLiteral("status_message"), statusMessage);
+    }
+
+    QList<storage::PersistedContextResult> persistedResults;
+    persistedResults.reserve(attachedResults.size());
+    for (const memory::ContextResult &result : attachedResults) {
+        storage::PersistedContextResult persisted;
+        persisted.id = createId();
+        persisted.retrievalId = retrieval.id;
+        persisted.sourceType = memory::contextSourceTypeLabel(result.sourceType);
+        persisted.sourceUri = result.sourceUri;
+        persisted.title = result.title;
+        persisted.excerpt = result.excerpt;
+        persisted.score = result.score;
+        persisted.metadataJson.insert(QStringLiteral("retrieved_at"), result.retrievedAt);
+        persistedResults.append(persisted);
+    }
+
+    storage::ContextRetrievalRepository repository(m_storageService);
+    if (!repository.insertRetrieval(retrieval, persistedResults, errorMessage)) {
+        return false;
+    }
+
+    qCInfo(qtcodeAgents) << "Persisted context retrieval metadata for session" << sessionId
+                         << "with" << persistedResults.size() << "attached result(s)";
+    return true;
+}
+
+bool AgentManager::latestContextRetrievalForSession(
+    const QString &sessionId,
+    storage::PersistedContextRetrieval *retrieval,
+    QList<storage::PersistedContextResult> *results,
+    QString *errorMessage) const
+{
+    storage::ContextRetrievalRepository repository(m_storageService);
+    return repository.latestRetrievalForSession(sessionId, retrieval, results, errorMessage);
 }
 
 } // namespace qtcode::agents

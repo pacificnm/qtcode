@@ -2,6 +2,8 @@
 
 #include "agents/AgentModels.h"
 
+#include "memory/ContextResult.h"
+
 #include <QHash>
 #include <QList>
 #include <QString>
@@ -13,6 +15,8 @@
 
 namespace qtcode::storage {
 class StorageService;
+struct PersistedContextRetrieval;
+struct PersistedContextResult;
 } // namespace qtcode::storage
 
 namespace qtcode::agents {
@@ -71,6 +75,21 @@ public:
         const QString &sessionId,
         const QString &artifactId,
         QString *errorMessage = nullptr);
+    [[nodiscard]] bool persistContextRetrievalMetadata(
+        const QString &sessionId,
+        const QString &projectId,
+        const QString &query,
+        const QString &providerKey,
+        const QList<memory::ContextResult> &attachedResults,
+        int totalResultCount,
+        bool memoryUnavailable,
+        const QString &statusMessage,
+        QString *errorMessage = nullptr);
+    [[nodiscard]] bool latestContextRetrievalForSession(
+        const QString &sessionId,
+        storage::PersistedContextRetrieval *retrieval,
+        QList<storage::PersistedContextResult> *results,
+        QString *errorMessage = nullptr) const;
 
 signals:
     void adaptersChanged();

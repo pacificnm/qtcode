@@ -7,6 +7,7 @@
 #include "core/CliCapabilityService.h"
 #include "core/ContextManager.h"
 #include "memory/ContextResult.h"
+#include "storage/repositories/ContextRetrievalRepository.h"
 #include "core/ProjectManager.h"
 #include "settings/ProjectModels.h"
 #include "shared/Logging.h"
@@ -334,6 +335,11 @@ void AgentPanel::sendPrompt()
     auto *watcher = new QFutureWatcher<qtcode::core::ContextRetrievalOutcome>(this);
     connect(watcher, &QFutureWatcher<qtcode::core::ContextRetrievalOutcome>::finished, this, [this, watcher, activeProject]() {
         const qtcode::core::ContextRetrievalOutcome contextOutcome = watcher->result();
+        m_lastRetrievalQuery = contextOutcome.retrievalQuery;
+        m_lastTotalResultCount = contextOutcome.results.size();
+        m_lastMemoryUnavailable = contextOutcome.memoryUnavailable;
+        m_lastRetrievalStatusMessage = contextOutcome.statusMessage;
+
         if (m_contextResultsView != nullptr) {
             m_contextResultsView->setRetrievalOutcome(contextOutcome);
         }
@@ -392,6 +398,27 @@ void AgentPanel::dispatchPromptWithContext(
         m_stateLabel->setText(i18n("Could not send prompt: %1", errorMessage));
         setPromptEnabled(true);
         return;
+    }
+
+    const QList<memory::ContextResult> attachedResults =
+        m_contextResultsView != nullptr ? m_contextResultsView->attachedResults() : QList<memory::ContextResult> {};
+    const QString retrievalQuery = m_lastRetrievalQuery.isEmpty()
+        ? qtcode::core::ContextManager::buildRetrievalQuery(prompt, project)
+        : m_lastRetrievalQuery;
+    QString persistError;
+    if (!m_agentManager->persistContextRetrievalMetadata(
+            m_activeSessionId,
+            project.id,
+            retrievalQuery,
+            QStringLiteral("qtcode-memory"),
+            attachedResults,
+            m_lastTotalResultCount > 0 ? m_lastTotalResultCount : attachedResults.size(),
+            memoryUnavailable,
+            statusMessage.isEmpty() ? m_lastRetrievalStatusMessage : statusMessage,
+            &persistError)) {
+        qCWarning(qtcodeUi) << "Failed to persist context retrieval metadata:" << persistError;
+    } else {
+        refreshSavedContextRetrieval();
     }
 
     if (memoryUnavailable) {
@@ -555,6 +582,35 @@ void AgentPanel::refreshConversation()
     m_conversationView->moveCursor(QTextCursor::End);
 }
 
+void AgentPanel::refreshSavedContextRetrieval()
+{
+    if (m_contextResultsView == nullptr || m_agentManager == nullptr || m_activeSessionId.isEmpty()) {
+        if (m_contextResultsView != nullptr) {
+            m_contextResultsView->clearResults();
+        }
+        return;
+    }
+
+    storage::PersistedContextRetrieval retrieval;
+    QList<storage::PersistedContextResult> results;
+    QString loadError;
+    if (!m_agentManager->latestContextRetrievalForSession(
+            m_activeSessionId,
+            &retrieval,
+            &results,
+            &loadError)) {
+        qCWarning(qtcodeUi) << "Failed to load saved context retrieval:" << loadError;
+        return;
+    }
+
+    if (retrieval.id.isEmpty()) {
+        m_contextResultsView->clearResults();
+        return;
+    }
+
+    m_contextResultsView->setPersistedRetrieval(retrieval, results);
+}
+
 void AgentPanel::refreshDiffReview()
 {
     if (m_diffReviewView == nullptr || m_agentManager == nullptr || m_activeSessionId.isEmpty()) {
@@ -683,6 +739,7 @@ void AgentPanel::selectSession(const QString &sessionId)
     refreshConversation();
     updateSessionStatusDisplay(session);
     updateRequestControls(session);
+    refreshSavedContextRetrieval();
 
     const bool running = session->status() == qtcode::agents::AgentSessionStatus::Running;
     setPromptEnabled(

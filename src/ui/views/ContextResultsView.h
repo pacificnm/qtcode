@@ -2,6 +2,7 @@
 
 #include "core/ContextManager.h"
 #include "memory/ContextResult.h"
+#include "storage/repositories/ContextRetrievalRepository.h"
 
 #include <QList>
 #include <QWidget>
@@ -20,6 +21,9 @@ public:
     explicit ContextResultsView(QWidget *parent = nullptr);
 
     void setRetrievalOutcome(const qtcode::core::ContextRetrievalOutcome &outcome);
+    void setPersistedRetrieval(
+        const storage::PersistedContextRetrieval &retrieval,
+        const QList<storage::PersistedContextResult> &results);
     void clearResults();
 
     [[nodiscard]] QList<memory::ContextResult> attachedResults() const;
@@ -38,6 +42,7 @@ private slots:
 private:
     void configureLayout();
     void refreshDetailView();
+    void setControlsEnabled(bool enabled);
     void setResultAttached(int row, bool attached);
     [[nodiscard]] static QString resultListLabel(const memory::ContextResult &result, bool attached);
 
@@ -51,6 +56,7 @@ private:
     QPushButton *m_detachSelectedButton = nullptr;
     QString m_statusMessage;
     bool m_memoryUnavailable = false;
+    bool m_auditMode = false;
 };
 
 } // namespace qtcode::ui
