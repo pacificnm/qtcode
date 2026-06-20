@@ -3,6 +3,7 @@ qtcode_add_module_library(qtcode_ui STATIC
     models/RepositoryListModel.cpp
     panels/RepositoryPanel.cpp
     panels/AgentPanel.cpp
+    panels/McpServerPanel.cpp
     panels/TerminalPanel.cpp
     views/DiffReviewView.cpp
 )

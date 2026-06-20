@@ -6,6 +6,7 @@
 #include "settings/SettingsModels.h"
 #include "shared/Logging.h"
 #include "ui/panels/AgentPanel.h"
+#include "ui/panels/McpServerPanel.h"
 #include "ui/panels/RepositoryPanel.h"
 #include "ui/panels/TerminalPanel.h"
 
@@ -55,6 +56,9 @@ void MainWindow::configureLayout()
         m_controller != nullptr ? m_controller->agentManager() : nullptr,
         m_controller != nullptr ? m_controller->projectManager() : nullptr,
         this);
+    m_mcpServerPanel = new McpServerPanel(
+        m_controller != nullptr ? m_controller->mcpServerService() : nullptr,
+        this);
     m_terminalPanel = new TerminalPanel(
         m_controller != nullptr ? m_controller->terminalManager() : nullptr,
         m_controller != nullptr ? m_controller->projectManager() : nullptr,
@@ -62,15 +66,19 @@ void MainWindow::configureLayout()
 
     m_repositoryPanel->setMinimumWidth(240);
     m_agentPanel->setMinimumWidth(320);
+    m_mcpServerPanel->setMinimumWidth(280);
     m_terminalPanel->setMinimumHeight(120);
 
     m_horizontalSplitter = new QSplitter(Qt::Horizontal, this);
     m_horizontalSplitter->addWidget(m_repositoryPanel);
     m_horizontalSplitter->addWidget(m_agentPanel);
+    m_horizontalSplitter->addWidget(m_mcpServerPanel);
     m_horizontalSplitter->setStretchFactor(0, 1);
     m_horizontalSplitter->setStretchFactor(1, 2);
+    m_horizontalSplitter->setStretchFactor(2, 1);
     m_horizontalSplitter->setCollapsible(0, false);
     m_horizontalSplitter->setCollapsible(1, false);
+    m_horizontalSplitter->setCollapsible(2, false);
 
     m_verticalSplitter = new QSplitter(Qt::Vertical, this);
     m_verticalSplitter->addWidget(m_horizontalSplitter);
@@ -90,15 +98,19 @@ void MainWindow::configureLayout()
 
     setCentralWidget(m_verticalSplitter);
 
-    qCInfo(qtcodeUi) << "Initialized repository, agent, and terminal panel layout";
+    qCInfo(qtcodeUi) << "Initialized repository, agent, MCP, and terminal panel layout";
 }
 
 void MainWindow::applyPanelLayout(const qtcode::settings::PanelLayoutSettings &layout)
 {
     resize(layout.windowWidth, layout.windowHeight);
 
-    if (m_horizontalSplitter != nullptr && layout.horizontalSizes.size() >= 2) {
+    if (m_horizontalSplitter != nullptr && layout.horizontalSizes.size() >= 3) {
         m_horizontalSplitter->setSizes(layout.horizontalSizes);
+    } else if (m_horizontalSplitter != nullptr && layout.horizontalSizes.size() >= 2) {
+        QList<int> sizes = layout.horizontalSizes;
+        sizes.append(320);
+        m_horizontalSplitter->setSizes(sizes);
     }
 
     if (m_verticalSplitter != nullptr && layout.verticalSizes.size() >= 2) {

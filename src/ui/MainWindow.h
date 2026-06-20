@@ -16,6 +16,7 @@ struct PanelLayoutSettings;
 namespace qtcode::ui {
 
 class AgentPanel;
+class McpServerPanel;
 class RepositoryPanel;
 class TerminalPanel;
 
@@ -39,6 +40,7 @@ private:
     QSplitter *m_horizontalSplitter = nullptr;
     RepositoryPanel *m_repositoryPanel = nullptr;
     AgentPanel *m_agentPanel = nullptr;
+    McpServerPanel *m_mcpServerPanel = nullptr;
     TerminalPanel *m_terminalPanel = nullptr;
 };
 
