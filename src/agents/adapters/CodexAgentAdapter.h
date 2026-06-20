@@ -2,6 +2,9 @@
 
 #include "agents/AgentAdapter.h"
 
+#include <QJsonObject>
+#include <QProcess>
+
 namespace qtcode::agents {
 
 class CodexAgentAdapter final : public AgentAdapter
@@ -10,6 +13,7 @@ class CodexAgentAdapter final : public AgentAdapter
 
 public:
     explicit CodexAgentAdapter(QObject *parent = nullptr);
+    ~CodexAgentAdapter() override;
 
     [[nodiscard]] QString agentKey() const override;
     [[nodiscard]] QString displayName() const override;
@@ -25,9 +29,22 @@ public:
 
     void setExecutablePath(const QString &executablePath);
 
+private slots:
+    void onProcessReadyRead();
+    void onProcessFinished(int exitCode, QProcess::ExitStatus exitStatus);
+    void onProcessErrorOccurred(QProcess::ProcessError processError);
+
 private:
+    void emitNormalizedEvent(const QJsonObject &eventObject);
+    void finishRequest(AgentRequestStatus status, const QString &errorMessage);
+    [[nodiscard]] static AgentError errorFromProcess(
+        QProcess::ProcessError processError,
+        const QString &details);
+
     QString m_executablePath;
+    QProcess *m_process = nullptr;
     bool m_requestInFlight = false;
+    QString m_pendingOutput;
 };
 
 } // namespace qtcode::agents

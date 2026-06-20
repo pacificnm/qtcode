@@ -48,6 +48,9 @@ public:
     [[nodiscard]] terminal::TerminalManager *terminalManager() const;
     [[nodiscard]] CliCapabilityService *cliCapabilityService() const;
     [[nodiscard]] agents::AgentManager *agentManager() const;
+    [[nodiscard]] bool runSmokeTestAgentPromptIfRequested(
+        QString *errorMessage = nullptr,
+        QString *sessionId = nullptr);
 
 private:
     std::unique_ptr<storage::StorageService> m_storageService;

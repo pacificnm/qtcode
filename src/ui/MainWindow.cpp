@@ -51,6 +51,8 @@ void MainWindow::configureLayout()
         this);
     m_agentPanel = new AgentPanel(
         m_controller != nullptr ? m_controller->cliCapabilityService() : nullptr,
+        m_controller != nullptr ? m_controller->agentManager() : nullptr,
+        m_controller != nullptr ? m_controller->projectManager() : nullptr,
         this);
     m_terminalPanel = new TerminalPanel(
         m_controller != nullptr ? m_controller->terminalManager() : nullptr,

@@ -1,5 +1,7 @@
 #include "app/QtCodeApplication.h"
 
+#include "agents/AgentManager.h"
+#include "agents/AgentSession.h"
 #include "core/ApplicationController.h"
 #include "shared/Logging.h"
 #include "ui/MainWindow.h"
@@ -8,6 +10,7 @@
 #include <KLocalizedString>
 
 #include <QGuiApplication>
+#include <QObject>
 #include <QSysInfo>
 #include <QTimer>
 
@@ -51,8 +54,32 @@ int QtCodeApplication::run()
 
         qCInfo(qtcodeApp) << "Main window shown";
 
+        QString smokeTestError;
+        QString smokeTestSessionId;
+        if (!m_controller->runSmokeTestAgentPromptIfRequested(&smokeTestError, &smokeTestSessionId)) {
+            qCWarning(qtcodeApp) << "Smoke-test agent prompt failed:" << smokeTestError;
+        }
+
         if (qEnvironmentVariableIsSet("QTCODE_AUTO_QUIT")) {
-            QTimer::singleShot(200, &mainWindow, &QWidget::close);
+            const int fallbackDelayMs = smokeTestSessionId.isEmpty() ? 200 : 120000;
+            QTimer::singleShot(fallbackDelayMs, &mainWindow, &QWidget::close);
+
+            if (!smokeTestSessionId.isEmpty() && m_controller->agentManager() != nullptr) {
+                QObject::connect(
+                    m_controller->agentManager(),
+                    &qtcode::agents::AgentManager::sessionUpdated,
+                    &mainWindow,
+                    [&mainWindow, smokeTestSessionId](qtcode::agents::AgentSession *session) {
+                        if (session == nullptr || session->id() != smokeTestSessionId) {
+                            return;
+                        }
+
+                        if (session->status() == qtcode::agents::AgentSessionStatus::Completed
+                            || session->status() == qtcode::agents::AgentSessionStatus::Failed) {
+                            mainWindow.close();
+                        }
+                    });
+            }
         }
 
         exitCode = QApplication::exec();
