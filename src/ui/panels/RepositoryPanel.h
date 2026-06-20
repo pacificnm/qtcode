@@ -16,6 +16,7 @@ class GitService;
 
 namespace qtcode::core {
 class ProjectManager;
+class CliCapabilityService;
 } // namespace qtcode::core
 
 template <typename T>
@@ -33,6 +34,7 @@ public:
     RepositoryPanel(
         qtcode::git::GitService *gitService,
         qtcode::core::ProjectManager *projectManager,
+        qtcode::core::CliCapabilityService *cliCapabilityService,
         QWidget *parent = nullptr);
     ~RepositoryPanel() override;
 
@@ -54,12 +56,15 @@ private:
     void applySnapshot(const qtcode::git::RepositoryGitSnapshot &snapshot);
     void showChangedFiles(const qtcode::git::GitWorkingTreeStatus &status);
     void showRecentCommits(const QList<qtcode::git::GitCommitSummary> &commits);
+    void refreshCapabilityState();
 
     qtcode::git::GitService *m_gitService = nullptr;
     qtcode::core::ProjectManager *m_projectManager = nullptr;
+    qtcode::core::CliCapabilityService *m_cliCapabilityService = nullptr;
     RepositoryListModel *m_repositoryModel = nullptr;
     QListView *m_repositoryList = nullptr;
     QLabel *m_projectLabel = nullptr;
+    QLabel *m_capabilityStateLabel = nullptr;
     QLabel *m_changedFilesStateLabel = nullptr;
     QLabel *m_commitsStateLabel = nullptr;
     QListWidget *m_changedFilesList = nullptr;

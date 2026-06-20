@@ -47,8 +47,11 @@ void MainWindow::configureLayout()
     m_repositoryPanel = new RepositoryPanel(
         m_controller != nullptr ? m_controller->gitService() : nullptr,
         m_controller != nullptr ? m_controller->projectManager() : nullptr,
+        m_controller != nullptr ? m_controller->cliCapabilityService() : nullptr,
         this);
-    m_agentPanel = new AgentPanel(this);
+    m_agentPanel = new AgentPanel(
+        m_controller != nullptr ? m_controller->cliCapabilityService() : nullptr,
+        this);
     m_terminalPanel = new TerminalPanel(
         m_controller != nullptr ? m_controller->terminalManager() : nullptr,
         m_controller != nullptr ? m_controller->projectManager() : nullptr,

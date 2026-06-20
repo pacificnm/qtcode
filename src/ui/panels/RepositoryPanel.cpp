@@ -1,6 +1,8 @@
 #include "ui/panels/RepositoryPanel.h"
 
 #include "core/ProjectManager.h"
+#include "core/CliCapabilityService.h"
+#include "core/CliCapabilityModels.h"
 #include "git/GitCommitSummary.h"
 #include "git/GitService.h"
 #include "settings/ProjectModels.h"
@@ -24,13 +26,24 @@ namespace qtcode::ui {
 RepositoryPanel::RepositoryPanel(
     qtcode::git::GitService *gitService,
     qtcode::core::ProjectManager *projectManager,
+    qtcode::core::CliCapabilityService *cliCapabilityService,
     QWidget *parent)
     : QWidget(parent)
     , m_gitService(gitService)
     , m_projectManager(projectManager)
+    , m_cliCapabilityService(cliCapabilityService)
     , m_refreshWatcher(new QFutureWatcher<qtcode::git::RepositoryGitSnapshot>(this))
 {
     configureLayout();
+    refreshCapabilityState();
+
+    if (m_cliCapabilityService != nullptr) {
+        connect(
+            m_cliCapabilityService,
+            &qtcode::core::CliCapabilityService::capabilitiesDetected,
+            this,
+            &RepositoryPanel::refreshCapabilityState);
+    }
 
     if (m_projectManager != nullptr) {
         m_repositoryModel = new RepositoryListModel(m_projectManager, this);
@@ -81,6 +94,10 @@ void RepositoryPanel::configureLayout()
     m_projectLabel->setWordWrap(true);
     m_projectLabel->setAlignment(Qt::AlignTop | Qt::AlignLeft);
 
+    m_capabilityStateLabel = new QLabel(this);
+    m_capabilityStateLabel->setWordWrap(true);
+    m_capabilityStateLabel->setAlignment(Qt::AlignTop | Qt::AlignLeft);
+
     QFont sectionFont = m_projectLabel->font();
     sectionFont.setBold(true);
 
@@ -118,6 +135,7 @@ void RepositoryPanel::configureLayout()
     m_commitsList->setSelectionMode(QAbstractItemView::NoSelection);
 
     layout->addWidget(titleLabel);
+    layout->addWidget(m_capabilityStateLabel);
     layout->addWidget(m_projectLabel);
     layout->addWidget(localRepositoriesTitle);
     layout->addWidget(m_repositoryList);
@@ -351,6 +369,36 @@ void RepositoryPanel::syncRepositorySelection()
             return;
         }
     }
+}
+
+void RepositoryPanel::refreshCapabilityState()
+{
+    if (m_capabilityStateLabel == nullptr) {
+        return;
+    }
+
+    if (m_cliCapabilityService == nullptr) {
+        m_capabilityStateLabel->hide();
+        return;
+    }
+
+    const qtcode::core::CliCapabilitiesSnapshot snapshot = m_cliCapabilityService->snapshot();
+    QStringList messages;
+
+    if (!snapshot.git.available) {
+        messages.append(snapshot.git.unavailableMessage);
+    }
+    if (!snapshot.gh.available) {
+        messages.append(snapshot.gh.unavailableMessage);
+    }
+
+    if (messages.isEmpty()) {
+        m_capabilityStateLabel->hide();
+        return;
+    }
+
+    m_capabilityStateLabel->setText(messages.join(QStringLiteral("\n\n")));
+    m_capabilityStateLabel->show();
 }
 
 } // namespace qtcode::ui

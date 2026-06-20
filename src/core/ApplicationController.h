@@ -11,6 +11,7 @@ namespace qtcode::core {
 
 class SettingsService;
 class ProjectManager;
+class CliCapabilityService;
 
 } // namespace qtcode::core
 
@@ -41,6 +42,7 @@ public:
     [[nodiscard]] ProjectManager *projectManager() const;
     [[nodiscard]] git::GitService *gitService() const;
     [[nodiscard]] terminal::TerminalManager *terminalManager() const;
+    [[nodiscard]] CliCapabilityService *cliCapabilityService() const;
 
 private:
     std::unique_ptr<storage::StorageService> m_storageService;
@@ -48,6 +50,7 @@ private:
     std::unique_ptr<git::GitService> m_gitService;
     std::unique_ptr<ProjectManager> m_projectManager;
     std::unique_ptr<terminal::TerminalManager> m_terminalManager;
+    std::unique_ptr<CliCapabilityService> m_cliCapabilityService;
 };
 
 } // namespace qtcode::core

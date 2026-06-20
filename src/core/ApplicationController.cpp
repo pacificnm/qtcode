@@ -1,5 +1,6 @@
 #include "core/ApplicationController.h"
 
+#include "core/CliCapabilityService.h"
 #include "core/ProjectManager.h"
 #include "core/SettingsService.h"
 #include "git/GitService.h"
@@ -46,6 +47,11 @@ bool ApplicationController::initialize(QString *errorMessage)
     m_gitService = std::make_unique<git::GitService>();
     m_projectManager = std::make_unique<ProjectManager>(*m_storageService, *m_gitService);
     m_terminalManager = std::make_unique<terminal::TerminalManager>(*m_storageService);
+    m_cliCapabilityService = std::make_unique<CliCapabilityService>();
+
+    if (!m_cliCapabilityService->detectCapabilities()) {
+        qCWarning(qtcodeCore) << "CLI capability detection failed";
+    }
 
     if (!m_projectManager->restoreState(errorMessage)) {
         qCWarning(qtcodeCore) << "Failed to restore project state:"
@@ -150,6 +156,7 @@ bool ApplicationController::initialize(QString *errorMessage)
 
 void ApplicationController::shutdown()
 {
+    m_cliCapabilityService.reset();
     m_terminalManager.reset();
     m_projectManager.reset();
     m_gitService.reset();
@@ -187,6 +194,11 @@ git::GitService *ApplicationController::gitService() const
 terminal::TerminalManager *ApplicationController::terminalManager() const
 {
     return m_terminalManager.get();
+}
+
+CliCapabilityService *ApplicationController::cliCapabilityService() const
+{
+    return m_cliCapabilityService.get();
 }
 
 } // namespace qtcode::core
