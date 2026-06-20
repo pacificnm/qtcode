@@ -70,6 +70,7 @@ public:
 
 private:
     void scheduleStartupMcpHealthChecks();
+    void applyIntegrationPathsFromCapabilities();
 
     std::unique_ptr<storage::StorageService> m_storageService;
     std::unique_ptr<SettingsService> m_settingsService;

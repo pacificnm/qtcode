@@ -1,9 +1,12 @@
 #include "core/CliCapabilityService.h"
 
 #include "shared/Logging.h"
+#include "shared/PerformanceTimer.h"
 #include "shared/ProcessRunner.h"
 
+#include <QFutureWatcher>
 #include <QStandardPaths>
+#include <QtConcurrent>
 
 namespace qtcode::core {
 
@@ -37,27 +40,81 @@ CliCapabilityService::CliCapabilityService(QObject *parent)
     m_snapshot.agentCli.displayName = QStringLiteral("Agent CLI");
 }
 
+CliCapabilityService::~CliCapabilityService()
+{
+    if (m_detectionWatcher != nullptr && m_detectionWatcher->isRunning()) {
+        m_detectionWatcher->waitForFinished();
+    }
+}
+
 bool CliCapabilityService::detectCapabilities()
 {
-    m_snapshot.git = detectGit();
-    m_snapshot.gh = detectGh();
-    m_snapshot.agentCli = detectFirstAgentCli();
-
-    qCInfo(qtcodeCore) << "CLI capabilities:"
-                       << "git" << (m_snapshot.git.available ? m_snapshot.git.version : "missing")
-                       << "gh"
-                       << (m_snapshot.gh.available
-                               ? (m_snapshot.gh.authenticated
-                                      ? QStringLiteral("%1 authenticated as %2")
-                                            .arg(m_snapshot.gh.version, m_snapshot.gh.authAccount)
-                                      : QStringLiteral("%1 not authenticated").arg(m_snapshot.gh.version))
-                               : QStringLiteral("missing"))
-                       << "agent"
-                       << (m_snapshot.agentCli.available ? m_snapshot.agentCli.displayName
-                                                         : "missing");
-
+    m_snapshot = buildCapabilitiesSnapshot();
+    logCapabilitiesSnapshot(m_snapshot);
     emit capabilitiesDetected();
     return true;
+}
+
+void CliCapabilityService::scheduleDetection()
+{
+    if (m_detectionWatcher == nullptr) {
+        m_detectionWatcher = new QFutureWatcher<CliCapabilitiesSnapshot>(this);
+        connect(
+            m_detectionWatcher,
+            &QFutureWatcher<CliCapabilitiesSnapshot>::finished,
+            this,
+            &CliCapabilityService::onDetectionFinished);
+    }
+
+    if (m_detectionWatcher->isRunning()) {
+        return;
+    }
+
+    m_detectionWatcher->setFuture(QtConcurrent::run([this]() {
+        return buildCapabilitiesSnapshot();
+    }));
+}
+
+bool CliCapabilityService::isDetectionRunning() const
+{
+    return m_detectionWatcher != nullptr && m_detectionWatcher->isRunning();
+}
+
+void CliCapabilityService::onDetectionFinished()
+{
+    if (m_detectionWatcher == nullptr) {
+        return;
+    }
+
+    m_snapshot = m_detectionWatcher->result();
+    logCapabilitiesSnapshot(m_snapshot);
+    emit capabilitiesDetected();
+}
+
+CliCapabilitiesSnapshot CliCapabilityService::buildCapabilitiesSnapshot() const
+{
+    qtcode::shared::ScopedPerformanceTimer timer(qtcodeCore(), QStringLiteral("CLI capability detection"));
+
+    CliCapabilitiesSnapshot snapshot;
+    snapshot.git = detectGit();
+    snapshot.gh = detectGh();
+    snapshot.agentCli = detectFirstAgentCli();
+    return snapshot;
+}
+
+void CliCapabilityService::logCapabilitiesSnapshot(const CliCapabilitiesSnapshot &snapshot) const
+{
+    qCInfo(qtcodeCore) << "CLI capabilities:"
+                       << "git" << (snapshot.git.available ? snapshot.git.version : "missing")
+                       << "gh"
+                       << (snapshot.gh.available
+                               ? (snapshot.gh.authenticated
+                                      ? QStringLiteral("%1 authenticated as %2")
+                                            .arg(snapshot.gh.version, snapshot.gh.authAccount)
+                                      : QStringLiteral("%1 not authenticated").arg(snapshot.gh.version))
+                               : QStringLiteral("missing"))
+                       << "agent"
+                       << (snapshot.agentCli.available ? snapshot.agentCli.displayName : "missing");
 }
 
 const CliCapabilitiesSnapshot &CliCapabilityService::snapshot() const

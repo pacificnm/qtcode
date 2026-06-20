@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QElapsedTimer>
 #include <QWidget>
 
 #include "git/GitCommitSummary.h"
@@ -99,6 +100,7 @@ private:
     QPushButton *m_addRepositoryButton = nullptr;
     QPushButton *m_refreshButton = nullptr;
     QFutureWatcher<RepositoryRefreshBundle> *m_refreshWatcher = nullptr;
+    QElapsedTimer m_refreshTimer;
     GitHubDetailView *m_detailView = nullptr;
     QString m_activeProjectId;
 };
