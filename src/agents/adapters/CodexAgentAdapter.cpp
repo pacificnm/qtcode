@@ -1,13 +1,35 @@
 #include "agents/adapters/CodexAgentAdapter.h"
 
+#include "shared/Logging.h"
+
+#include <QDir>
+#include <QFileInfo>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QProcess>
 #include <QStandardPaths>
 
 namespace qtcode::agents {
 
 CodexAgentAdapter::CodexAgentAdapter(QObject *parent)
     : AgentAdapter(parent)
+    , m_process(new QProcess(this))
 {
     m_executablePath = QStandardPaths::findExecutable(QStringLiteral("codex"));
+    m_process->setProcessChannelMode(QProcess::MergedChannels);
+
+    connect(m_process, &QProcess::readyReadStandardOutput, this, &CodexAgentAdapter::onProcessReadyRead);
+    connect(m_process, &QProcess::finished, this, &CodexAgentAdapter::onProcessFinished);
+    connect(m_process, &QProcess::errorOccurred, this, &CodexAgentAdapter::onProcessErrorOccurred);
+}
+
+CodexAgentAdapter::~CodexAgentAdapter()
+{
+    if (m_requestInFlight && m_process->state() != QProcess::NotRunning) {
+        m_process->kill();
+        m_process->waitForFinished(3000);
+    }
 }
 
 QString CodexAgentAdapter::agentKey() const
@@ -50,8 +72,6 @@ bool CodexAgentAdapter::validateConfiguration(QString *errorMessage) const
 
 bool CodexAgentAdapter::startRequest(const AgentRequest &request, QString *errorMessage)
 {
-    Q_UNUSED(request)
-
     if (m_requestInFlight) {
         if (errorMessage != nullptr) {
             *errorMessage = QStringLiteral("Codex adapter already has a request in flight.");
@@ -60,18 +80,72 @@ bool CodexAgentAdapter::startRequest(const AgentRequest &request, QString *error
     }
 
     if (!validateConfiguration(errorMessage)) {
+        AgentEvent event;
+        event.type = AgentEventType::Error;
+        event.error.kind = AgentErrorKind::MissingExecutable;
+        event.error.message = QStringLiteral("Codex CLI was not found on PATH.");
+        emit eventEmitted(event);
+        emit requestFinished(AgentRequestStatus::Failed, event.error.message);
         return false;
     }
 
+    if (request.prompt.trimmed().isEmpty()) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("Agent prompt must not be empty.");
+        }
+        return false;
+    }
+
+    const QString workingDirectory = request.workingDirectory.trimmed().isEmpty()
+        ? QDir::currentPath()
+        : request.workingDirectory;
+    const QFileInfo workingDirectoryInfo(workingDirectory);
+    if (!workingDirectoryInfo.exists() || !workingDirectoryInfo.isDir()) {
+        const QString message =
+            QStringLiteral("Working directory does not exist: %1").arg(workingDirectory);
+        if (errorMessage != nullptr) {
+            *errorMessage = message;
+        }
+        return false;
+    }
+
+    m_pendingOutput.clear();
     m_requestInFlight = true;
 
-    AgentEvent event;
-    event.type = AgentEventType::StatusUpdate;
-    event.text = QStringLiteral("Codex adapter interfaces are defined; execution arrives in a later milestone.");
-    emit eventEmitted(event);
+    QStringList arguments;
+    arguments << QStringLiteral("exec")
+              << QStringLiteral("--cd")
+              << QDir::cleanPath(workingDirectoryInfo.canonicalFilePath())
+              << QStringLiteral("--json")
+              << request.prompt;
 
-    m_requestInFlight = false;
-    emit requestFinished(AgentRequestStatus::Succeeded, {});
+    qCInfo(qtcodeAgents) << "Starting Codex exec in" << workingDirectory;
+
+    AgentEvent statusEvent;
+    statusEvent.type = AgentEventType::StatusUpdate;
+    statusEvent.text = QStringLiteral("Starting Codex request…");
+    emit eventEmitted(statusEvent);
+
+    m_process->setProgram(m_executablePath);
+    m_process->setArguments(arguments);
+    m_process->setWorkingDirectory(QDir::cleanPath(workingDirectoryInfo.canonicalFilePath()));
+    m_process->start();
+
+    if (!m_process->waitForStarted(5000)) {
+        const QString message = QStringLiteral("Failed to start Codex CLI: %1")
+                                    .arg(m_process->errorString());
+        if (errorMessage != nullptr) {
+            *errorMessage = message;
+        }
+
+        AgentEvent event;
+        event.type = AgentEventType::Error;
+        event.error = errorFromProcess(m_process->error(), message);
+        emit eventEmitted(event);
+        finishRequest(AgentRequestStatus::Failed, message);
+        return false;
+    }
+
     return true;
 }
 
@@ -81,13 +155,150 @@ void CodexAgentAdapter::cancelRequest()
         return;
     }
 
-    m_requestInFlight = false;
-    emit requestFinished(AgentRequestStatus::Canceled, {});
+    if (m_process->state() != QProcess::NotRunning) {
+        m_process->kill();
+    }
+
+    finishRequest(AgentRequestStatus::Canceled, QStringLiteral("Codex request canceled."));
 }
 
 void CodexAgentAdapter::setExecutablePath(const QString &executablePath)
 {
     m_executablePath = executablePath;
+}
+
+void CodexAgentAdapter::onProcessReadyRead()
+{
+    m_pendingOutput.append(QString::fromUtf8(m_process->readAllStandardOutput()));
+
+    int newlineIndex = m_pendingOutput.indexOf(QLatin1Char('\n'));
+    while (newlineIndex >= 0) {
+        const QString line = m_pendingOutput.left(newlineIndex).trimmed();
+        m_pendingOutput.remove(0, newlineIndex + 1);
+
+        if (!line.isEmpty()) {
+            QJsonParseError parseError;
+            const QJsonDocument document = QJsonDocument::fromJson(line.toUtf8(), &parseError);
+            if (parseError.error == QJsonParseError::NoError && document.isObject()) {
+                emitNormalizedEvent(document.object());
+            } else {
+                qCDebug(qtcodeAgents) << "Skipping non-JSON Codex output line:" << line;
+            }
+        }
+
+        newlineIndex = m_pendingOutput.indexOf(QLatin1Char('\n'));
+    }
+}
+
+void CodexAgentAdapter::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatus)
+{
+    if (!m_pendingOutput.trimmed().isEmpty()) {
+        QJsonParseError parseError;
+        const QJsonDocument document =
+            QJsonDocument::fromJson(m_pendingOutput.trimmed().toUtf8(), &parseError);
+        if (parseError.error == QJsonParseError::NoError && document.isObject()) {
+            emitNormalizedEvent(document.object());
+        }
+        m_pendingOutput.clear();
+    }
+
+    if (!m_requestInFlight) {
+        return;
+    }
+
+    if (exitStatus == QProcess::CrashExit || exitCode != 0) {
+        const QString stderrOutput = QString::fromUtf8(m_process->readAllStandardError()).trimmed();
+        const QString message = stderrOutput.isEmpty()
+            ? QStringLiteral("Codex CLI exited with code %1.").arg(exitCode)
+            : stderrOutput;
+
+        qCWarning(qtcodeAgents) << "Codex exec failed with exit code" << exitCode << message;
+
+        AgentEvent event;
+        event.type = AgentEventType::Error;
+        event.error.kind = AgentErrorKind::ProcessFailed;
+        event.error.message = message;
+        emit eventEmitted(event);
+        finishRequest(AgentRequestStatus::Failed, message);
+        return;
+    }
+
+    qCInfo(qtcodeAgents) << "Codex exec completed successfully";
+    finishRequest(AgentRequestStatus::Succeeded, {});
+}
+
+void CodexAgentAdapter::onProcessErrorOccurred(QProcess::ProcessError processError)
+{
+    if (!m_requestInFlight) {
+        return;
+    }
+
+    const QString message = QStringLiteral("Codex CLI process error: %1")
+                                .arg(m_process->errorString());
+
+    AgentEvent event;
+    event.type = AgentEventType::Error;
+    event.error = errorFromProcess(processError, message);
+    emit eventEmitted(event);
+    finishRequest(AgentRequestStatus::Failed, message);
+}
+
+void CodexAgentAdapter::emitNormalizedEvent(const QJsonObject &eventObject)
+{
+    const QString type = eventObject.value(QStringLiteral("type")).toString();
+
+    if (type == QStringLiteral("item.completed")) {
+        const QJsonObject item = eventObject.value(QStringLiteral("item")).toObject();
+        if (item.value(QStringLiteral("type")).toString() == QStringLiteral("agent_message")) {
+            const QString text = item.value(QStringLiteral("text")).toString();
+            if (text.isEmpty()) {
+                return;
+            }
+
+            AgentEvent event;
+            event.type = AgentEventType::OutputText;
+            event.text = text;
+            emit eventEmitted(event);
+            return;
+        }
+    }
+
+    if (type == QStringLiteral("thread.started")
+        || type == QStringLiteral("turn.started")
+        || type == QStringLiteral("turn.completed")) {
+        AgentEvent event;
+        event.type = AgentEventType::StatusUpdate;
+        event.text = type;
+        emit eventEmitted(event);
+    }
+}
+
+void CodexAgentAdapter::finishRequest(AgentRequestStatus status, const QString &errorMessage)
+{
+    m_requestInFlight = false;
+    emit requestFinished(status, errorMessage);
+}
+
+AgentError CodexAgentAdapter::errorFromProcess(
+    QProcess::ProcessError processError,
+    const QString &details)
+{
+    AgentError error;
+    error.message = details;
+
+    switch (processError) {
+    case QProcess::FailedToStart:
+        error.kind = AgentErrorKind::MissingExecutable;
+        break;
+    case QProcess::Crashed:
+        error.kind = AgentErrorKind::ProcessFailed;
+        break;
+    default:
+        error.kind = AgentErrorKind::ProcessFailed;
+        break;
+    }
+
+    return error;
 }
 
 } // namespace qtcode::agents

@@ -10,6 +10,9 @@
 #include "storage/StorageService.h"
 #include "terminal/TerminalManager.h"
 #include "agents/AgentManager.h"
+#include "agents/adapters/CodexAgentAdapter.h"
+#include "agents/AgentModels.h"
+#include "agents/AgentSession.h"
 #include "terminal/TerminalProfile.h"
 
 #include <QByteArray>
@@ -59,6 +62,16 @@ bool ApplicationController::initialize(QString *errorMessage)
         qCWarning(qtcodeCore) << "Failed to register built-in agent adapters:"
                               << (errorMessage != nullptr ? *errorMessage : QString());
         return false;
+    }
+
+    if (agents::AgentAdapter *registeredAdapter = m_agentManager->adapter(QStringLiteral("codex"));
+        registeredAdapter != nullptr) {
+        if (auto *codexAdapter = qobject_cast<agents::CodexAgentAdapter *>(registeredAdapter)) {
+            const CliToolCapability &agentCli = m_cliCapabilityService->snapshot().agentCli;
+            if (agentCli.toolId == QStringLiteral("codex") && !agentCli.executablePath.isEmpty()) {
+                codexAdapter->setExecutablePath(agentCli.executablePath);
+            }
+        }
     }
 
     if (!m_projectManager->restoreState(errorMessage)) {
@@ -213,6 +226,67 @@ CliCapabilityService *ApplicationController::cliCapabilityService() const
 agents::AgentManager *ApplicationController::agentManager() const
 {
     return m_agentManager.get();
+}
+
+bool ApplicationController::runSmokeTestAgentPromptIfRequested(
+    QString *errorMessage,
+    QString *sessionId)
+{
+    const QByteArray promptBytes = qgetenv("QTCODE_AGENT_PROMPT");
+    if (promptBytes.isEmpty()) {
+        return true;
+    }
+
+    if (m_agentManager == nullptr || m_projectManager == nullptr) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("Agent services are unavailable.");
+        }
+        return false;
+    }
+
+    if (!m_projectManager->hasActiveProject()) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("QTCODE_AGENT_PROMPT requires an active project.");
+        }
+        return false;
+    }
+
+    settings::ProjectRecord activeProject;
+    if (!m_projectManager->activeProject(&activeProject)) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("The active project could not be loaded.");
+        }
+        return false;
+    }
+
+    agents::AgentSession *session = m_agentManager->createSession(
+        activeProject.id,
+        QStringLiteral("codex"),
+        activeProject.name,
+        errorMessage);
+    if (session == nullptr) {
+        return false;
+    }
+
+    agents::AgentRequest request;
+    request.sessionId = session->id();
+    request.projectId = activeProject.id;
+    request.prompt = QString::fromUtf8(promptBytes);
+    request.workingDirectory = activeProject.rootPath;
+    request.nonInteractive = true;
+
+    if (!m_agentManager->dispatchRequest(session->id(), request, errorMessage)) {
+        qCWarning(qtcodeCore) << "Failed to run QTCODE_AGENT_PROMPT:"
+                            << (errorMessage != nullptr ? *errorMessage : QString());
+        return false;
+    }
+
+    if (sessionId != nullptr) {
+        *sessionId = session->id();
+    }
+
+    qCInfo(qtcodeCore) << "Dispatched smoke-test agent prompt for project" << activeProject.name;
+    return true;
 }
 
 } // namespace qtcode::core
