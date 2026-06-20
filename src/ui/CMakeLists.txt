@@ -6,6 +6,7 @@ qtcode_add_module_library(qtcode_ui STATIC
     panels/McpServerPanel.cpp
     panels/TerminalPanel.cpp
     views/DiffReviewView.cpp
+    views/ContextResultsView.cpp
 )
 
 target_link_libraries(qtcode_ui

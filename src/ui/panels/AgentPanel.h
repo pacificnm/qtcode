@@ -28,6 +28,7 @@ struct ProjectRecord;
 
 namespace qtcode::ui {
 
+class ContextResultsView;
 class DiffReviewView;
 
 class AgentPanel final : public QWidget
@@ -69,8 +70,9 @@ private:
     void dispatchPromptWithContext(
         const QString &prompt,
         const qtcode::settings::ProjectRecord &project,
-        const qtcode::core::ContextRetrievalOutcome &contextOutcome);
-    void refreshContextPreview(const qtcode::core::ContextRetrievalOutcome &contextOutcome);
+        const QStringList &contextExcerpts,
+        const QString &statusMessage = {},
+        bool memoryUnavailable = false);
 
     qtcode::core::CliCapabilityService *m_cliCapabilityService = nullptr;
     qtcode::agents::AgentManager *m_agentManager = nullptr;
@@ -80,7 +82,7 @@ private:
     QListWidget *m_sessionList = nullptr;
     QPushButton *m_newSessionButton = nullptr;
     QLabel *m_stateLabel = nullptr;
-    QTextEdit *m_contextPreview = nullptr;
+    ContextResultsView *m_contextResultsView = nullptr;
     QTextEdit *m_conversationView = nullptr;
     QLineEdit *m_promptInput = nullptr;
     QPushButton *m_sendButton = nullptr;
@@ -90,6 +92,8 @@ private:
     bool m_refreshingSessionList = false;
     bool m_contextRetrievalInFlight = false;
     QString m_pendingPrompt;
+    QString m_reviewablePrompt;
+    bool m_hasReviewableContext = false;
 };
 
 } // namespace qtcode::ui
