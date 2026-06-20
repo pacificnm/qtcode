@@ -57,6 +57,12 @@ struct AgentError
     QString message;
 };
 
+enum class ArtifactReviewState {
+    Pending,
+    Approved,
+    Rejected,
+};
+
 struct AgentArtifact
 {
     QString id;
@@ -64,6 +70,7 @@ struct AgentArtifact
     QString title;
     QString content;
     QString filePath;
+    ArtifactReviewState reviewState = ArtifactReviewState::Pending;
 };
 
 struct AgentMessage
@@ -96,6 +103,7 @@ struct AgentEvent
 [[nodiscard]] QString agentErrorKindLabel(AgentErrorKind kind);
 [[nodiscard]] QString agentSessionStatusLabel(AgentSessionStatus status);
 [[nodiscard]] AgentSessionStatus agentSessionStatusFromLabel(const QString &label);
+[[nodiscard]] QString artifactReviewStateLabel(ArtifactReviewState state);
 
 } // namespace qtcode::agents
 

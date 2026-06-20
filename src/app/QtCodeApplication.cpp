@@ -60,6 +60,11 @@ int QtCodeApplication::run()
             qCWarning(qtcodeApp) << "Smoke-test agent prompt failed:" << smokeTestError;
         }
 
+        QString diffSmokeError;
+        if (!m_controller->runSmokeTestDiffArtifactIfRequested(&diffSmokeError)) {
+            qCWarning(qtcodeApp) << "Smoke-test diff artifact failed:" << diffSmokeError;
+        }
+
         if (qEnvironmentVariableIsSet("QTCODE_AUTO_QUIT")) {
             const int fallbackDelayMs = smokeTestSessionId.isEmpty() ? 200 : 120000;
             QTimer::singleShot(fallbackDelayMs, &mainWindow, &QWidget::close);

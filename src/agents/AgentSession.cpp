@@ -160,6 +160,45 @@ void AgentSession::addArtifact(const AgentArtifact &artifact)
     emit artifactAdded(artifact);
 }
 
+bool AgentSession::updateArtifactReviewState(
+    const QString &artifactId,
+    ArtifactReviewState reviewState)
+{
+    for (AgentArtifact &artifact : m_artifacts) {
+        if (artifact.id != artifactId) {
+            continue;
+        }
+
+        artifact.reviewState = reviewState;
+        touchUpdatedAt();
+        return true;
+    }
+
+    return false;
+}
+
+AgentArtifact *AgentSession::artifactById(const QString &artifactId)
+{
+    for (AgentArtifact &artifact : m_artifacts) {
+        if (artifact.id == artifactId) {
+            return &artifact;
+        }
+    }
+
+    return nullptr;
+}
+
+const AgentArtifact *AgentSession::artifactById(const QString &artifactId) const
+{
+    for (const AgentArtifact &artifact : m_artifacts) {
+        if (artifact.id == artifactId) {
+            return &artifact;
+        }
+    }
+
+    return nullptr;
+}
+
 void AgentSession::touchUpdatedAt()
 {
     m_updatedAt = QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs);

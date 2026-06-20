@@ -43,6 +43,11 @@ public:
     [[nodiscard]] bool appendAssistantOutput(const QString &text);
     [[nodiscard]] bool updateAssistantMessage(const QString &messageId, const QString &content);
     void addArtifact(const AgentArtifact &artifact);
+    [[nodiscard]] bool updateArtifactReviewState(
+        const QString &artifactId,
+        ArtifactReviewState reviewState);
+    [[nodiscard]] AgentArtifact *artifactById(const QString &artifactId);
+    [[nodiscard]] const AgentArtifact *artifactById(const QString &artifactId) const;
     void touchUpdatedAt();
     void restoreFromPersistence(
         AgentSessionStatus status,

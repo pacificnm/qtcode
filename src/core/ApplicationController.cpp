@@ -15,6 +15,10 @@
 #include "agents/AgentSession.h"
 #include "terminal/TerminalProfile.h"
 
+#include <QUuid>
+
+#include <algorithm>
+
 #include <QByteArray>
 
 namespace qtcode::core {
@@ -292,6 +296,83 @@ bool ApplicationController::runSmokeTestAgentPromptIfRequested(
     }
 
     qCInfo(qtcodeCore) << "Dispatched smoke-test agent prompt for project" << activeProject.name;
+    return true;
+}
+
+bool ApplicationController::runSmokeTestDiffArtifactIfRequested(QString *errorMessage)
+{
+    const QByteArray relativePathBytes = qgetenv("QTCODE_AGENT_DIFF_FILE");
+    if (relativePathBytes.isEmpty()) {
+        return true;
+    }
+
+    if (m_agentManager == nullptr || m_projectManager == nullptr) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("Agent services are unavailable.");
+        }
+        return false;
+    }
+
+    if (!m_projectManager->hasActiveProject()) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("QTCODE_AGENT_DIFF_FILE requires an active project.");
+        }
+        return false;
+    }
+
+    settings::ProjectRecord activeProject;
+    if (!m_projectManager->activeProject(&activeProject)) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("The active project could not be loaded.");
+        }
+        return false;
+    }
+
+    qtcode::agents::AgentSession *targetSession = nullptr;
+    QList<qtcode::agents::AgentSession *> projectSessions =
+        m_agentManager->sessionsForProject(activeProject.id);
+    std::sort(
+        projectSessions.begin(),
+        projectSessions.end(),
+        [](const qtcode::agents::AgentSession *left, const qtcode::agents::AgentSession *right) {
+            if (left == nullptr || right == nullptr) {
+                return left != nullptr;
+            }
+            return left->updatedAt() > right->updatedAt();
+        });
+    if (!projectSessions.isEmpty()) {
+        targetSession = projectSessions.first();
+    }
+
+    if (targetSession == nullptr) {
+        targetSession = m_agentManager->createSession(
+            activeProject.id,
+            QStringLiteral("codex"),
+            {},
+            errorMessage);
+    }
+
+    if (targetSession == nullptr) {
+        return false;
+    }
+
+    const QString kind = qEnvironmentVariableIsSet("QTCODE_AGENT_DIFF_KIND")
+        ? QString::fromUtf8(qgetenv("QTCODE_AGENT_DIFF_KIND"))
+        : QStringLiteral("file_write");
+
+    qtcode::agents::AgentArtifact artifact;
+    artifact.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
+    artifact.kind = kind;
+    artifact.title = QString::fromUtf8(relativePathBytes);
+    artifact.filePath = QString::fromUtf8(relativePathBytes);
+    artifact.content = QString::fromUtf8(qgetenv("QTCODE_AGENT_DIFF_CONTENT"));
+    artifact.reviewState = qtcode::agents::ArtifactReviewState::Pending;
+
+    if (!m_agentManager->addArtifact(targetSession->id(), artifact, errorMessage)) {
+        return false;
+    }
+
+    qCInfo(qtcodeCore) << "Registered smoke-test diff artifact for" << artifact.filePath;
     return true;
 }
 

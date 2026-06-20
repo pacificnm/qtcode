@@ -21,6 +21,8 @@ class ProjectManager;
 
 namespace qtcode::ui {
 
+class DiffReviewView;
+
 class AgentPanel final : public QWidget
 {
     Q_OBJECT
@@ -38,6 +40,8 @@ private slots:
     void refreshSessionList();
     void sendPrompt();
     void createNewSession();
+    void approveSelectedArtifact(const QString &artifactId);
+    void rejectSelectedArtifact(const QString &artifactId);
     void cancelActiveRequest();
     void onSessionListSelectionChanged();
     void onSessionUpdated(qtcode::agents::AgentSession *session);
@@ -46,6 +50,7 @@ private slots:
 private:
     void configureLayout();
     void refreshConversation();
+    void refreshDiffReview();
     void updateSessionStatusDisplay(const qtcode::agents::AgentSession *session);
     void updateRequestControls(const qtcode::agents::AgentSession *session);
     void setPromptEnabled(bool enabled);
@@ -65,6 +70,7 @@ private:
     QLineEdit *m_promptInput = nullptr;
     QPushButton *m_sendButton = nullptr;
     QPushButton *m_cancelButton = nullptr;
+    DiffReviewView *m_diffReviewView = nullptr;
     QString m_activeSessionId;
     bool m_refreshingSessionList = false;
 };

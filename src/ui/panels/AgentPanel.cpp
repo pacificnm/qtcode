@@ -8,6 +8,7 @@
 #include "core/ProjectManager.h"
 #include "settings/ProjectModels.h"
 #include "shared/Logging.h"
+#include "ui/views/DiffReviewView.h"
 
 #include <KLocalizedString>
 
@@ -139,6 +140,20 @@ void AgentPanel::configureLayout()
     layout->addWidget(m_sessionList);
     layout->addWidget(m_stateLabel);
     layout->addWidget(m_conversationView, 1);
+
+    m_diffReviewView = new DiffReviewView(this);
+    connect(
+        m_diffReviewView,
+        &DiffReviewView::approveRequested,
+        this,
+        &AgentPanel::approveSelectedArtifact);
+    connect(
+        m_diffReviewView,
+        &DiffReviewView::rejectRequested,
+        this,
+        &AgentPanel::rejectSelectedArtifact);
+    layout->addWidget(m_diffReviewView);
+
     layout->addWidget(m_promptInput);
     layout->addWidget(m_sendButton);
     layout->addWidget(m_cancelButton);
@@ -347,6 +362,7 @@ void AgentPanel::onSessionListSelectionChanged()
     }
 
     selectSession(currentItem->data(kSessionIdRole).toString());
+    refreshDiffReview();
 }
 
 void AgentPanel::onSessionUpdated(qtcode::agents::AgentSession *session)
@@ -375,6 +391,7 @@ void AgentPanel::onSessionUpdated(qtcode::agents::AgentSession *session)
     }
 
     refreshConversation();
+    refreshDiffReview();
 
     const bool running = session->status() == qtcode::agents::AgentSessionStatus::Running;
     setPromptEnabled(!running && m_projectManager != nullptr && m_projectManager->hasActiveProject());
@@ -437,6 +454,60 @@ void AgentPanel::refreshConversation()
 
     m_conversationView->setPlainText(lines.join(QStringLiteral("\n\n")));
     m_conversationView->moveCursor(QTextCursor::End);
+}
+
+void AgentPanel::refreshDiffReview()
+{
+    if (m_diffReviewView == nullptr || m_agentManager == nullptr || m_activeSessionId.isEmpty()) {
+        if (m_diffReviewView != nullptr) {
+            m_diffReviewView->clearSession();
+        }
+        return;
+    }
+
+    m_diffReviewView->setSession(m_agentManager->session(m_activeSessionId));
+}
+
+void AgentPanel::approveSelectedArtifact(const QString &artifactId)
+{
+    if (m_agentManager == nullptr || m_projectManager == nullptr || m_activeSessionId.isEmpty()) {
+        return;
+    }
+
+    settings::ProjectRecord activeProject;
+    if (!m_projectManager->activeProject(&activeProject)) {
+        m_stateLabel->setText(i18n("Select an active repository before approving changes."));
+        return;
+    }
+
+    QString errorMessage;
+    if (!m_agentManager->approveArtifact(
+            m_activeSessionId,
+            artifactId,
+            activeProject.rootPath,
+            &errorMessage)) {
+        m_stateLabel->setText(
+            errorMessage.isEmpty() ? i18n("Could not approve the selected change.") : errorMessage);
+        return;
+    }
+
+    refreshDiffReview();
+}
+
+void AgentPanel::rejectSelectedArtifact(const QString &artifactId)
+{
+    if (m_agentManager == nullptr || m_activeSessionId.isEmpty()) {
+        return;
+    }
+
+    QString errorMessage;
+    if (!m_agentManager->rejectArtifact(m_activeSessionId, artifactId, &errorMessage)) {
+        m_stateLabel->setText(
+            errorMessage.isEmpty() ? i18n("Could not reject the selected change.") : errorMessage);
+        return;
+    }
+
+    refreshDiffReview();
 }
 
 void AgentPanel::updateSessionStatusDisplay(const qtcode::agents::AgentSession *session)

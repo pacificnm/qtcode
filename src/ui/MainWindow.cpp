@@ -1,6 +1,7 @@
 #include "ui/MainWindow.h"
 
 #include "core/ApplicationController.h"
+#include "agents/AgentManager.h"
 #include "core/SettingsService.h"
 #include "settings/SettingsModels.h"
 #include "shared/Logging.h"
@@ -78,6 +79,14 @@ void MainWindow::configureLayout()
     m_verticalSplitter->setStretchFactor(1, 1);
     m_verticalSplitter->setCollapsible(0, false);
     m_verticalSplitter->setCollapsible(1, false);
+
+    if (m_controller != nullptr && m_controller->agentManager() != nullptr) {
+        connect(
+            m_controller->agentManager(),
+            &qtcode::agents::AgentManager::repositoryRefreshRequested,
+            m_repositoryPanel,
+            &RepositoryPanel::refreshStatus);
+    }
 
     setCentralWidget(m_verticalSplitter);
 

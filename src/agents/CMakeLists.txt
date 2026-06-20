@@ -3,6 +3,7 @@ qtcode_add_module_library(qtcode_agents STATIC
     AgentManager.cpp
     AgentModels.cpp
     AgentSession.cpp
+    DiffApplier.cpp
     adapters/CodexAgentAdapter.cpp
 )
 
