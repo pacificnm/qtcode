@@ -1,5 +1,6 @@
 #include "core/ApplicationController.h"
 
+#include "core/SettingsService.h"
 #include "shared/Logging.h"
 #include "storage/MigrationRunner.h"
 #include "storage/StorageService.h"
@@ -34,12 +35,16 @@ bool ApplicationController::initialize(QString *errorMessage)
         return false;
     }
 
+    m_settingsService = std::make_unique<SettingsService>(*m_storageService);
+
     qCInfo(qtcodeCore) << "Application services initialized";
     return true;
 }
 
 void ApplicationController::shutdown()
 {
+    m_settingsService.reset();
+
     if (m_storageService == nullptr) {
         return;
     }
@@ -52,6 +57,11 @@ void ApplicationController::shutdown()
 storage::StorageService *ApplicationController::storageService() const
 {
     return m_storageService.get();
+}
+
+SettingsService *ApplicationController::settingsService() const
+{
+    return m_settingsService.get();
 }
 
 } // namespace qtcode::core
