@@ -5,6 +5,8 @@
 #include "agents/AgentSession.h"
 #include "core/CliCapabilityModels.h"
 #include "core/CliCapabilityService.h"
+#include "core/ContextManager.h"
+#include "memory/ContextResult.h"
 #include "core/ProjectManager.h"
 #include "settings/ProjectModels.h"
 #include "shared/Logging.h"
@@ -23,9 +25,10 @@
 #include <QTextCursor>
 #include <QVBoxLayout>
 
-#include <algorithm>
+#include <QFutureWatcher>
+#include <QtConcurrent>
 
-namespace qtcode::ui {
+#include <algorithm>
 
 namespace {
 
@@ -33,15 +36,19 @@ constexpr int kSessionIdRole = Qt::UserRole;
 
 } // namespace
 
+namespace qtcode::ui {
+
 AgentPanel::AgentPanel(
     qtcode::core::CliCapabilityService *cliCapabilityService,
     qtcode::agents::AgentManager *agentManager,
     qtcode::core::ProjectManager *projectManager,
+    qtcode::core::ContextManager *contextManager,
     QWidget *parent)
     : QWidget(parent)
     , m_cliCapabilityService(cliCapabilityService)
     , m_agentManager(agentManager)
     , m_projectManager(projectManager)
+    , m_contextManager(contextManager)
 {
     configureLayout();
     refreshCapabilityState();
@@ -113,6 +120,16 @@ void AgentPanel::configureLayout()
     m_stateLabel->setWordWrap(true);
     m_stateLabel->setAlignment(Qt::AlignTop | Qt::AlignLeft);
 
+    auto *contextPreviewLabel = new QLabel(i18n("Retrieved context"), this);
+    QFont sectionFont = contextPreviewLabel->font();
+    sectionFont.setBold(true);
+    contextPreviewLabel->setFont(sectionFont);
+
+    m_contextPreview = new QTextEdit(this);
+    m_contextPreview->setReadOnly(true);
+    m_contextPreview->setPlaceholderText(i18n("Project memory results will appear here before sending."));
+    m_contextPreview->setMaximumHeight(120);
+
     m_conversationView = new QTextEdit(this);
     m_conversationView->setReadOnly(true);
     m_conversationView->setPlaceholderText(i18n("Agent responses will appear here."));
@@ -139,6 +156,8 @@ void AgentPanel::configureLayout()
     layout->addLayout(sessionHeaderLayout);
     layout->addWidget(m_sessionList);
     layout->addWidget(m_stateLabel);
+    layout->addWidget(contextPreviewLabel);
+    layout->addWidget(m_contextPreview);
     layout->addWidget(m_conversationView, 1);
 
     m_diffReviewView = new DiffReviewView(this);
@@ -277,6 +296,10 @@ void AgentPanel::sendPrompt()
         return;
     }
 
+    if (m_contextRetrievalInFlight) {
+        return;
+    }
+
     const QString prompt = m_promptInput->text().trimmed();
     if (prompt.isEmpty()) {
         return;
@@ -294,22 +317,100 @@ void AgentPanel::sendPrompt()
         return;
     }
 
-    qtcode::agents::AgentRequest request;
-    request.sessionId = m_activeSessionId;
-    request.projectId = activeProject.id;
-    request.prompt = prompt;
-    request.workingDirectory = activeProject.rootPath;
-    request.nonInteractive = true;
-
-    if (!m_agentManager->dispatchRequest(m_activeSessionId, request, &errorMessage)) {
-        qCWarning(qtcodeUi) << "Failed to dispatch agent prompt:" << errorMessage;
-        m_stateLabel->setText(i18n("Could not send prompt: %1", errorMessage));
+    if (m_contextManager == nullptr) {
+        dispatchPromptWithContext(prompt, activeProject, qtcode::core::ContextRetrievalOutcome {});
         return;
     }
 
-    m_promptInput->clear();
+    m_pendingPrompt = prompt;
+    m_contextRetrievalInFlight = true;
+    setPromptEnabled(false);
+    m_stateLabel->setText(i18n("Retrieving project memory…"));
+
+    auto *watcher = new QFutureWatcher<qtcode::core::ContextRetrievalOutcome>(this);
+    connect(watcher, &QFutureWatcher<qtcode::core::ContextRetrievalOutcome>::finished, this, [this, watcher, activeProject]() {
+        const qtcode::core::ContextRetrievalOutcome contextOutcome = watcher->result();
+        refreshContextPreview(contextOutcome);
+        dispatchPromptWithContext(m_pendingPrompt, activeProject, contextOutcome);
+        m_pendingPrompt.clear();
+        m_contextRetrievalInFlight = false;
+        watcher->deleteLater();
+    });
+
+    watcher->setFuture(QtConcurrent::run(
+        [contextManager = m_contextManager, prompt, activeProject]() {
+            return contextManager->retrieveForAgentRequest(prompt, activeProject);
+        }));
+}
+
+void AgentPanel::dispatchPromptWithContext(
+    const QString &prompt,
+    const settings::ProjectRecord &project,
+    const qtcode::core::ContextRetrievalOutcome &contextOutcome)
+{
+    if (m_agentManager == nullptr || prompt.trimmed().isEmpty()) {
+        setPromptEnabled(true);
+        return;
+    }
+
+    qtcode::agents::AgentRequest request;
+    request.sessionId = m_activeSessionId;
+    request.projectId = project.id;
+    request.prompt = prompt;
+    request.workingDirectory = project.rootPath;
+    request.contextExcerpts = contextOutcome.contextExcerpts;
+    request.nonInteractive = true;
+
+    QString errorMessage;
+    if (!m_agentManager->dispatchRequest(m_activeSessionId, request, &errorMessage)) {
+        qCWarning(qtcodeUi) << "Failed to dispatch agent prompt:" << errorMessage;
+        m_stateLabel->setText(i18n("Could not send prompt: %1", errorMessage));
+        setPromptEnabled(true);
+        return;
+    }
+
+    if (contextOutcome.memoryUnavailable) {
+        m_stateLabel->setText(
+            i18n("Sent prompt without project memory: %1", contextOutcome.statusMessage));
+    } else if (contextOutcome.memorySearchAttempted && contextOutcome.results.isEmpty()) {
+        m_stateLabel->setText(i18n("Sent prompt. No matching project memory was found."));
+    } else if (!contextOutcome.statusMessage.isEmpty()) {
+        m_stateLabel->setText(contextOutcome.statusMessage);
+    }
+
+    if (m_promptInput != nullptr) {
+        m_promptInput->clear();
+    }
     setPromptEnabled(false);
     refreshConversation();
+}
+
+void AgentPanel::refreshContextPreview(const qtcode::core::ContextRetrievalOutcome &contextOutcome)
+{
+    if (m_contextPreview == nullptr) {
+        return;
+    }
+
+    if (contextOutcome.results.isEmpty()) {
+        if (contextOutcome.memoryUnavailable) {
+            m_contextPreview->setPlainText(
+                i18n("Project memory is unavailable: %1", contextOutcome.statusMessage));
+        } else if (contextOutcome.memorySearchAttempted) {
+            m_contextPreview->setPlainText(i18n("No matching project memory found."));
+        } else {
+            m_contextPreview->clear();
+        }
+        return;
+    }
+
+    QStringList lines;
+    for (const memory::ContextResult &result : contextOutcome.results) {
+        const QString title = result.title.trimmed().isEmpty() ? result.sourceUri : result.title;
+        lines.append(QStringLiteral("[%1] %2").arg(
+            memory::contextSourceTypeLabel(result.sourceType),
+            title));
+    }
+    m_contextPreview->setPlainText(lines.join(QStringLiteral("\n")));
 }
 
 void AgentPanel::createNewSession()

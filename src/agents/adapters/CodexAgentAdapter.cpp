@@ -70,6 +70,26 @@ bool CodexAgentAdapter::validateConfiguration(QString *errorMessage) const
     return false;
 }
 
+#include "agents/AgentModels.h"
+
+namespace {
+
+QString composePromptWithContext(const qtcode::agents::AgentRequest &request)
+{
+    if (request.contextExcerpts.isEmpty()) {
+        return request.prompt;
+    }
+
+    QStringList parts;
+    parts.append(QStringLiteral("Retrieved project context:"));
+    parts.append(request.contextExcerpts);
+    parts.append(QStringLiteral("User request:"));
+    parts.append(request.prompt);
+    return parts.join(QStringLiteral("\n\n"));
+}
+
+} // namespace
+
 bool CodexAgentAdapter::startRequest(const AgentRequest &request, QString *errorMessage)
 {
     if (m_requestInFlight) {
@@ -117,7 +137,7 @@ bool CodexAgentAdapter::startRequest(const AgentRequest &request, QString *error
               << QStringLiteral("--cd")
               << QDir::cleanPath(workingDirectoryInfo.canonicalFilePath())
               << QStringLiteral("--json")
-              << request.prompt;
+              << composePromptWithContext(request);
 
     qCInfo(qtcodeAgents) << "Starting Codex exec in" << workingDirectory;
 

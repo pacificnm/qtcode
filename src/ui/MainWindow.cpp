@@ -55,6 +55,7 @@ void MainWindow::configureLayout()
         m_controller != nullptr ? m_controller->cliCapabilityService() : nullptr,
         m_controller != nullptr ? m_controller->agentManager() : nullptr,
         m_controller != nullptr ? m_controller->projectManager() : nullptr,
+        m_controller != nullptr ? m_controller->contextManager() : nullptr,
         this);
     m_mcpServerPanel = new McpServerPanel(
         m_controller != nullptr ? m_controller->mcpServerService() : nullptr,
