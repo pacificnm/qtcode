@@ -52,6 +52,25 @@ check_pkg_config_module() {
   fi
 }
 
+check_kf6_i18n() {
+  if pkg-config --exists KF6I18n 2>/dev/null; then
+    ok "pkg-config module KF6I18n"
+    return
+  fi
+
+  local cmake_config
+  for cmake_config in \
+    /usr/lib/x86_64-linux-gnu/cmake/KF6I18n/KF6I18nConfig.cmake \
+    /usr/lib/cmake/KF6I18n/KF6I18nConfig.cmake; do
+    if [[ -f "$cmake_config" ]]; then
+      ok "KF6I18n (CMake config at $cmake_config)"
+      return
+    fi
+  done
+
+  fail "missing KF6I18n (install libkf6i18n-dev)"
+}
+
 check_python_module() {
   local module="$1"
   if "$VENV_PYTHON" -c "import $module" >/dev/null 2>&1; then
@@ -113,7 +132,7 @@ if command_exists pkg-config; then
   check_pkg_config_module Qt6Core
   check_pkg_config_module Qt6Widgets
   check_pkg_config_module KF6CoreAddons
-  check_pkg_config_module KF6I18n
+  check_kf6_i18n
   check_pkg_config_module qtermwidget6
   check_pkg_config_module sqlite3
   check_pkg_config_module libgit2

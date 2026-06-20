@@ -21,6 +21,33 @@ This document records the baseline environment needed to build, run, and work on
 - libgit2 development packages
 - PostgreSQL client runtime libraries (`libpq5` on Ubuntu), or the bundled `psycopg-binary` wheel when the host runtime library is not visible to Python
 
+## Ubuntu And Debian Packages
+
+On Ubuntu 26.04 and similar Debian-family systems, the development packages
+checked by `scripts/check-toolchain` map roughly to:
+
+```bash
+sudo apt install \
+  qt6-base-dev \
+  libkf6coreaddons-dev \
+  libkf6i18n-dev \
+  libqtermwidget6-2-dev \
+  libutf8proc-dev \
+  libsqlite3-dev \
+  libgit2-dev \
+  libpq5
+```
+
+Notes:
+
+- `qt6-base-dev` provides the `Qt6Core` and `Qt6Widgets` pkg-config modules.
+- `libqtermwidget6-2-dev` depends on `libutf8proc` through pkg-config. Install
+  `libutf8proc-dev` if `qtermwidget6` is reported missing even after the
+  QTermWidget package is installed.
+- Some KDE Frameworks 6 packages, including `KF6I18n`, ship CMake config files
+  instead of pkg-config modules on current Ubuntu releases. `scripts/check-toolchain`
+  accepts either a `KF6I18n.pc` file or `KF6I18nConfig.cmake`.
+
 ## Recommended Compiler Versions
 
 - GCC 13 or newer
@@ -61,6 +88,13 @@ For MVP GitHub workflows, install and authenticate:
 ## Suggested Verification Commands
 
 - `scripts/check-toolchain`
+  - validates Git, CMake, Ninja/Make, a C++20 compiler, Qt/KDE/QTermWidget
+    dependencies, SQLite, libgit2, GitHub CLI, PostgreSQL memory tooling, and
+    the project `.venv`
+  - treats `KF6I18n` as present when either pkg-config or the installed CMake
+    config is available
+  - warns instead of failing when the host `libpq` runtime library is not
+    visible, because the memory tools can use `psycopg-binary`
 - `scripts/build-app`
 - `scripts/test-app`
 - `scripts/index-memory`
