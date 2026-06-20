@@ -34,6 +34,10 @@ public:
         int limit,
         QList<GitCommitSummary> *commits,
         QString *errorMessage = nullptr) const;
+    [[nodiscard]] bool loadPrimaryRemoteUrl(
+        const QString &path,
+        QString *remoteUrl,
+        QString *errorMessage = nullptr) const;
 };
 
 } // namespace qtcode::git

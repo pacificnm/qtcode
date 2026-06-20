@@ -401,6 +401,83 @@ bool GitService::loadRecentCommits(
     return true;
 }
 
+bool GitService::loadPrimaryRemoteUrl(
+    const QString &path,
+    QString *remoteUrl,
+    QString *errorMessage) const
+{
+    if (remoteUrl != nullptr) {
+        remoteUrl->clear();
+    }
+
+    GitRepositoryInfo repositoryInfo;
+    if (!inspectRepository(path, &repositoryInfo, errorMessage)) {
+        return false;
+    }
+
+    const QByteArray nativePath = repositoryInfo.localPath.toUtf8();
+    git_repository *repository = nullptr;
+    if (git_repository_open(&repository, nativePath.constData()) < 0) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("Failed to reopen repository for remote lookup: %1")
+                                .arg(libgit2ErrorMessage("unable to open repository"));
+        }
+        return false;
+    }
+
+    git_remote *originRemote = nullptr;
+    const int originResult = git_remote_lookup(&originRemote, repository, "origin");
+    if (originResult == 0 && originRemote != nullptr) {
+        const char *url = git_remote_url(originRemote);
+        if (url != nullptr && remoteUrl != nullptr) {
+            *remoteUrl = QString::fromUtf8(url);
+        }
+        git_remote_free(originRemote);
+        git_repository_free(repository);
+        qCInfo(qtcodeGit) << "Loaded primary remote for" << repositoryInfo.localPath
+                          << (remoteUrl != nullptr ? *remoteUrl : QString {});
+        return true;
+    }
+
+    if (originResult != GIT_ENOTFOUND && originResult < 0) {
+        git_repository_free(repository);
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("Failed to read origin remote: %1")
+                                .arg(libgit2ErrorMessage("unable to lookup origin"));
+        }
+        return false;
+    }
+
+    git_strarray remoteNames = {};
+    if (git_remote_list(&remoteNames, repository) < 0) {
+        git_repository_free(repository);
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("Failed to list repository remotes: %1")
+                                .arg(libgit2ErrorMessage("unable to list remotes"));
+        }
+        return false;
+    }
+
+    if (remoteNames.count > 0 && remoteUrl != nullptr) {
+        git_remote *fallbackRemote = nullptr;
+        if (git_remote_lookup(&fallbackRemote, repository, remoteNames.strings[0]) == 0
+            && fallbackRemote != nullptr) {
+            const char *url = git_remote_url(fallbackRemote);
+            if (url != nullptr) {
+                *remoteUrl = QString::fromUtf8(url);
+            }
+            git_remote_free(fallbackRemote);
+        }
+    }
+
+    git_strarray_free(&remoteNames);
+    git_repository_free(repository);
+
+    qCInfo(qtcodeGit) << "Loaded fallback primary remote for" << repositoryInfo.localPath
+                      << (remoteUrl != nullptr ? *remoteUrl : QString {});
+    return true;
+}
+
 RepositoryGitSnapshot loadRepositoryGitSnapshot(const QString &path, int commitLimit)
 {
     RepositoryGitSnapshot snapshot;

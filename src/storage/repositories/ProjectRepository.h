@@ -42,6 +42,13 @@ public:
         const QString &branchName,
         const QString &timestamp,
         QString *errorMessage = nullptr);
+    [[nodiscard]] bool updatePrimaryRepositoryRemoteMetadata(
+        const QString &projectId,
+        const QString &remoteUrl,
+        const QString &githubOwner,
+        const QString &githubName,
+        const QString &timestamp,
+        QString *errorMessage = nullptr);
     [[nodiscard]] bool findPrimaryRepository(
         const QString &projectId,
         settings::RepositoryRecord *repository,

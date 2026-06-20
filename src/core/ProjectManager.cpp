@@ -2,6 +2,7 @@
 
 #include "git/GitRepository.h"
 #include "git/GitService.h"
+#include "github/GitHubService.h"
 #include "shared/Logging.h"
 #include "storage/repositories/ProjectRepository.h"
 #include "storage/repositories/SettingsRepository.h"
@@ -129,6 +130,10 @@ bool ProjectManager::addLocalRepository(
     }
 
     if (!refreshProjects(errorMessage) || !setActiveProject(newProject.id, errorMessage)) {
+        return false;
+    }
+
+    if (!syncGitMetadata(newProject.id, normalizedPath, errorMessage)) {
         return false;
     }
 
@@ -355,6 +360,31 @@ bool ProjectManager::syncGitMetadata(
             currentTimestamp(),
             errorMessage)) {
         return false;
+    }
+
+    QString remoteUrl;
+    if (!m_gitService.loadPrimaryRemoteUrl(path, &remoteUrl, errorMessage)) {
+        return false;
+    }
+
+    const github::GitHubRepositoryIdentity identity = github::resolveRemoteUrl(remoteUrl);
+    if (!repository.updatePrimaryRepositoryRemoteMetadata(
+            projectId,
+            remoteUrl,
+            identity.isGitHub ? identity.owner : QString {},
+            identity.isGitHub ? identity.name : QString {},
+            currentTimestamp(),
+            errorMessage)) {
+        return false;
+    }
+
+    if (identity.isGitHub) {
+        qCInfo(qtcodeCore) << "Resolved GitHub remote for project" << projectId
+                           << identity.owner << identity.name;
+    } else if (!remoteUrl.isEmpty()) {
+        qCInfo(qtcodeCore) << "Stored non-GitHub remote for project" << projectId << remoteUrl;
+    } else {
+        qCInfo(qtcodeCore) << "No remote configured for project" << projectId;
     }
 
     qCInfo(qtcodeCore) << "Updated Git branch metadata for project" << projectId << gitInfo.branchName;
