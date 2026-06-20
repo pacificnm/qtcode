@@ -23,6 +23,25 @@ struct GitHubIssue
     QString updatedAt;
 };
 
+struct GitHubIssueDetail
+{
+    int number = 0;
+    QString title;
+    QString state;
+    QString author;
+    QString url;
+    QString body;
+    QString updatedAt;
+};
+
+struct GitHubIssueDetailResult
+{
+    bool success = false;
+    bool fromCache = false;
+    QString errorMessage;
+    GitHubIssueDetail detail;
+};
+
 struct GitHubIssueListResult
 {
     bool success = false;

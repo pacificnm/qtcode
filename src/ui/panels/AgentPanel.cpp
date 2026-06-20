@@ -445,6 +445,13 @@ void AgentPanel::dispatchPromptWithContext(
     refreshConversation();
 }
 
+void AgentPanel::attachIssueContext(const qtcode::github::GitHubIssueDetail &detail)
+{
+    m_attachedGitHubContextExcerpts = {qtcode::github::formatIssueContextExcerpt(detail)};
+    m_attachedPullRequestNumber = 0;
+    m_stateLabel->setText(i18n("Attached GitHub issue #%1 to the next agent prompt.", detail.number));
+}
+
 void AgentPanel::attachPullRequestContext(const qtcode::github::GitHubPullRequestDetail &detail)
 {
     m_attachedGitHubContextExcerpts = {

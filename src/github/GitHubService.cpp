@@ -19,6 +19,7 @@ constexpr int kDefaultIssueLimit = 25;
 constexpr int kDefaultPullRequestLimit = 25;
 constexpr auto kIssueListObjectType = "issue_list";
 constexpr auto kIssueListObjectKey = "default";
+constexpr auto kIssueDetailObjectType = "issue";
 constexpr auto kPullRequestListObjectType = "pull_request_list";
 constexpr auto kPullRequestListObjectKey = "default";
 constexpr auto kPullRequestDetailObjectType = "pull_request";
@@ -166,6 +167,39 @@ QString pullRequestDetailCacheKey(int pullRequestNumber)
     return QStringLiteral("pr-%1").arg(pullRequestNumber);
 }
 
+QJsonObject issueDetailToCachePayload(const GitHubIssueDetail &detail)
+{
+    QJsonObject payload;
+    payload.insert(QStringLiteral("number"), detail.number);
+    payload.insert(QStringLiteral("title"), detail.title);
+    payload.insert(QStringLiteral("state"), detail.state);
+    payload.insert(QStringLiteral("author"), detail.author);
+    payload.insert(QStringLiteral("url"), detail.url);
+    payload.insert(QStringLiteral("body"), detail.body);
+    payload.insert(QStringLiteral("updatedAt"), detail.updatedAt);
+    return payload;
+}
+
+GitHubIssueDetailResult issueDetailFromCachePayload(const QJsonObject &payload)
+{
+    GitHubIssueDetailResult result;
+    result.fromCache = true;
+    result.success = true;
+    result.detail.number = payload.value(QStringLiteral("number")).toInt();
+    result.detail.title = payload.value(QStringLiteral("title")).toString();
+    result.detail.state = payload.value(QStringLiteral("state")).toString();
+    result.detail.author = payload.value(QStringLiteral("author")).toString();
+    result.detail.url = payload.value(QStringLiteral("url")).toString();
+    result.detail.body = payload.value(QStringLiteral("body")).toString();
+    result.detail.updatedAt = payload.value(QStringLiteral("updatedAt")).toString();
+    return result;
+}
+
+QString issueDetailCacheKey(int issueNumber)
+{
+    return QStringLiteral("issue-%1").arg(issueNumber);
+}
+
 QString currentTimestamp()
 {
     return QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs);
@@ -228,6 +262,44 @@ GitHubIssueListResult GitHubService::listIssuesForProject(const QString &project
     }
 
     return listIssues(resolved.repositoryId, resolved.owner, resolved.name, kDefaultIssueLimit);
+}
+
+GitHubIssueDetailResult GitHubService::viewIssueForProject(
+    const QString &projectId,
+    int issueNumber) const
+{
+    GitHubIssueDetailResult result;
+
+    const ResolvedGitHubRepository resolved = resolvePrimaryGitHubRepository(projectId);
+    if (!resolved.success) {
+        result.errorMessage = resolved.errorMessage;
+        return result;
+    }
+
+    if (!m_ghClient.isConfigured()) {
+        GitHubIssueDetailResult cachedResult = loadIssueFromCache(resolved.repositoryId, issueNumber);
+        if (cachedResult.success) {
+            return cachedResult;
+        }
+
+        result.errorMessage = QStringLiteral("GitHub CLI is not available.");
+        return result;
+    }
+
+    result = m_ghClient.viewIssue(resolved.owner, resolved.name, issueNumber);
+    if (result.success) {
+        if (!persistIssueToCache(resolved.repositoryId, result.detail)) {
+            qCWarning(qtcodeGithub) << "Failed to cache GitHub issue" << issueNumber;
+        }
+        return result;
+    }
+
+    GitHubIssueDetailResult cachedResult = loadIssueFromCache(resolved.repositoryId, issueNumber);
+    if (cachedResult.success) {
+        return cachedResult;
+    }
+
+    return result;
 }
 
 GitHubIssueListResult GitHubService::listIssues(
@@ -307,6 +379,51 @@ bool GitHubService::persistIssuesToCache(
         QString::fromUtf8(kIssueListObjectType),
         QString::fromUtf8(kIssueListObjectKey),
         issuesToCachePayload(issues),
+        currentTimestamp(),
+        &cacheError);
+}
+
+GitHubIssueDetailResult GitHubService::loadIssueFromCache(
+    const QString &repositoryId,
+    int issueNumber) const
+{
+    GitHubIssueDetailResult result;
+
+    storage::GitHubCacheRepository cacheRepository(m_storageService);
+    QJsonObject payload;
+    bool found = false;
+    QString cacheError;
+    if (!cacheRepository.loadEntry(
+            repositoryId,
+            QString::fromUtf8(kIssueDetailObjectType),
+            issueDetailCacheKey(issueNumber),
+            &payload,
+            nullptr,
+            &found,
+            &cacheError)) {
+        result.errorMessage = cacheError;
+        return result;
+    }
+
+    if (!found) {
+        result.errorMessage = QStringLiteral("No cached GitHub issue detail is available.");
+        return result;
+    }
+
+    return issueDetailFromCachePayload(payload);
+}
+
+bool GitHubService::persistIssueToCache(
+    const QString &repositoryId,
+    const GitHubIssueDetail &detail) const
+{
+    storage::GitHubCacheRepository cacheRepository(m_storageService);
+    QString cacheError;
+    return cacheRepository.upsertEntry(
+        repositoryId,
+        QString::fromUtf8(kIssueDetailObjectType),
+        issueDetailCacheKey(detail.number),
+        issueDetailToCachePayload(detail),
         currentTimestamp(),
         &cacheError);
 }

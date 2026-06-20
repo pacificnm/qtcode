@@ -68,6 +68,42 @@ GitHubIssueListResult parseIssueListJson(const QByteArray &jsonBytes, QString *e
     return result;
 }
 
+GitHubIssueDetailResult parseIssueDetailJson(const QByteArray &jsonBytes, QString *errorMessage)
+{
+    GitHubIssueDetailResult result;
+
+    const QJsonDocument document = QJsonDocument::fromJson(jsonBytes);
+    if (!document.isObject()) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("GitHub CLI issue view returned invalid JSON.");
+        }
+        return result;
+    }
+
+    const QJsonObject object = document.object();
+    result.detail.number = object.value(QStringLiteral("number")).toInt();
+    result.detail.title = object.value(QStringLiteral("title")).toString().trimmed();
+    result.detail.state = object.value(QStringLiteral("state")).toString().trimmed();
+    result.detail.url = object.value(QStringLiteral("url")).toString().trimmed();
+    result.detail.body = object.value(QStringLiteral("body")).toString().trimmed();
+    result.detail.updatedAt = object.value(QStringLiteral("updatedAt")).toString().trimmed();
+
+    const QJsonValue authorValue = object.value(QStringLiteral("author"));
+    if (authorValue.isObject()) {
+        result.detail.author = authorValue.toObject().value(QStringLiteral("login")).toString().trimmed();
+    }
+
+    if (result.detail.number <= 0 || result.detail.title.isEmpty()) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("GitHub CLI issue view returned incomplete data.");
+        }
+        return result;
+    }
+
+    result.success = true;
+    return result;
+}
+
 GitHubPullRequest pullRequestFromJsonObject(const QJsonObject &object)
 {
     GitHubPullRequest pullRequest;
@@ -222,6 +258,59 @@ GitHubIssueListResult GhCliClient::listIssues(
     }
 
     return parseIssueListJson(processResult.standardOutput.toUtf8(), &result.errorMessage);
+}
+
+GitHubIssueDetailResult GhCliClient::viewIssue(
+    const QString &owner,
+    const QString &name,
+    int issueNumber) const
+{
+    GitHubIssueDetailResult result;
+
+    if (!isConfigured()) {
+        result.errorMessage = QStringLiteral("GitHub CLI executable is not configured.");
+        return result;
+    }
+
+    if (owner.isEmpty() || name.isEmpty()) {
+        result.errorMessage = QStringLiteral("GitHub owner and repository name are required.");
+        return result;
+    }
+
+    if (issueNumber <= 0) {
+        result.errorMessage = QStringLiteral("Issue number must be positive.");
+        return result;
+    }
+
+    const shared::ProcessResult processResult = shared::ProcessRunner::run(
+        m_executablePath,
+        {QStringLiteral("issue"),
+         QStringLiteral("view"),
+         QString::number(issueNumber),
+         QStringLiteral("--repo"),
+         repositorySlug(owner, name),
+         QStringLiteral("--json"),
+         QStringLiteral("number,title,state,url,body,author,updatedAt")},
+        kGhCommandTimeoutMs);
+
+    if (!processResult.started) {
+        result.errorMessage = QStringLiteral("Failed to start GitHub CLI: %1")
+                                  .arg(processResult.standardError);
+        return result;
+    }
+
+    if (processResult.exitCode != 0) {
+        const QString details =
+            QStringLiteral("%1\n%2").arg(processResult.standardOutput, processResult.standardError).trimmed();
+        result.errorMessage = details.isEmpty()
+            ? QStringLiteral("GitHub CLI issue view failed.")
+            : details;
+        qCWarning(qtcodeGithub) << "gh issue view failed for" << repositorySlug(owner, name)
+                                << issueNumber << details;
+        return result;
+    }
+
+    return parseIssueDetailJson(processResult.standardOutput.toUtf8(), &result.errorMessage);
 }
 
 GitHubPullRequestListResult GhCliClient::listPullRequests(

@@ -103,6 +103,11 @@ void MainWindow::configureLayout()
     if (m_repositoryPanel != nullptr && m_agentPanel != nullptr) {
         connect(
             m_repositoryPanel,
+            &RepositoryPanel::issueContextSelected,
+            m_agentPanel,
+            &AgentPanel::attachIssueContext);
+        connect(
+            m_repositoryPanel,
             &RepositoryPanel::pullRequestContextSelected,
             m_agentPanel,
             &AgentPanel::attachPullRequestContext);
