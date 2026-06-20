@@ -12,6 +12,14 @@ namespace qtcode::core {
 class SettingsService;
 class ProjectManager;
 
+} // namespace qtcode::core
+
+namespace qtcode::git {
+class GitService;
+} // namespace qtcode::git
+
+namespace qtcode::core {
+
 class ApplicationController
 {
 public:
@@ -27,10 +35,12 @@ public:
     [[nodiscard]] storage::StorageService *storageService() const;
     [[nodiscard]] SettingsService *settingsService() const;
     [[nodiscard]] ProjectManager *projectManager() const;
+    [[nodiscard]] git::GitService *gitService() const;
 
 private:
     std::unique_ptr<storage::StorageService> m_storageService;
     std::unique_ptr<SettingsService> m_settingsService;
+    std::unique_ptr<git::GitService> m_gitService;
     std::unique_ptr<ProjectManager> m_projectManager;
 };
 

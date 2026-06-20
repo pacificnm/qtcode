@@ -1,5 +1,7 @@
 #include "core/ProjectManager.h"
 
+#include "git/GitRepository.h"
+#include "git/GitService.h"
 #include "shared/Logging.h"
 #include "storage/repositories/ProjectRepository.h"
 #include "storage/repositories/SettingsRepository.h"
@@ -13,8 +15,9 @@
 
 namespace qtcode::core {
 
-ProjectManager::ProjectManager(storage::StorageService &storageService)
+ProjectManager::ProjectManager(storage::StorageService &storageService, git::GitService &gitService)
     : m_storageService(storageService)
+    , m_gitService(gitService)
 {
 }
 
@@ -81,6 +84,11 @@ bool ProjectManager::addLocalRepository(
         return true;
     }
 
+    git::GitRepositoryInfo gitInfo;
+    if (!m_gitService.inspectRepository(normalizedPath, &gitInfo, errorMessage)) {
+        return false;
+    }
+
     const QString timestamp = currentTimestamp();
     settings::ProjectRecord newProject;
     newProject.id = createId();
@@ -94,6 +102,7 @@ bool ProjectManager::addLocalRepository(
     newRepository.id = createId();
     newRepository.projectId = newProject.id;
     newRepository.localPath = normalizedPath;
+    newRepository.defaultBranch = gitInfo.branchName;
     newRepository.createdAt = timestamp;
     newRepository.updatedAt = timestamp;
 
@@ -124,7 +133,8 @@ bool ProjectManager::addLocalRepository(
         *project = newProject;
     }
 
-    qCInfo(qtcodeCore) << "Added local repository project" << newProject.name << "at" << normalizedPath;
+    qCInfo(qtcodeCore) << "Added local repository project" << newProject.name << "at" << normalizedPath
+                       << "on branch" << gitInfo.branchName;
     return true;
 }
 
@@ -154,7 +164,17 @@ bool ProjectManager::openProject(
         return false;
     }
 
-    if (!touchProject(projectId, errorMessage) || !setActiveProject(projectId, errorMessage)) {
+    if (!touchProject(projectId, errorMessage)) {
+        return false;
+    }
+
+    if (!loadedProject.rootPath.isEmpty()) {
+        if (!syncGitMetadata(projectId, loadedProject.rootPath, errorMessage)) {
+            return false;
+        }
+    }
+
+    if (!setActiveProject(projectId, errorMessage)) {
         return false;
     }
 
@@ -308,6 +328,29 @@ QString ProjectManager::projectNameFromPath(const QString &path)
 {
     const QString baseName = QFileInfo(path).fileName();
     return baseName.isEmpty() ? path : baseName;
+}
+
+bool ProjectManager::syncGitMetadata(
+    const QString &projectId,
+    const QString &path,
+    QString *errorMessage)
+{
+    git::GitRepositoryInfo gitInfo;
+    if (!m_gitService.inspectRepository(path, &gitInfo, errorMessage)) {
+        return false;
+    }
+
+    storage::ProjectRepository repository(m_storageService);
+    if (!repository.updatePrimaryRepositoryBranch(
+            projectId,
+            gitInfo.branchName,
+            currentTimestamp(),
+            errorMessage)) {
+        return false;
+    }
+
+    qCInfo(qtcodeCore) << "Updated Git branch metadata for project" << projectId << gitInfo.branchName;
+    return true;
 }
 
 } // namespace qtcode::core

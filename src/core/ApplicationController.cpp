@@ -2,6 +2,7 @@
 
 #include "core/ProjectManager.h"
 #include "core/SettingsService.h"
+#include "git/GitService.h"
 #include "settings/ProjectModels.h"
 #include "shared/Logging.h"
 #include "storage/MigrationRunner.h"
@@ -40,7 +41,8 @@ bool ApplicationController::initialize(QString *errorMessage)
     }
 
     m_settingsService = std::make_unique<SettingsService>(*m_storageService);
-    m_projectManager = std::make_unique<ProjectManager>(*m_storageService);
+    m_gitService = std::make_unique<git::GitService>();
+    m_projectManager = std::make_unique<ProjectManager>(*m_storageService, *m_gitService);
 
     if (!m_projectManager->restoreState(errorMessage)) {
         qCWarning(qtcodeCore) << "Failed to restore project state:"
@@ -64,6 +66,7 @@ bool ApplicationController::initialize(QString *errorMessage)
 void ApplicationController::shutdown()
 {
     m_projectManager.reset();
+    m_gitService.reset();
     m_settingsService.reset();
 
     if (m_storageService == nullptr) {
@@ -88,6 +91,11 @@ SettingsService *ApplicationController::settingsService() const
 ProjectManager *ApplicationController::projectManager() const
 {
     return m_projectManager.get();
+}
+
+git::GitService *ApplicationController::gitService() const
+{
+    return m_gitService.get();
 }
 
 } // namespace qtcode::core

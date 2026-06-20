@@ -5,6 +5,10 @@
 #include <QList>
 #include <QString>
 
+namespace qtcode::git {
+class GitService;
+} // namespace qtcode::git
+
 namespace qtcode::storage {
 class StorageService;
 } // namespace qtcode::storage
@@ -14,7 +18,7 @@ namespace qtcode::core {
 class ProjectManager
 {
 public:
-    explicit ProjectManager(storage::StorageService &storageService);
+    ProjectManager(storage::StorageService &storageService, git::GitService &gitService);
 
     [[nodiscard]] bool restoreState(QString *errorMessage = nullptr);
     [[nodiscard]] bool addLocalRepository(
@@ -45,9 +49,14 @@ private:
         QString *errorMessage);
     [[nodiscard]] static QString currentTimestamp();
     [[nodiscard]] static QString createId();
+    [[nodiscard]] bool syncGitMetadata(
+        const QString &projectId,
+        const QString &path,
+        QString *errorMessage);
     [[nodiscard]] static QString projectNameFromPath(const QString &path);
 
     storage::StorageService &m_storageService;
+    git::GitService &m_gitService;
     QList<settings::ProjectRecord> m_projects;
     QString m_activeProjectId;
 };
