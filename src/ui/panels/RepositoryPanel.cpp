@@ -9,6 +9,7 @@
 #include "settings/ProjectModels.h"
 #include "shared/Logging.h"
 #include "ui/models/RepositoryListModel.h"
+#include "ui/views/GitHubDetailView.h"
 
 #include <KLocalizedString>
 
@@ -145,7 +146,8 @@ void RepositoryPanel::configureLayout()
     m_issuesStateLabel->setAlignment(Qt::AlignTop | Qt::AlignLeft);
 
     m_issuesList = new QListWidget(this);
-    m_issuesList->setSelectionMode(QAbstractItemView::NoSelection);
+    m_issuesList->setSelectionMode(QAbstractItemView::SingleSelection);
+    connect(m_issuesList, &QListWidget::itemSelectionChanged, this, &RepositoryPanel::onIssueSelected);
 
     auto *pullRequestsTitle = new QLabel(i18n("GitHub pull requests"), this);
     pullRequestsTitle->setFont(sectionFont);
@@ -161,6 +163,22 @@ void RepositoryPanel::configureLayout()
         &QListWidget::itemSelectionChanged,
         this,
         &RepositoryPanel::onPullRequestSelected);
+
+    m_detailView = new GitHubDetailView(this);
+    connect(
+        m_detailView,
+        &GitHubDetailView::attachIssueRequested,
+        this,
+        [this](const qtcode::github::GitHubIssueDetail &detail) {
+            emit issueContextSelected(detail);
+        });
+    connect(
+        m_detailView,
+        &GitHubDetailView::attachPullRequestRequested,
+        this,
+        [this](const qtcode::github::GitHubPullRequestDetail &detail) {
+            emit pullRequestContextSelected(detail);
+        });
 
     layout->addWidget(titleLabel);
     layout->addWidget(m_capabilityStateLabel);
@@ -180,7 +198,8 @@ void RepositoryPanel::configureLayout()
     layout->addWidget(m_issuesList);
     layout->addWidget(pullRequestsTitle);
     layout->addWidget(m_pullRequestsStateLabel);
-    layout->addWidget(m_pullRequestsList, 1);
+    layout->addWidget(m_pullRequestsList);
+    layout->addWidget(m_detailView, 1);
 }
 
 void RepositoryPanel::refreshStatus()
@@ -247,6 +266,9 @@ void RepositoryPanel::onRefreshFinished()
     showGitHubIssues(bundle.issues);
     showGitHubPullRequests(bundle.pullRequests);
     m_activeProjectId = activeProject.id;
+    if (m_detailView != nullptr) {
+        m_detailView->clearDetail();
+    }
 
     qCInfo(qtcodeUi) << "Repository snapshot refreshed with"
                      << bundle.git.status.changedFiles.size() << "changed file(s),"
@@ -397,12 +419,14 @@ void RepositoryPanel::showGitHubIssues(const qtcode::github::GitHubIssueListResu
     m_issuesStateLabel->hide();
 
     for (const qtcode::github::GitHubIssue &issue : result.issues) {
-        m_issuesList->addItem(
+        auto *item = new QListWidgetItem(
             i18n("#%1 — %2\n%3, %4",
                  issue.number,
                  issue.title,
                  issue.state,
                  issue.author));
+        item->setData(Qt::UserRole, issue.number);
+        m_issuesList->addItem(item);
     }
 
     m_issuesList->show();
@@ -461,16 +485,47 @@ void RepositoryPanel::onPullRequestSelected()
         return;
     }
 
+    m_detailView->showLoadingMessage(i18n("Loading pull request #%1…", pullRequestNumber));
+
     const qtcode::github::GitHubPullRequestDetailResult detailResult =
         m_gitHubService->viewPullRequestForProject(m_activeProjectId, pullRequestNumber);
     if (!detailResult.success) {
         qCWarning(qtcodeUi) << "Failed to load pull request detail:" << detailResult.errorMessage;
-        m_pullRequestsStateLabel->setText(detailResult.errorMessage);
-        m_pullRequestsStateLabel->show();
+        m_detailView->showErrorMessage(detailResult.errorMessage);
         return;
     }
 
-    emit pullRequestContextSelected(detailResult.detail);
+    m_detailView->showPullRequest(detailResult.detail);
+}
+
+void RepositoryPanel::onIssueSelected()
+{
+    if (m_gitHubService == nullptr || m_issuesList == nullptr || m_activeProjectId.isEmpty()
+        || m_detailView == nullptr) {
+        return;
+    }
+
+    const QList<QListWidgetItem *> selectedItems = m_issuesList->selectedItems();
+    if (selectedItems.isEmpty()) {
+        return;
+    }
+
+    const int issueNumber = selectedItems.first()->data(Qt::UserRole).toInt();
+    if (issueNumber <= 0) {
+        return;
+    }
+
+    m_detailView->showLoadingMessage(i18n("Loading issue #%1…", issueNumber));
+
+    const qtcode::github::GitHubIssueDetailResult detailResult =
+        m_gitHubService->viewIssueForProject(m_activeProjectId, issueNumber);
+    if (!detailResult.success) {
+        qCWarning(qtcodeUi) << "Failed to load issue detail:" << detailResult.errorMessage;
+        m_detailView->showErrorMessage(detailResult.errorMessage);
+        return;
+    }
+
+    m_detailView->showIssue(detailResult.detail);
 }
 
 void RepositoryPanel::addRepository()

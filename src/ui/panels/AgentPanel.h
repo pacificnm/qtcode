@@ -45,6 +45,7 @@ public:
         QWidget *parent = nullptr);
 
 public slots:
+    void attachIssueContext(const qtcode::github::GitHubIssueDetail &detail);
     void attachPullRequestContext(const qtcode::github::GitHubPullRequestDetail &detail);
 
 private slots:

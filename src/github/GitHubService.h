@@ -17,6 +17,9 @@ public:
 
     void setGhExecutablePath(const QString &executablePath);
     [[nodiscard]] GitHubIssueListResult listIssuesForProject(const QString &projectId) const;
+    [[nodiscard]] GitHubIssueDetailResult viewIssueForProject(
+        const QString &projectId,
+        int issueNumber) const;
     [[nodiscard]] GitHubPullRequestListResult listPullRequestsForProject(const QString &projectId) const;
     [[nodiscard]] GitHubPullRequestDetailResult viewPullRequestForProject(
         const QString &projectId,
@@ -43,6 +46,12 @@ private:
     [[nodiscard]] bool persistIssuesToCache(
         const QString &repositoryId,
         const QList<GitHubIssue> &issues) const;
+    [[nodiscard]] GitHubIssueDetailResult loadIssueFromCache(
+        const QString &repositoryId,
+        int issueNumber) const;
+    [[nodiscard]] bool persistIssueToCache(
+        const QString &repositoryId,
+        const GitHubIssueDetail &detail) const;
     [[nodiscard]] GitHubPullRequestListResult listPullRequests(
         const QString &repositoryId,
         const QString &owner,

@@ -30,6 +30,7 @@ class QFutureWatcher;
 namespace qtcode::ui {
 
 class RepositoryListModel;
+class GitHubDetailView;
 
 struct RepositoryRefreshBundle
 {
@@ -55,6 +56,7 @@ public slots:
     void refreshStatus();
 
 signals:
+    void issueContextSelected(const qtcode::github::GitHubIssueDetail &detail);
     void pullRequestContextSelected(const qtcode::github::GitHubPullRequestDetail &detail);
 
 private slots:
@@ -74,6 +76,7 @@ private:
     void showRecentCommits(const QList<qtcode::git::GitCommitSummary> &commits);
     void showGitHubIssues(const qtcode::github::GitHubIssueListResult &result);
     void showGitHubPullRequests(const qtcode::github::GitHubPullRequestListResult &result);
+    void onIssueSelected();
     void onPullRequestSelected();
     void refreshCapabilityState();
 
@@ -96,6 +99,7 @@ private:
     QPushButton *m_addRepositoryButton = nullptr;
     QPushButton *m_refreshButton = nullptr;
     QFutureWatcher<RepositoryRefreshBundle> *m_refreshWatcher = nullptr;
+    GitHubDetailView *m_detailView = nullptr;
     QString m_activeProjectId;
 };
 

@@ -7,6 +7,7 @@ qtcode_add_module_library(qtcode_ui STATIC
     panels/TerminalPanel.cpp
     views/DiffReviewView.cpp
     views/ContextResultsView.cpp
+    views/GitHubDetailView.cpp
 )
 
 target_link_libraries(qtcode_ui
