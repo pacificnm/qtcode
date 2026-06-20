@@ -1,0 +1,52 @@
+name: Bug report
+description: Report a reproducible problem in QTCode.
+labels: [type:bug, priority:p1]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before filing, search the docs and existing issues. If this bug touches a milestone area, assign the matching milestone after creation.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: A short description of the problem.
+      placeholder: QTCode crashes when...
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Give the exact steps required to hit the bug.
+      placeholder: |
+        1. Open...
+        2. Click...
+        3. Observe...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      placeholder: What should have happened?
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      placeholder: What actually happened?
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include distro, KDE Plasma, Qt, compiler, and any relevant tool versions.
+      placeholder: Fedora 41, KDE Plasma 6.x, Qt 6.x, GCC 13...
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or screenshots
+      description: Paste relevant logs, stack traces, or attach screenshots if useful.

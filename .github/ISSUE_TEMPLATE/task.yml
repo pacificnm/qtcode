@@ -1,0 +1,34 @@
+name: Implementation task
+description: Track a specific engineering task for a milestone.
+labels: [type:task, priority:p2]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this for small, concrete work items that belong to a milestone. Add the matching component label and milestone after filing.
+  - type: textarea
+    id: task
+    attributes:
+      label: Task
+      description: State the work item plainly.
+      placeholder: Implement SettingsService persistence
+    validations:
+      required: true
+  - type: textarea
+    id: source
+    attributes:
+      label: Source
+      description: Point to the doc, milestone, ADR, or issue that defines this work.
+      placeholder: docs/engineering/implementation-tasks.md task 9
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: List the conditions that must be met to close the task.
+      placeholder: |
+        - ...
+        - ...
+    validations:
+      required: true

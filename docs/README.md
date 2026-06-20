@@ -13,8 +13,9 @@ QTCode is a lightweight native KDE/Linux developer cockpit for AI-assisted devel
 5. `engineering/architecture.md`
 6. `engineering/implementation-tasks.md`
 7. `toolchain-requirements.md`
-8. `milestones/`
-9. `adrs/`
+8. `github-repo-conventions.md`
+9. `milestones/`
+10. `adrs/`
 
 ## Folder Guide
 
@@ -24,6 +25,7 @@ QTCode is a lightweight native KDE/Linux developer cockpit for AI-assisted devel
 - `engineering/`: technical specs for architecture, data, integrations, classes, and flows.
 - `design/`: product, UI, and interaction specs.
 - `toolchain-requirements.md`: baseline build and scripting environment.
+- `github-repo-conventions.md`: issue, milestone, label, and pull request rules.
 
 ## Source Of Truth
 

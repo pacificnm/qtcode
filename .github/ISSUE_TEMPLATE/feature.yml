@@ -1,0 +1,43 @@
+name: Feature request
+description: Propose a new QTCode capability or workflow improvement.
+labels: [type:feature, priority:p2]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Describe the user outcome first. If this maps to an existing milestone, assign that milestone after filing.
+  - type: textarea
+    id: outcome
+    attributes:
+      label: User outcome
+      description: What should the user be able to do after this is built?
+      placeholder: As a user, I want to...
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Explain why this is needed and what problem it solves.
+      placeholder: This would help because...
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Suggested scope
+      description: List the smallest useful slice of the feature.
+      placeholder: |
+        - UI panel
+        - storage
+        - integration
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: What would make this feature complete?
+      placeholder: |
+        - ...
+        - ...
+    validations:
+      required: true

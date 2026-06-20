@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: QTCode Documentation
+    url: https://github.com/pacificnm/qtcode/blob/main/docs/README.md
+    about: Read the project docs, milestones, and engineering specs before filing an issue.

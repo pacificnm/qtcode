@@ -64,6 +64,7 @@ Start here:
 
 - [Documentation index](docs/README.md)
 - [Toolchain requirements](docs/toolchain-requirements.md)
+- [GitHub repo conventions](docs/github-repo-conventions.md)
 - [Architecture and implementation plan](docs/plans/architecture-and-implementation-plan.md)
 - [Roadmap](docs/plans/roadmap.md)
 - [Product spec](docs/design/product-spec.md)
@@ -102,6 +103,7 @@ Start here:
 - [Contributing guide](CONTRIBUTING.md)
 - [Security policy](SECURITY.md)
 - [Agent rules](AGENTS.md)
+- [.github issue templates](.github/ISSUE_TEMPLATE/config.yml)
 
 ### Architecture Decision Records
 
