@@ -1,5 +1,8 @@
 qtcode_add_module_library(qtcode_ui STATIC
     MainWindow.cpp
+    panels/RepositoryPanel.cpp
+    panels/AgentPanel.cpp
+    panels/TerminalPanel.cpp
 )
 
 target_link_libraries(qtcode_ui

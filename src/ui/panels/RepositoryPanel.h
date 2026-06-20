@@ -1,7 +1,15 @@
 #pragma once
 
+#include <QWidget>
+
 namespace qtcode::ui {
 
-// Placeholder for the repository sidebar panel.
+class RepositoryPanel final : public QWidget
+{
+    Q_OBJECT
+
+public:
+    explicit RepositoryPanel(QWidget *parent = nullptr);
+};
 
 } // namespace qtcode::ui
