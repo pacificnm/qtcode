@@ -15,3 +15,11 @@ function(qtcode_add_executable name)
     add_executable(${name} ${ARGN})
     qtcode_apply_target_defaults(${name})
 endfunction()
+
+function(qtcode_add_module_library name type)
+    qtcode_add_library(${name} ${type} ${ARGN})
+    target_include_directories(${name}
+        PUBLIC
+            $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src>
+    )
+endfunction()

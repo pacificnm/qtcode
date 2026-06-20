@@ -66,6 +66,14 @@ if(NOT libgit2_FOUND)
         "On Ubuntu/Debian: sudo apt install libgit2-dev")
 endif()
 
+pkg_check_modules(LibGit2 QUIET IMPORTED_TARGET libgit2)
+if(NOT LibGit2_FOUND)
+    qtcode_report_missing_dependency(
+        "libgit2 (pkg-config)"
+        "repository status, branch, and diff workflows"
+        "On Ubuntu/Debian: sudo apt install libgit2-dev")
+endif()
+
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)
@@ -78,7 +86,7 @@ target_link_libraries(QtCodeExternalDependencies INTERFACE
     KF6::I18n
     PkgConfig::QTermWidget
     SQLite::SQLite3
-    libgit2::libgit2package
+    PkgConfig::LibGit2
 )
 add_library(QtCode::ExternalDependencies ALIAS QtCodeExternalDependencies)
 
