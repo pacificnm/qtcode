@@ -54,6 +54,10 @@ public:
         const QString &sessionId,
         const AgentRequest &request,
         QString *errorMessage = nullptr);
+    [[nodiscard]] bool cancelRequest(
+        const QString &sessionId,
+        QString *errorMessage = nullptr);
+    [[nodiscard]] bool isRequestActive(const QString &sessionId) const;
 
 signals:
     void adaptersChanged();
@@ -77,6 +81,14 @@ private:
     [[nodiscard]] bool persistMessage(
         const AgentSession *session,
         const AgentMessage &message,
+        QString *errorMessage = nullptr);
+    [[nodiscard]] bool persistMessageUpdate(
+        const AgentSession *session,
+        const AgentMessage &message,
+        QString *errorMessage = nullptr);
+    [[nodiscard]] bool appendOrPersistAssistantOutput(
+        AgentSession *session,
+        const QString &text,
         QString *errorMessage = nullptr);
 
     storage::StorageService &m_storageService;

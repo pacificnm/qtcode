@@ -30,10 +30,18 @@ public:
     [[nodiscard]] QList<AgentArtifact> artifacts() const;
     [[nodiscard]] QString createdAt() const;
     [[nodiscard]] QString updatedAt() const;
+    [[nodiscard]] QString lastErrorMessage() const;
+    [[nodiscard]] QString lastStatusUpdate() const;
 
     void setTitle(const QString &title);
     void setStatus(AgentSessionStatus status);
+    void setLastErrorMessage(const QString &message);
+    void clearLastErrorMessage();
+    void setLastStatusUpdate(const QString &statusUpdate);
+    void clearLastStatusUpdate();
     void addMessage(const AgentMessage &message);
+    [[nodiscard]] bool appendAssistantOutput(const QString &text);
+    [[nodiscard]] bool updateAssistantMessage(const QString &messageId, const QString &content);
     void addArtifact(const AgentArtifact &artifact);
     void touchUpdatedAt();
     void restoreFromPersistence(
@@ -57,6 +65,8 @@ private:
     QList<AgentArtifact> m_artifacts;
     QString m_createdAt;
     QString m_updatedAt;
+    QString m_lastErrorMessage;
+    QString m_lastStatusUpdate;
 };
 
 } // namespace qtcode::agents

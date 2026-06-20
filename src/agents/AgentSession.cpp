@@ -65,6 +65,16 @@ QString AgentSession::updatedAt() const
     return m_updatedAt;
 }
 
+QString AgentSession::lastErrorMessage() const
+{
+    return m_lastErrorMessage;
+}
+
+QString AgentSession::lastStatusUpdate() const
+{
+    return m_lastStatusUpdate;
+}
+
 void AgentSession::setTitle(const QString &title)
 {
     m_title = title;
@@ -80,6 +90,60 @@ void AgentSession::setStatus(AgentSessionStatus status)
     m_status = status;
     touchUpdatedAt();
     emit statusChanged(status);
+}
+
+void AgentSession::setLastErrorMessage(const QString &message)
+{
+    m_lastErrorMessage = message.trimmed();
+}
+
+void AgentSession::clearLastErrorMessage()
+{
+    m_lastErrorMessage.clear();
+}
+
+void AgentSession::setLastStatusUpdate(const QString &statusUpdate)
+{
+    m_lastStatusUpdate = statusUpdate.trimmed();
+}
+
+void AgentSession::clearLastStatusUpdate()
+{
+    m_lastStatusUpdate.clear();
+}
+
+bool AgentSession::appendAssistantOutput(const QString &text)
+{
+    if (text.isEmpty()) {
+        return false;
+    }
+
+    for (int index = m_messages.size() - 1; index >= 0; --index) {
+        if (m_messages.at(index).role != QStringLiteral("assistant")) {
+            continue;
+        }
+
+        m_messages[index].content.append(text);
+        touchUpdatedAt();
+        return true;
+    }
+
+    return false;
+}
+
+bool AgentSession::updateAssistantMessage(const QString &messageId, const QString &content)
+{
+    for (AgentMessage &message : m_messages) {
+        if (message.id != messageId) {
+            continue;
+        }
+
+        message.content = content;
+        touchUpdatedAt();
+        return true;
+    }
+
+    return false;
 }
 
 void AgentSession::addMessage(const AgentMessage &message)
