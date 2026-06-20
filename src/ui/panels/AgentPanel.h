@@ -16,8 +16,15 @@ class AgentSession;
 
 namespace qtcode::core {
 class CliCapabilityService;
+class ContextManager;
 class ProjectManager;
 } // namespace qtcode::core
+
+#include "core/ContextManager.h"
+
+namespace qtcode::settings {
+struct ProjectRecord;
+} // namespace qtcode::settings
 
 namespace qtcode::ui {
 
@@ -32,6 +39,7 @@ public:
         qtcode::core::CliCapabilityService *cliCapabilityService,
         qtcode::agents::AgentManager *agentManager,
         qtcode::core::ProjectManager *projectManager,
+        qtcode::core::ContextManager *contextManager,
         QWidget *parent = nullptr);
 
 private slots:
@@ -58,14 +66,21 @@ private:
     [[nodiscard]] QString selectedAgentKey() const;
     [[nodiscard]] static QString sessionListLabel(const qtcode::agents::AgentSession *session);
     [[nodiscard]] bool ensureActiveSession(QString *errorMessage);
+    void dispatchPromptWithContext(
+        const QString &prompt,
+        const qtcode::settings::ProjectRecord &project,
+        const qtcode::core::ContextRetrievalOutcome &contextOutcome);
+    void refreshContextPreview(const qtcode::core::ContextRetrievalOutcome &contextOutcome);
 
     qtcode::core::CliCapabilityService *m_cliCapabilityService = nullptr;
     qtcode::agents::AgentManager *m_agentManager = nullptr;
     qtcode::core::ProjectManager *m_projectManager = nullptr;
+    qtcode::core::ContextManager *m_contextManager = nullptr;
     QComboBox *m_agentSelector = nullptr;
     QListWidget *m_sessionList = nullptr;
     QPushButton *m_newSessionButton = nullptr;
     QLabel *m_stateLabel = nullptr;
+    QTextEdit *m_contextPreview = nullptr;
     QTextEdit *m_conversationView = nullptr;
     QLineEdit *m_promptInput = nullptr;
     QPushButton *m_sendButton = nullptr;
@@ -73,6 +88,8 @@ private:
     DiffReviewView *m_diffReviewView = nullptr;
     QString m_activeSessionId;
     bool m_refreshingSessionList = false;
+    bool m_contextRetrievalInFlight = false;
+    QString m_pendingPrompt;
 };
 
 } // namespace qtcode::ui

@@ -5,8 +5,8 @@
 #include "core/ProjectManager.h"
 #include "core/SettingsService.h"
 #include "git/GitService.h"
+#include "core/ContextManager.h"
 #include "memory/MemoryService.h"
-#include "memory/ContextResult.h"
 #include "settings/ProjectModels.h"
 #include "settings/ProjectModels.h"
 #include "shared/Logging.h"
@@ -88,6 +88,9 @@ bool ApplicationController::initialize(QString *errorMessage)
     }
 
     m_memoryService = std::make_unique<memory::MemoryService>();
+    m_contextManager = std::make_unique<ContextManager>(
+        m_memoryService.get(),
+        m_mcpServerService.get());
 
     if (agents::AgentAdapter *registeredAdapter = m_agentManager->adapter(QStringLiteral("codex"));
         registeredAdapter != nullptr) {
@@ -204,6 +207,7 @@ bool ApplicationController::initialize(QString *errorMessage)
 
 void ApplicationController::shutdown()
 {
+    m_contextManager.reset();
     m_memoryService.reset();
     m_mcpServerService.reset();
     m_agentManager.reset();
@@ -267,6 +271,11 @@ memory::MemoryService *ApplicationController::memoryService() const
     return m_memoryService.get();
 }
 
+ContextManager *ApplicationController::contextManager() const
+{
+    return m_contextManager.get();
+}
+
 bool ApplicationController::runSmokeTestAgentPromptIfRequested(
     QString *errorMessage,
     QString *sessionId)
@@ -313,6 +322,19 @@ bool ApplicationController::runSmokeTestAgentPromptIfRequested(
     request.prompt = QString::fromUtf8(promptBytes);
     request.workingDirectory = activeProject.rootPath;
     request.nonInteractive = true;
+
+    if (m_contextManager != nullptr) {
+        const ContextRetrievalOutcome contextOutcome =
+            m_contextManager->retrieveForAgentRequest(request.prompt, activeProject);
+        request.contextExcerpts = contextOutcome.contextExcerpts;
+        if (contextOutcome.memoryUnavailable) {
+            qCWarning(qtcodeCore) << "Smoke-test agent prompt continuing without project memory:"
+                                  << contextOutcome.statusMessage;
+        } else {
+            qCInfo(qtcodeCore) << "Smoke-test agent prompt attached"
+                               << contextOutcome.contextExcerpts.size() << "context excerpt(s)";
+        }
+    }
 
     if (!m_agentManager->dispatchRequest(session->id(), request, errorMessage)) {
         qCWarning(qtcodeCore) << "Failed to run QTCODE_AGENT_PROMPT:"

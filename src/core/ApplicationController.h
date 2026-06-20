@@ -13,6 +13,7 @@ class SettingsService;
 class ProjectManager;
 class CliCapabilityService;
 class McpServerService;
+class ContextManager;
 
 } // namespace qtcode::core
 
@@ -55,6 +56,7 @@ public:
     [[nodiscard]] agents::AgentManager *agentManager() const;
     [[nodiscard]] McpServerService *mcpServerService() const;
     [[nodiscard]] memory::MemoryService *memoryService() const;
+    [[nodiscard]] ContextManager *contextManager() const;
     [[nodiscard]] bool runSmokeTestAgentPromptIfRequested(
         QString *errorMessage = nullptr,
         QString *sessionId = nullptr);
@@ -73,6 +75,7 @@ private:
     std::unique_ptr<agents::AgentManager> m_agentManager;
     std::unique_ptr<McpServerService> m_mcpServerService;
     std::unique_ptr<memory::MemoryService> m_memoryService;
+    std::unique_ptr<ContextManager> m_contextManager;
 };
 
 } // namespace qtcode::core

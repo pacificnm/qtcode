@@ -1,6 +1,7 @@
 qtcode_add_module_library(qtcode_core STATIC
     ApplicationController.cpp
     CliCapabilityService.cpp
+    ContextManager.cpp
     McpServerService.cpp
     ProjectManager.cpp
     SettingsService.cpp
