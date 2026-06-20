@@ -1,4 +1,7 @@
-int main()
+#include "app/QtCodeApplication.h"
+
+int main(int argc, char *argv[])
 {
-    return 0;
+    QtCodeApplication application(argc, argv);
+    return application.run();
 }
