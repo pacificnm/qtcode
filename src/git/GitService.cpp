@@ -6,6 +6,8 @@
 
 #include <QFileInfo>
 
+#include <algorithm>
+
 namespace qtcode::git {
 
 namespace {
@@ -95,6 +97,66 @@ bool populateHeadInfo(
     return true;
 }
 
+QString formatStatusFlags(unsigned int status)
+{
+    QStringList labels;
+
+    if ((status & GIT_STATUS_INDEX_NEW) != 0U) {
+        labels.append(QStringLiteral("Staged new"));
+    }
+    if ((status & GIT_STATUS_INDEX_MODIFIED) != 0U) {
+        labels.append(QStringLiteral("Staged modified"));
+    }
+    if ((status & GIT_STATUS_INDEX_DELETED) != 0U) {
+        labels.append(QStringLiteral("Staged deleted"));
+    }
+    if ((status & GIT_STATUS_INDEX_RENAMED) != 0U) {
+        labels.append(QStringLiteral("Staged renamed"));
+    }
+    if ((status & GIT_STATUS_WT_NEW) != 0U) {
+        labels.append(QStringLiteral("Untracked"));
+    }
+    if ((status & GIT_STATUS_WT_MODIFIED) != 0U) {
+        labels.append(QStringLiteral("Modified"));
+    }
+    if ((status & GIT_STATUS_WT_DELETED) != 0U) {
+        labels.append(QStringLiteral("Deleted"));
+    }
+    if ((status & GIT_STATUS_WT_RENAMED) != 0U) {
+        labels.append(QStringLiteral("Renamed"));
+    }
+    if ((status & GIT_STATUS_WT_TYPECHANGE) != 0U) {
+        labels.append(QStringLiteral("Type changed"));
+    }
+
+    if (labels.isEmpty()) {
+        return QStringLiteral("Changed");
+    }
+
+    return labels.join(QStringLiteral(", "));
+}
+
+QString changedFilePathFromEntry(const git_status_entry *entry)
+{
+    if (entry == nullptr) {
+        return {};
+    }
+
+    if (entry->index_to_workdir != nullptr && entry->index_to_workdir->new_file.path != nullptr) {
+        return QString::fromUtf8(entry->index_to_workdir->new_file.path);
+    }
+
+    if (entry->head_to_index != nullptr && entry->head_to_index->old_file.path != nullptr) {
+        return QString::fromUtf8(entry->head_to_index->old_file.path);
+    }
+
+    if (entry->head_to_index != nullptr && entry->head_to_index->new_file.path != nullptr) {
+        return QString::fromUtf8(entry->head_to_index->new_file.path);
+    }
+
+    return {};
+}
+
 } // namespace
 
 GitService::GitService()
@@ -160,6 +222,86 @@ bool GitService::inspectRepository(
     qCInfo(qtcodeGit) << "Validated repository at" << info->localPath
                       << "branch" << info->branchName
                       << "detached" << info->isDetachedHead;
+    return true;
+}
+
+bool GitService::loadWorkingTreeStatus(
+    const QString &path,
+    GitWorkingTreeStatus *status,
+    QString *errorMessage) const
+{
+    if (status == nullptr) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("Git working tree status output pointer is null.");
+        }
+        return false;
+    }
+
+    *status = GitWorkingTreeStatus {};
+
+    GitRepositoryInfo repositoryInfo;
+    if (!inspectRepository(path, &repositoryInfo, errorMessage)) {
+        return false;
+    }
+
+    status->branchName = repositoryInfo.branchName;
+    status->isDetachedHead = repositoryInfo.isDetachedHead;
+
+    const QByteArray nativePath = repositoryInfo.localPath.toUtf8();
+    git_repository *repository = nullptr;
+    if (git_repository_open(&repository, nativePath.constData()) < 0) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("Failed to reopen repository for status: %1")
+                                .arg(libgit2ErrorMessage("unable to open repository"));
+        }
+        return false;
+    }
+
+    git_status_list *statusList = nullptr;
+    git_status_options options = GIT_STATUS_OPTIONS_INIT;
+    options.show = GIT_STATUS_SHOW_INDEX_AND_WORKDIR;
+    options.flags = GIT_STATUS_OPT_INCLUDE_UNTRACKED
+        | GIT_STATUS_OPT_RENAMES_HEAD_TO_INDEX
+        | GIT_STATUS_OPT_DISABLE_PATHSPEC_MATCH;
+
+    if (git_status_list_new(&statusList, repository, &options) < 0) {
+        git_repository_free(repository);
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("Failed to read repository status: %1")
+                                .arg(libgit2ErrorMessage("unable to load status"));
+        }
+        return false;
+    }
+
+    const size_t entryCount = git_status_list_entrycount(statusList);
+    status->changedFiles.reserve(static_cast<int>(entryCount));
+
+    for (size_t index = 0; index < entryCount; ++index) {
+        const git_status_entry *entry = git_status_byindex(statusList, index);
+        if (entry == nullptr) {
+            continue;
+        }
+
+        ChangedFile changedFile;
+        changedFile.path = changedFilePathFromEntry(entry);
+        changedFile.statusLabel = formatStatusFlags(entry->status);
+
+        if (changedFile.path.isEmpty()) {
+            continue;
+        }
+
+        status->changedFiles.append(changedFile);
+    }
+
+    std::sort(status->changedFiles.begin(), status->changedFiles.end(), [](const ChangedFile &left, const ChangedFile &right) {
+        return left.path.compare(right.path, Qt::CaseInsensitive) < 0;
+    });
+
+    git_status_list_free(statusList);
+    git_repository_free(repository);
+
+    qCInfo(qtcodeGit) << "Loaded" << status->changedFiles.size() << "changed file(s) for"
+                      << repositoryInfo.localPath;
     return true;
 }
 

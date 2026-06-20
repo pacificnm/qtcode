@@ -1,5 +1,6 @@
 #include "ui/MainWindow.h"
 
+#include "core/ApplicationController.h"
 #include "core/SettingsService.h"
 #include "settings/SettingsModels.h"
 #include "shared/Logging.h"
@@ -13,9 +14,10 @@
 
 namespace qtcode::ui {
 
-MainWindow::MainWindow(qtcode::core::SettingsService *settingsService, QWidget *parent)
+MainWindow::MainWindow(qtcode::core::ApplicationController *controller, QWidget *parent)
     : QMainWindow(parent)
-    , m_settingsService(settingsService)
+    , m_controller(controller)
+    , m_settingsService(controller != nullptr ? controller->settingsService() : nullptr)
 {
     setWindowTitle(i18n("QTCode"));
 
@@ -42,7 +44,10 @@ MainWindow::~MainWindow()
 
 void MainWindow::configureLayout()
 {
-    m_repositoryPanel = new RepositoryPanel(this);
+    m_repositoryPanel = new RepositoryPanel(
+        m_controller != nullptr ? m_controller->gitService() : nullptr,
+        m_controller != nullptr ? m_controller->projectManager() : nullptr,
+        this);
     m_agentPanel = new AgentPanel(this);
     m_terminalPanel = new TerminalPanel(this);
 

@@ -10,6 +10,7 @@ target_link_libraries(qtcode_ui
         qtcode_core
     PRIVATE
         qtcode_shared
+        qtcode_git
         Qt6::Widgets
         KF6::CoreAddons
         KF6::I18n
