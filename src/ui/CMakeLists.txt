@@ -4,6 +4,7 @@ qtcode_add_module_library(qtcode_ui STATIC
     panels/RepositoryPanel.cpp
     panels/AgentPanel.cpp
     panels/TerminalPanel.cpp
+    views/DiffReviewView.cpp
 )
 
 target_link_libraries(qtcode_ui

@@ -58,11 +58,25 @@ public:
         const QString &sessionId,
         QString *errorMessage = nullptr);
     [[nodiscard]] bool isRequestActive(const QString &sessionId) const;
+    [[nodiscard]] bool addArtifact(
+        const QString &sessionId,
+        const AgentArtifact &artifact,
+        QString *errorMessage = nullptr);
+    [[nodiscard]] bool approveArtifact(
+        const QString &sessionId,
+        const QString &artifactId,
+        const QString &projectRoot,
+        QString *errorMessage = nullptr);
+    [[nodiscard]] bool rejectArtifact(
+        const QString &sessionId,
+        const QString &artifactId,
+        QString *errorMessage = nullptr);
 
 signals:
     void adaptersChanged();
     void sessionsChanged();
     void sessionUpdated(qtcode::agents::AgentSession *session);
+    void repositoryRefreshRequested();
 
 private slots:
     void onAdapterRequestFinished(
