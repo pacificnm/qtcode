@@ -40,3 +40,23 @@ set_tests_properties(codex_agent_adapter PROPERTIES
     LABELS "unit;agents"
     TIMEOUT 30
 )
+
+qtcode_add_executable(qtcode_settings_persistence_test
+    storage/SettingsPersistenceTest.cpp
+)
+
+target_link_libraries(qtcode_settings_persistence_test
+    PRIVATE
+        qtcode_storage
+        Qt6::Test
+)
+
+add_test(
+    NAME settings_persistence
+    COMMAND qtcode_settings_persistence_test
+)
+
+set_tests_properties(settings_persistence PROPERTIES
+    LABELS "unit;storage;settings"
+    TIMEOUT 30
+)
