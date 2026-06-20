@@ -1,5 +1,6 @@
 #include "ui/panels/AgentPanel.h"
 
+#include "agents/AgentAdapter.h"
 #include "agents/AgentManager.h"
 #include "agents/AgentSession.h"
 #include "core/CliCapabilityModels.h"
@@ -10,13 +11,25 @@
 
 #include <KLocalizedString>
 
+#include <QComboBox>
+#include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
+#include <QListWidget>
 #include <QPushButton>
+#include <QSignalBlocker>
 #include <QTextEdit>
 #include <QVBoxLayout>
 
+#include <algorithm>
+
 namespace qtcode::ui {
+
+namespace {
+
+constexpr int kSessionIdRole = Qt::UserRole;
+
+} // namespace
 
 AgentPanel::AgentPanel(
     qtcode::core::CliCapabilityService *cliCapabilityService,
@@ -30,6 +43,7 @@ AgentPanel::AgentPanel(
 {
     configureLayout();
     refreshCapabilityState();
+    refreshAgentSelector();
     setPromptEnabled(false);
 
     if (m_cliCapabilityService != nullptr) {
@@ -41,6 +55,16 @@ AgentPanel::AgentPanel(
     }
 
     if (m_agentManager != nullptr) {
+        connect(
+            m_agentManager,
+            &qtcode::agents::AgentManager::adaptersChanged,
+            this,
+            &AgentPanel::refreshAgentSelector);
+        connect(
+            m_agentManager,
+            &qtcode::agents::AgentManager::sessionsChanged,
+            this,
+            &AgentPanel::refreshSessionList);
         connect(
             m_agentManager,
             &qtcode::agents::AgentManager::sessionUpdated,
@@ -69,6 +93,20 @@ void AgentPanel::configureLayout()
     titleFont.setBold(true);
     titleLabel->setFont(titleFont);
 
+    auto *agentSelectorLabel = new QLabel(i18n("Agent"), this);
+    m_agentSelector = new QComboBox(this);
+    m_agentSelector->setSizeAdjustPolicy(QComboBox::AdjustToContents);
+
+    auto *sessionHeaderLayout = new QHBoxLayout();
+    auto *sessionListLabel = new QLabel(i18n("Sessions"), this);
+    m_newSessionButton = new QPushButton(i18n("New session"), this);
+    sessionHeaderLayout->addWidget(sessionListLabel);
+    sessionHeaderLayout->addStretch();
+    sessionHeaderLayout->addWidget(m_newSessionButton);
+
+    m_sessionList = new QListWidget(this);
+    m_sessionList->setSelectionMode(QAbstractItemView::SingleSelection);
+
     m_stateLabel = new QLabel(this);
     m_stateLabel->setWordWrap(true);
     m_stateLabel->setAlignment(Qt::AlignTop | Qt::AlignLeft);
@@ -83,8 +121,16 @@ void AgentPanel::configureLayout()
 
     m_sendButton = new QPushButton(i18n("Send prompt"), this);
     connect(m_sendButton, &QPushButton::clicked, this, &AgentPanel::sendPrompt);
+    connect(m_newSessionButton, &QPushButton::clicked, this, &AgentPanel::createNewSession);
+    connect(m_sessionList, &QListWidget::currentRowChanged, this, [this]() {
+        onSessionListSelectionChanged();
+    });
 
     layout->addWidget(titleLabel);
+    layout->addWidget(agentSelectorLabel);
+    layout->addWidget(m_agentSelector);
+    layout->addLayout(sessionHeaderLayout);
+    layout->addWidget(m_sessionList);
     layout->addWidget(m_stateLabel);
     layout->addWidget(m_conversationView, 1);
     layout->addWidget(m_promptInput);
@@ -104,16 +150,103 @@ void AgentPanel::refreshCapabilityState()
     }
 
     const qtcode::core::CliCapabilitiesSnapshot snapshot = m_cliCapabilityService->snapshot();
-    if (snapshot.agentCli.available) {
-        m_stateLabel->setText(
-            i18n("Detected %1 (%2). Send a prompt once a repository is active.",
-                 snapshot.agentCli.displayName,
-                 snapshot.agentCli.version));
+    if (!snapshot.agentCli.available) {
+        m_stateLabel->setText(snapshot.agentCli.unavailableMessage);
+        setPromptEnabled(false);
+    }
+}
+
+void AgentPanel::refreshAgentSelector()
+{
+    if (m_agentSelector == nullptr || m_agentManager == nullptr) {
         return;
     }
 
-    m_stateLabel->setText(snapshot.agentCli.unavailableMessage);
-    setPromptEnabled(false);
+    const QString previousAgentKey = selectedAgentKey();
+    m_agentSelector->clear();
+
+    for (qtcode::agents::AgentAdapter *adapter : m_agentManager->adapters()) {
+        if (adapter == nullptr || !adapter->isAvailable()) {
+            continue;
+        }
+
+        m_agentSelector->addItem(adapter->displayName(), adapter->agentKey());
+    }
+
+    m_agentSelector->setEnabled(m_agentSelector->count() > 0);
+
+    if (m_agentSelector->count() == 0) {
+        return;
+    }
+
+    int selectedIndex = 0;
+    if (!previousAgentKey.isEmpty()) {
+        selectedIndex = m_agentSelector->findData(previousAgentKey);
+        if (selectedIndex < 0) {
+            selectedIndex = 0;
+        }
+    }
+
+    m_agentSelector->setCurrentIndex(selectedIndex);
+}
+
+void AgentPanel::refreshSessionList()
+{
+    if (m_sessionList == nullptr || m_agentManager == nullptr || m_projectManager == nullptr) {
+        return;
+    }
+
+    if (!m_projectManager->hasActiveProject()) {
+        m_sessionList->clear();
+        return;
+    }
+
+    m_refreshingSessionList = true;
+    const QSignalBlocker blocker(m_sessionList);
+    m_sessionList->clear();
+
+    QList<qtcode::agents::AgentSession *> projectSessions =
+        m_agentManager->sessionsForProject(m_projectManager->activeProjectId());
+    std::sort(
+        projectSessions.begin(),
+        projectSessions.end(),
+        [](const qtcode::agents::AgentSession *left, const qtcode::agents::AgentSession *right) {
+            if (left == nullptr || right == nullptr) {
+                return left != nullptr;
+            }
+            return left->updatedAt() > right->updatedAt();
+        });
+
+    for (qtcode::agents::AgentSession *session : projectSessions) {
+        if (session == nullptr) {
+            continue;
+        }
+
+        auto *item = new QListWidgetItem(sessionListLabel(session), m_sessionList);
+        item->setData(kSessionIdRole, session->id());
+    }
+
+    int selectedRow = -1;
+    if (!m_activeSessionId.isEmpty()) {
+        for (int row = 0; row < m_sessionList->count(); ++row) {
+            if (m_sessionList->item(row)->data(kSessionIdRole).toString() == m_activeSessionId) {
+                selectedRow = row;
+                break;
+            }
+        }
+    }
+
+    if (selectedRow >= 0) {
+        m_sessionList->setCurrentRow(selectedRow);
+    } else if (m_sessionList->count() > 0) {
+        m_sessionList->setCurrentRow(0);
+        m_activeSessionId = m_sessionList->item(0)->data(kSessionIdRole).toString();
+    } else {
+        m_activeSessionId.clear();
+    }
+
+    m_refreshingSessionList = false;
+    refreshConversation();
 }
 
 void AgentPanel::sendPrompt()
@@ -157,9 +290,76 @@ void AgentPanel::sendPrompt()
     refreshConversation();
 }
 
+void AgentPanel::createNewSession()
+{
+    if (m_agentManager == nullptr || m_projectManager == nullptr) {
+        return;
+    }
+
+    if (!m_projectManager->hasActiveProject()) {
+        m_stateLabel->setText(i18n("Select a repository before creating a session."));
+        return;
+    }
+
+    if (selectedAgentKey().isEmpty()) {
+        m_stateLabel->setText(i18n("No agent is available for a new session."));
+        return;
+    }
+
+    QString errorMessage;
+    qtcode::agents::AgentSession *session = m_agentManager->createSession(
+        m_projectManager->activeProjectId(),
+        selectedAgentKey(),
+        {},
+        &errorMessage);
+    if (session == nullptr) {
+        m_stateLabel->setText(
+            errorMessage.isEmpty() ? i18n("Could not create a new session.") : errorMessage);
+        return;
+    }
+
+    selectSession(session->id());
+}
+
+void AgentPanel::onSessionListSelectionChanged()
+{
+    if (m_refreshingSessionList || m_sessionList == nullptr) {
+        return;
+    }
+
+    QListWidgetItem *currentItem = m_sessionList->currentItem();
+    if (currentItem == nullptr) {
+        m_activeSessionId.clear();
+        refreshConversation();
+        setPromptEnabled(false);
+        return;
+    }
+
+    selectSession(currentItem->data(kSessionIdRole).toString());
+}
+
 void AgentPanel::onSessionUpdated(qtcode::agents::AgentSession *session)
 {
-    if (session == nullptr || session->id() != m_activeSessionId) {
+    if (session == nullptr) {
+        return;
+    }
+
+    if (m_projectManager != nullptr
+        && session->projectId() != m_projectManager->activeProjectId()) {
+        return;
+    }
+
+    if (m_sessionList != nullptr) {
+        for (int row = 0; row < m_sessionList->count(); ++row) {
+            QListWidgetItem *item = m_sessionList->item(row);
+            if (item != nullptr && item->data(kSessionIdRole).toString() == session->id()) {
+                item->setText(sessionListLabel(session));
+                break;
+            }
+        }
+    }
+
+    if (session->id() != m_activeSessionId) {
         return;
     }
 
@@ -182,11 +382,13 @@ void AgentPanel::onActiveProjectChanged()
         m_conversationView->clear();
     }
 
+    refreshSessionList();
+
     const bool canPrompt = m_projectManager != nullptr && m_projectManager->hasActiveProject()
-        && m_cliCapabilityService != nullptr && m_cliCapabilityService->isAgentCliAvailable();
+        && m_agentManager != nullptr && !selectedAgentKey().isEmpty();
     setPromptEnabled(canPrompt);
 
-    if (!canPrompt && m_projectManager != nullptr && !m_projectManager->hasActiveProject()) {
+    if (m_projectManager != nullptr && !m_projectManager->hasActiveProject()) {
         m_stateLabel->setText(i18n("Select a repository to start an agent conversation."));
     } else {
         refreshCapabilityState();
@@ -201,6 +403,7 @@ void AgentPanel::refreshConversation()
 
     qtcode::agents::AgentSession *session = m_agentManager->session(m_activeSessionId);
     if (session == nullptr) {
+        m_conversationView->clear();
         return;
     }
 
@@ -225,6 +428,49 @@ void AgentPanel::setPromptEnabled(bool enabled)
     }
 }
 
+void AgentPanel::selectSession(const QString &sessionId)
+{
+    m_activeSessionId = sessionId;
+
+    qtcode::agents::AgentSession *session = m_agentManager != nullptr
+        ? m_agentManager->session(sessionId)
+        : nullptr;
+    if (session == nullptr) {
+        refreshConversation();
+        setPromptEnabled(false);
+        return;
+    }
+
+    refreshConversation();
+
+    const bool running = session->status() == qtcode::agents::AgentSessionStatus::Running;
+    setPromptEnabled(
+        !running && m_projectManager != nullptr && m_projectManager->hasActiveProject());
+}
+
+QString AgentPanel::selectedAgentKey() const
+{
+    if (m_agentSelector == nullptr || m_agentSelector->currentIndex() < 0) {
+        return {};
+    }
+
+    return m_agentSelector->currentData().toString();
+}
+
+QString AgentPanel::sessionListLabel(const qtcode::agents::AgentSession *session)
+{
+    if (session == nullptr) {
+        return {};
+    }
+
+    const QString statusLabel = qtcode::agents::agentSessionStatusLabel(session->status());
+    if (session->title().trimmed().isEmpty()) {
+        return QStringLiteral("%1 (%2)").arg(session->agentKey(), statusLabel);
+    }
+
+    return QStringLiteral("%1 (%2)").arg(session->title(), statusLabel);
+}
+
 bool AgentPanel::ensureActiveSession(QString *errorMessage)
 {
     if (m_agentManager == nullptr || m_projectManager == nullptr) {
@@ -245,16 +491,24 @@ bool AgentPanel::ensureActiveSession(QString *errorMessage)
         return false;
     }
 
+    if (selectedAgentKey().isEmpty()) {
+        if (errorMessage != nullptr) {
+            *errorMessage = i18n("No agent is available for this request.");
+        }
+        return false;
+    }
+
     qtcode::agents::AgentSession *session = m_agentManager->createSession(
         m_projectManager->activeProjectId(),
-        QStringLiteral("codex"),
+        selectedAgentKey(),
         {},
         errorMessage);
     if (session == nullptr) {
         return false;
     }
 
-    m_activeSessionId = session->id();
+    selectSession(session->id());
+    refreshSessionList();
     return true;
 }
 

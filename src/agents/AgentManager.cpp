@@ -145,6 +145,22 @@ QList<AgentSession *> AgentManager::sessions() const
     return sessions;
 }
 
+QList<AgentSession *> AgentManager::sessionsForProject(const QString &projectId) const
+{
+    QList<AgentSession *> sessions;
+    if (projectId.isEmpty()) {
+        return sessions;
+    }
+
+    for (const std::unique_ptr<AgentSession> &session : m_sessions) {
+        if (session->projectId() == projectId) {
+            sessions.append(session.get());
+        }
+    }
+
+    return sessions;
+}
+
 AgentSession *AgentManager::session(const QString &sessionId) const
 {
     for (const std::unique_ptr<AgentSession> &session : m_sessions) {

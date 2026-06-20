@@ -39,6 +39,7 @@ public:
         const QString &title,
         QString *errorMessage = nullptr);
     [[nodiscard]] QList<AgentSession *> sessions() const;
+    [[nodiscard]] QList<AgentSession *> sessionsForProject(const QString &projectId) const;
     [[nodiscard]] AgentSession *session(const QString &sessionId) const;
 
     [[nodiscard]] bool dispatchRequest(
