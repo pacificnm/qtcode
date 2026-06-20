@@ -1,5 +1,7 @@
 #include "ui/MainWindow.h"
 
+#include "core/SettingsService.h"
+#include "settings/SettingsModels.h"
 #include "shared/Logging.h"
 #include "ui/panels/AgentPanel.h"
 #include "ui/panels/RepositoryPanel.h"
@@ -11,12 +13,31 @@
 
 namespace qtcode::ui {
 
-MainWindow::MainWindow(QWidget *parent)
+MainWindow::MainWindow(qtcode::core::SettingsService *settingsService, QWidget *parent)
     : QMainWindow(parent)
+    , m_settingsService(settingsService)
 {
     setWindowTitle(i18n("QTCode"));
-    resize(1280, 800);
+
+    qtcode::settings::PanelLayoutSettings layout =
+        m_settingsService != nullptr ? m_settingsService->defaultPanelLayout()
+                                     : qtcode::settings::PanelLayoutSettings::defaults();
+
+    if (m_settingsService != nullptr) {
+        QString loadError;
+        if (!m_settingsService->loadPanelLayout(&layout, &loadError)) {
+            qCWarning(qtcodeUi) << "Failed to load panel layout settings:" << loadError;
+            layout = m_settingsService->defaultPanelLayout();
+        }
+    }
+
     configureLayout();
+    applyPanelLayout(layout);
+}
+
+MainWindow::~MainWindow()
+{
+    persistPanelLayout();
 }
 
 void MainWindow::configureLayout()
@@ -47,10 +68,49 @@ void MainWindow::configureLayout()
 
     setCentralWidget(m_verticalSplitter);
 
-    m_horizontalSplitter->setSizes({360, 920});
-    m_verticalSplitter->setSizes({560, 240});
-
     qCInfo(qtcodeUi) << "Initialized repository, agent, and terminal panel layout";
+}
+
+void MainWindow::applyPanelLayout(const qtcode::settings::PanelLayoutSettings &layout)
+{
+    resize(layout.windowWidth, layout.windowHeight);
+
+    if (m_horizontalSplitter != nullptr && layout.horizontalSizes.size() >= 2) {
+        m_horizontalSplitter->setSizes(layout.horizontalSizes);
+    }
+
+    if (m_verticalSplitter != nullptr && layout.verticalSizes.size() >= 2) {
+        m_verticalSplitter->setSizes(layout.verticalSizes);
+    }
+}
+
+qtcode::settings::PanelLayoutSettings MainWindow::currentPanelLayout() const
+{
+    qtcode::settings::PanelLayoutSettings layout;
+    layout.windowWidth = width();
+    layout.windowHeight = height();
+
+    if (m_horizontalSplitter != nullptr) {
+        layout.horizontalSizes = m_horizontalSplitter->sizes();
+    }
+
+    if (m_verticalSplitter != nullptr) {
+        layout.verticalSizes = m_verticalSplitter->sizes();
+    }
+
+    return layout;
+}
+
+void MainWindow::persistPanelLayout()
+{
+    if (m_settingsService == nullptr) {
+        return;
+    }
+
+    QString saveError;
+    if (!m_settingsService->savePanelLayout(currentPanelLayout(), &saveError)) {
+        qCWarning(qtcodeUi) << "Failed to save panel layout settings:" << saveError;
+    }
 }
 
 } // namespace qtcode::ui

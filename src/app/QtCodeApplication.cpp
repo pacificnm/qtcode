@@ -9,6 +9,7 @@
 
 #include <QGuiApplication>
 #include <QSysInfo>
+#include <QTimer>
 
 namespace {
 
@@ -43,12 +44,19 @@ int QtCodeApplication::run()
         return 1;
     }
 
-    qtcode::ui::MainWindow mainWindow;
-    mainWindow.show();
+    int exitCode = 0;
+    {
+        qtcode::ui::MainWindow mainWindow(m_controller->settingsService());
+        mainWindow.show();
 
-    qCInfo(qtcodeApp) << "Main window shown";
+        qCInfo(qtcodeApp) << "Main window shown";
 
-    const int exitCode = QApplication::exec();
+        if (qEnvironmentVariableIsSet("QTCODE_AUTO_QUIT")) {
+            QTimer::singleShot(200, &mainWindow, &QWidget::close);
+        }
+
+        exitCode = QApplication::exec();
+    }
 
     m_controller->shutdown();
     m_controller.reset();
