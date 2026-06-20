@@ -13,6 +13,7 @@ target_link_libraries(qtcode_ui
         qtcode_core
     PRIVATE
         qtcode_shared
+        qtcode_memory
         qtcode_git
         qtcode_terminal
         Qt6::Widgets

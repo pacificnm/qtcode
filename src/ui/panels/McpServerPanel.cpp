@@ -1,7 +1,11 @@
 #include "ui/panels/McpServerPanel.h"
 
+#include "memory/McpHealthResult.h"
 #include "core/McpServerService.h"
+#include "core/ProjectManager.h"
+#include "memory/MemoryService.h"
 #include "settings/McpServerModels.h"
+#include "settings/ProjectModels.h"
 #include "shared/Logging.h"
 #include "shared/SecretStore.h"
 
@@ -55,9 +59,13 @@ namespace qtcode::ui {
 
 McpServerPanel::McpServerPanel(
     qtcode::core::McpServerService *mcpServerService,
+    qtcode::memory::MemoryService *memoryService,
+    qtcode::core::ProjectManager *projectManager,
     QWidget *parent)
     : QWidget(parent)
     , m_mcpServerService(mcpServerService)
+    , m_memoryService(memoryService)
+    , m_projectManager(projectManager)
 {
     configureLayout();
 
@@ -68,6 +76,14 @@ McpServerPanel::McpServerPanel(
             this,
             &McpServerPanel::refreshServerList);
         refreshServerList();
+    }
+
+    if (m_memoryService != nullptr) {
+        connect(
+            m_memoryService,
+            &qtcode::memory::MemoryService::serverHealthUpdated,
+            this,
+            &McpServerPanel::onServerHealthUpdated);
     }
 }
 
@@ -128,16 +144,23 @@ void McpServerPanel::configureLayout()
     m_newButton = new QPushButton(i18n("New"), this);
     m_saveButton = new QPushButton(i18n("Save"), this);
     m_deleteButton = new QPushButton(i18n("Delete"), this);
+    m_testHealthButton = new QPushButton(i18n("Test health"), this);
+
+    m_healthStateLabel = new QLabel(this);
+    m_healthStateLabel->setWordWrap(true);
+    m_healthStateLabel->setAlignment(Qt::AlignTop | Qt::AlignLeft);
 
     auto *buttonRow = new QHBoxLayout();
     buttonRow->addWidget(m_newButton);
     buttonRow->addWidget(m_saveButton);
     buttonRow->addWidget(m_deleteButton);
+    buttonRow->addWidget(m_testHealthButton);
     buttonRow->addStretch(1);
 
     layout->addWidget(titleLabel);
     layout->addWidget(m_statusLabel);
     layout->addWidget(m_serverList, 1);
+    layout->addWidget(m_healthStateLabel);
     layout->addLayout(formLayout);
     layout->addLayout(buttonRow);
 
@@ -145,6 +168,7 @@ void McpServerPanel::configureLayout()
     connect(m_newButton, &QPushButton::clicked, this, &McpServerPanel::createNewServer);
     connect(m_saveButton, &QPushButton::clicked, this, &McpServerPanel::saveCurrentServer);
     connect(m_deleteButton, &QPushButton::clicked, this, &McpServerPanel::deleteCurrentServer);
+    connect(m_testHealthButton, &QPushButton::clicked, this, &McpServerPanel::testSelectedServerHealth);
 }
 
 void McpServerPanel::refreshServerList()
@@ -161,7 +185,7 @@ void McpServerPanel::refreshServerList()
     int rowToSelect = -1;
     for (int index = 0; index < servers.size(); ++index) {
         const qtcode::settings::McpServerRecord &server = servers.at(index);
-        auto *item = new QListWidgetItem(server.name, m_serverList);
+        auto *item = new QListWidgetItem(serverListLabel(server), m_serverList);
         item->setData(Qt::UserRole, server.id);
         if (!server.enabled) {
             item->setForeground(Qt::gray);
@@ -182,11 +206,13 @@ void McpServerPanel::refreshServerList()
     setStatusMessage(
         servers.isEmpty() ? i18n("No MCP servers configured yet.")
                           : i18n("%1 MCP server(s) configured.", servers.size()));
+    refreshHealthDisplay();
 }
 
 void McpServerPanel::onServerSelectionChanged()
 {
     loadSelectedServerIntoForm();
+    refreshHealthDisplay();
 }
 
 void McpServerPanel::createNewServer()
@@ -214,6 +240,9 @@ void McpServerPanel::saveCurrentServer()
     m_editingServerId = server.id;
     setStatusMessage(i18n("Saved MCP server \"%1\".", server.name));
     refreshServerList();
+    if (m_memoryService != nullptr && server.enabled) {
+        m_memoryService->checkServerHealth(server, healthWorkingDirectory());
+    }
 }
 
 void McpServerPanel::deleteCurrentServer()
@@ -272,6 +301,118 @@ void McpServerPanel::loadSelectedServerIntoForm()
     setPlainTextLines(m_argsInput, match->args());
     setPlainTextLines(m_secretKeysInput, match->secretEnvKeys());
     m_enabledCheckbox->setChecked(match->enabled);
+    refreshHealthDisplay();
+}
+
+void McpServerPanel::testSelectedServerHealth()
+{
+    if (m_memoryService == nullptr || m_mcpServerService == nullptr || m_editingServerId.isEmpty()) {
+        setStatusMessage(i18n("Select an MCP server to test."));
+        return;
+    }
+
+    const QList<qtcode::settings::McpServerRecord> servers = m_mcpServerService->servers();
+    const auto match = std::find_if(
+        servers.cbegin(),
+        servers.cend(),
+        [this](const qtcode::settings::McpServerRecord &server) {
+            return server.id == m_editingServerId;
+        });
+    if (match == servers.cend()) {
+        setStatusMessage(i18n("Select an MCP server to test."));
+        return;
+    }
+
+    m_memoryService->checkServerHealth(*match, healthWorkingDirectory());
+    setStatusMessage(i18n("Testing MCP server \"%1\"...", match->name));
+}
+
+void McpServerPanel::onServerHealthUpdated(
+    const QString &serverId,
+    const qtcode::memory::McpHealthResult &result)
+{
+    if (m_mcpServerService == nullptr || m_serverList == nullptr) {
+        return;
+    }
+
+    const QList<qtcode::settings::McpServerRecord> servers = m_mcpServerService->servers();
+    for (int index = 0; index < servers.size(); ++index) {
+        if (servers.at(index).id != serverId) {
+            continue;
+        }
+
+        if (QListWidgetItem *item = m_serverList->item(index)) {
+            item->setText(serverListLabel(servers.at(index)));
+        }
+        break;
+    }
+
+    if (serverId == m_editingServerId) {
+        refreshHealthDisplay();
+        if (result.state == qtcode::memory::McpHealthState::Healthy) {
+            setStatusMessage(result.message);
+        } else if (result.state == qtcode::memory::McpHealthState::Unhealthy) {
+            setStatusMessage(result.message);
+        }
+    }
+}
+
+void McpServerPanel::refreshHealthDisplay()
+{
+    if (m_healthStateLabel == nullptr || m_memoryService == nullptr || m_editingServerId.isEmpty()) {
+        if (m_healthStateLabel != nullptr) {
+            m_healthStateLabel->clear();
+        }
+        return;
+    }
+
+    const qtcode::memory::McpHealthResult health = m_memoryService->healthForServer(m_editingServerId);
+    if (health.state == qtcode::memory::McpHealthState::Unknown) {
+        m_healthStateLabel->setText(i18n("Health has not been checked yet."));
+        return;
+    }
+
+    m_healthStateLabel->setText(
+        i18n("%1: %2", qtcode::memory::mcpHealthStateLabel(health.state), health.message));
+}
+
+QString McpServerPanel::healthWorkingDirectory() const
+{
+    if (m_projectManager == nullptr || !m_projectManager->hasActiveProject()) {
+        return {};
+    }
+
+    qtcode::settings::ProjectRecord activeProject;
+    if (!m_projectManager->activeProject(&activeProject)) {
+        return {};
+    }
+
+    return activeProject.rootPath;
+}
+
+QString McpServerPanel::serverListLabel(const qtcode::settings::McpServerRecord &server) const
+{
+    QString label = server.name;
+    if (m_memoryService == nullptr) {
+        return label;
+    }
+
+    const qtcode::memory::McpHealthResult health = m_memoryService->healthForServer(server.id);
+    switch (health.state) {
+    case qtcode::memory::McpHealthState::Healthy:
+        label.append(QStringLiteral(" \u2713"));
+        break;
+    case qtcode::memory::McpHealthState::Unhealthy:
+        label.append(QStringLiteral(" \u2717"));
+        break;
+    case qtcode::memory::McpHealthState::Checking:
+        label.append(QStringLiteral(" ..."));
+        break;
+    case qtcode::memory::McpHealthState::Unknown:
+        break;
+    }
+
+    return label;
 }
 
 qtcode::settings::McpServerRecord McpServerPanel::currentFormRecord() const
@@ -314,6 +455,9 @@ void McpServerPanel::clearForm()
     }
     if (m_enabledCheckbox != nullptr) {
         m_enabledCheckbox->setChecked(true);
+    }
+    if (m_healthStateLabel != nullptr) {
+        m_healthStateLabel->clear();
     }
 }
 

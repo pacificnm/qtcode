@@ -28,6 +28,10 @@ namespace qtcode::agents {
 class AgentManager;
 } // namespace qtcode::agents
 
+namespace qtcode::memory {
+class MemoryService;
+} // namespace qtcode::memory
+
 namespace qtcode::core {
 
 class ApplicationController
@@ -50,12 +54,15 @@ public:
     [[nodiscard]] CliCapabilityService *cliCapabilityService() const;
     [[nodiscard]] agents::AgentManager *agentManager() const;
     [[nodiscard]] McpServerService *mcpServerService() const;
+    [[nodiscard]] memory::MemoryService *memoryService() const;
     [[nodiscard]] bool runSmokeTestAgentPromptIfRequested(
         QString *errorMessage = nullptr,
         QString *sessionId = nullptr);
     [[nodiscard]] bool runSmokeTestDiffArtifactIfRequested(QString *errorMessage = nullptr);
 
 private:
+    void scheduleStartupMcpHealthChecks();
+
     std::unique_ptr<storage::StorageService> m_storageService;
     std::unique_ptr<SettingsService> m_settingsService;
     std::unique_ptr<git::GitService> m_gitService;
@@ -64,6 +71,7 @@ private:
     std::unique_ptr<CliCapabilityService> m_cliCapabilityService;
     std::unique_ptr<agents::AgentManager> m_agentManager;
     std::unique_ptr<McpServerService> m_mcpServerService;
+    std::unique_ptr<memory::MemoryService> m_memoryService;
 };
 
 } // namespace qtcode::core
