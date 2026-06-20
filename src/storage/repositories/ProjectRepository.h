@@ -37,6 +37,11 @@ public:
     [[nodiscard]] bool listProjects(
         QList<settings::ProjectRecord> *projects,
         QString *errorMessage = nullptr) const;
+    [[nodiscard]] bool updatePrimaryRepositoryBranch(
+        const QString &projectId,
+        const QString &branchName,
+        const QString &timestamp,
+        QString *errorMessage = nullptr);
     [[nodiscard]] bool findPrimaryRepository(
         const QString &projectId,
         settings::RepositoryRecord *repository,

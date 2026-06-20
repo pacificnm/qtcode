@@ -240,6 +240,35 @@ bool ProjectRepository::listProjects(
     return true;
 }
 
+bool ProjectRepository::updatePrimaryRepositoryBranch(
+    const QString &projectId,
+    const QString &branchName,
+    const QString &timestamp,
+    QString *errorMessage)
+{
+    QSqlQuery query(m_storageService.database());
+    query.prepare(QStringLiteral(
+        "UPDATE repositories "
+        "SET default_branch = :default_branch, updated_at = :updated_at "
+        "WHERE id = ("
+        "SELECT id FROM repositories WHERE project_id = :project_id "
+        "ORDER BY created_at ASC LIMIT 1"
+        ")"));
+    query.bindValue(QStringLiteral(":project_id"), projectId);
+    query.bindValue(QStringLiteral(":default_branch"), branchName);
+    query.bindValue(QStringLiteral(":updated_at"), timestamp);
+
+    if (!query.exec()) {
+        const QString message = query.lastError().text();
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("Failed to update repository branch: %1").arg(message);
+        }
+        return false;
+    }
+
+    return query.numRowsAffected() > 0;
+}
+
 bool ProjectRepository::findPrimaryRepository(
     const QString &projectId,
     settings::RepositoryRecord *repository,
