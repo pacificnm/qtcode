@@ -17,6 +17,7 @@ public:
     [[nodiscard]] const CliCapabilitiesSnapshot &snapshot() const;
     [[nodiscard]] bool isGitAvailable() const;
     [[nodiscard]] bool isGhAvailable() const;
+    [[nodiscard]] bool isGhAuthenticated() const;
     [[nodiscard]] bool isAgentCliAvailable() const;
 
 signals:
@@ -26,6 +27,7 @@ private:
     [[nodiscard]] CliToolCapability detectGit() const;
     [[nodiscard]] CliToolCapability detectGh() const;
     [[nodiscard]] CliToolCapability detectFirstAgentCli() const;
+    [[nodiscard]] static QString parseGhAuthAccount(const QString &authStatusOutput);
     [[nodiscard]] CliToolCapability probeExecutable(
         const QString &toolId,
         const QString &displayName,

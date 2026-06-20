@@ -9,9 +9,12 @@ struct CliToolCapability
     QString toolId;
     QString displayName;
     bool available = false;
+    bool authenticated = false;
     QString executablePath;
     QString version;
     QString unavailableMessage;
+    QString authUnavailableMessage;
+    QString authAccount;
 };
 
 struct CliCapabilitiesSnapshot
