@@ -5,12 +5,16 @@
 #include "git/GitService.h"
 #include "settings/ProjectModels.h"
 #include "shared/Logging.h"
+#include "ui/models/RepositoryListModel.h"
 
 #include <KLocalizedString>
 
+#include <QFileDialog>
 #include <QLabel>
+#include <QListView>
 #include <QListWidget>
 #include <QPushButton>
+#include <QSignalBlocker>
 #include <QVBoxLayout>
 #include <QtConcurrent>
 #include <QFutureWatcher>
@@ -27,6 +31,30 @@ RepositoryPanel::RepositoryPanel(
     , m_refreshWatcher(new QFutureWatcher<qtcode::git::RepositoryGitSnapshot>(this))
 {
     configureLayout();
+
+    if (m_projectManager != nullptr) {
+        m_repositoryModel = new RepositoryListModel(m_projectManager, this);
+        m_repositoryList->setModel(m_repositoryModel);
+
+        connect(
+            m_repositoryList->selectionModel(),
+            &QItemSelectionModel::currentChanged,
+            this,
+            &RepositoryPanel::onRepositorySelected);
+        connect(
+            m_projectManager,
+            &qtcode::core::ProjectManager::activeProjectChanged,
+            this,
+            &RepositoryPanel::syncRepositorySelection);
+        connect(
+            m_projectManager,
+            &qtcode::core::ProjectManager::projectsChanged,
+            this,
+            &RepositoryPanel::syncRepositorySelection);
+
+        syncRepositorySelection();
+    }
+
     connect(m_refreshWatcher, &QFutureWatcher<qtcode::git::RepositoryGitSnapshot>::finished, this, &RepositoryPanel::onRefreshFinished);
     refreshStatus();
 }
@@ -53,12 +81,23 @@ void RepositoryPanel::configureLayout()
     m_projectLabel->setWordWrap(true);
     m_projectLabel->setAlignment(Qt::AlignTop | Qt::AlignLeft);
 
+    QFont sectionFont = m_projectLabel->font();
+    sectionFont.setBold(true);
+
+    auto *localRepositoriesTitle = new QLabel(i18n("Local repositories"), this);
+    localRepositoriesTitle->setFont(sectionFont);
+
+    m_repositoryList = new QListView(this);
+    m_repositoryList->setSelectionMode(QAbstractItemView::SingleSelection);
+    m_repositoryList->setEditTriggers(QAbstractItemView::NoEditTriggers);
+
+    m_addRepositoryButton = new QPushButton(i18n("Add repository"), this);
+    connect(m_addRepositoryButton, &QPushButton::clicked, this, &RepositoryPanel::addRepository);
+
     m_refreshButton = new QPushButton(i18n("Refresh status"), this);
     connect(m_refreshButton, &QPushButton::clicked, this, &RepositoryPanel::refreshStatus);
 
     auto *changedFilesTitle = new QLabel(i18n("Changed files"), this);
-    QFont sectionFont = changedFilesTitle->font();
-    sectionFont.setBold(true);
     changedFilesTitle->setFont(sectionFont);
 
     m_changedFilesStateLabel = new QLabel(this);
@@ -80,6 +119,9 @@ void RepositoryPanel::configureLayout()
 
     layout->addWidget(titleLabel);
     layout->addWidget(m_projectLabel);
+    layout->addWidget(localRepositoriesTitle);
+    layout->addWidget(m_repositoryList);
+    layout->addWidget(m_addRepositoryButton);
     layout->addWidget(m_refreshButton);
     layout->addWidget(changedFilesTitle);
     layout->addWidget(m_changedFilesStateLabel);
@@ -185,7 +227,8 @@ void RepositoryPanel::showEmptyState(const QString &message)
     m_commitsStateLabel->hide();
     m_commitsList->clear();
     m_commitsList->hide();
-    m_refreshButton->setEnabled(false);
+    m_refreshButton->setEnabled(m_projectManager != nullptr && m_projectManager->hasActiveProject());
+    m_addRepositoryButton->setEnabled(m_projectManager != nullptr);
 }
 
 void RepositoryPanel::showErrorState(const QString &message)
@@ -243,6 +286,71 @@ void RepositoryPanel::showRecentCommits(const QList<qtcode::git::GitCommitSummar
     }
 
     m_commitsList->show();
+}
+
+void RepositoryPanel::addRepository()
+{
+    if (m_projectManager == nullptr) {
+        showErrorState(i18n("Repository services are unavailable."));
+        return;
+    }
+
+    const QString path = QFileDialog::getExistingDirectory(this, i18n("Add local repository"));
+    if (path.isEmpty()) {
+        return;
+    }
+
+    QString errorMessage;
+    if (!m_projectManager->addLocalRepository(path, nullptr, &errorMessage)) {
+        qCWarning(qtcodeUi) << "Failed to add local repository:" << errorMessage;
+        showErrorState(i18n("Could not add repository: %1", errorMessage));
+        return;
+    }
+
+    refreshStatus();
+}
+
+void RepositoryPanel::onRepositorySelected(const QModelIndex &current, const QModelIndex &)
+{
+    if (!current.isValid() || m_projectManager == nullptr) {
+        return;
+    }
+
+    const QString projectId = current.data(RepositoryListModel::ProjectIdRole).toString();
+    if (projectId.isEmpty() || projectId == m_projectManager->activeProjectId()) {
+        return;
+    }
+
+    QString errorMessage;
+    if (!m_projectManager->openProject(projectId, nullptr, &errorMessage)) {
+        qCWarning(qtcodeUi) << "Failed to open selected repository:" << errorMessage;
+        showErrorState(i18n("Could not open repository: %1", errorMessage));
+        return;
+    }
+
+    refreshStatus();
+}
+
+void RepositoryPanel::syncRepositorySelection()
+{
+    if (m_repositoryModel == nullptr || m_repositoryList == nullptr || m_projectManager == nullptr) {
+        return;
+    }
+
+    const QString activeProjectId = m_projectManager->activeProjectId();
+    if (activeProjectId.isEmpty()) {
+        m_repositoryList->clearSelection();
+        return;
+    }
+
+    for (int row = 0; row < m_repositoryModel->rowCount(); ++row) {
+        const QModelIndex index = m_repositoryModel->index(row);
+        if (index.data(RepositoryListModel::ProjectIdRole).toString() == activeProjectId) {
+            QSignalBlocker blocker(m_repositoryList->selectionModel());
+            m_repositoryList->setCurrentIndex(index);
+            return;
+        }
+    }
 }
 
 } // namespace qtcode::ui

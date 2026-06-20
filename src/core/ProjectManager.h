@@ -5,6 +5,8 @@
 #include <QList>
 #include <QString>
 
+#include <QObject>
+
 namespace qtcode::git {
 class GitService;
 } // namespace qtcode::git
@@ -15,10 +17,15 @@ class StorageService;
 
 namespace qtcode::core {
 
-class ProjectManager
+class ProjectManager final : public QObject
 {
+    Q_OBJECT
+
 public:
-    ProjectManager(storage::StorageService &storageService, git::GitService &gitService);
+    explicit ProjectManager(
+        storage::StorageService &storageService,
+        git::GitService &gitService,
+        QObject *parent = nullptr);
 
     [[nodiscard]] bool restoreState(QString *errorMessage = nullptr);
     [[nodiscard]] bool addLocalRepository(
@@ -37,6 +44,10 @@ public:
     [[nodiscard]] bool hasActiveProject() const;
     [[nodiscard]] QString activeProjectId() const;
     [[nodiscard]] bool activeProject(settings::ProjectRecord *project) const;
+
+signals:
+    void projectsChanged();
+    void activeProjectChanged(const QString &projectId);
 
 private:
     [[nodiscard]] bool refreshProjects(QString *errorMessage);
