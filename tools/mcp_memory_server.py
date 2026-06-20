@@ -1,5 +1,7 @@
 #!/usr/bin/python3
 
+from pathlib import Path
+
 try:
     import psycopg
     from mcp.server.fastmcp import FastMCP
@@ -19,8 +21,15 @@ mcp = FastMCP("qtcode-memory")
 def search_project_memory(query: str, limit: int = 8) -> str:
     """Search QTCode project memory for specs, decisions, issues, and build notes."""
     from openai import OpenAI
+    from memory_common import load_openai_api_key
 
-    client = OpenAI()
+    api_key = load_openai_api_key()
+    if not api_key:
+        raise RuntimeError(
+            f"Missing OpenAI API key. Set OPENAI_API_KEY or create {Path.home() / '.openAi' / 'key'}."
+        )
+
+    client = OpenAI(api_key=api_key)
     embedding = client.embeddings.create(
         model="text-embedding-3-small",
         input=query,

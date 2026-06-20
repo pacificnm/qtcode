@@ -56,7 +56,7 @@ Project memory is part of the workflow, not an afterthought.
 - Prefer retrieved context over stale assumptions.
 - Use memory results together with ADRs and milestone docs.
 - If memory and docs disagree, prefer the docs and call out the mismatch.
-- For local helper scripts in `tools/`, use `/usr/bin/python3` rather than a virtualenv path.
+- Prefer the wrapper scripts in `scripts/` for memory tooling and other repeated repo operations. Use `/usr/bin/python3` only for stdlib-only scripts; use `.venv/bin/python` for the memory tooling and any script that needs third-party packages.
 
 ## 6. Verify Before You Change
 

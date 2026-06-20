@@ -1,0 +1,173 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+VENV_PYTHON="$ROOT_DIR/.venv/bin/python"
+
+failures=0
+warnings=0
+
+ok() {
+  printf '[OK] %s\n' "$1"
+}
+
+warn() {
+  printf '[WARN] %s\n' "$1"
+  warnings=$((warnings + 1))
+}
+
+fail() {
+  printf '[FAIL] %s\n' "$1"
+  failures=$((failures + 1))
+}
+
+command_exists() {
+  command -v "$1" >/dev/null 2>&1
+}
+
+version_ge() {
+  local actual="$1"
+  local required="$2"
+  [[ "$(printf '%s\n%s\n' "$required" "$actual" | sort -V | head -n1)" == "$required" ]]
+}
+
+check_min_version() {
+  local name="$1"
+  local actual="$2"
+  local required="$3"
+
+  if version_ge "$actual" "$required"; then
+    ok "$name $actual (>= $required)"
+  else
+    fail "$name $actual is older than required $required"
+  fi
+}
+
+check_pkg_config_module() {
+  local module="$1"
+  if pkg-config --exists "$module"; then
+    ok "pkg-config module $module"
+  else
+    fail "missing pkg-config module $module"
+  fi
+}
+
+check_python_module() {
+  local module="$1"
+  if "$VENV_PYTHON" -c "import $module" >/dev/null 2>&1; then
+    ok "Python module $module"
+  else
+    fail "missing Python module $module in .venv"
+  fi
+}
+
+echo "QTCode toolchain check"
+echo
+
+if command_exists git; then
+  ok "git: $(git --version | awk '{print $3}')"
+else
+  fail "git is missing"
+fi
+
+if command_exists cmake; then
+  cmake_version="$(cmake --version | awk 'NR==1 {print $3}')"
+  check_min_version "cmake" "$cmake_version" "3.28"
+else
+  fail "cmake is missing"
+fi
+
+if command_exists ninja; then
+  ok "ninja: $(ninja --version)"
+elif command_exists make; then
+  ok "GNU make: $(make --version | awk 'NR==1 {print $3}')"
+else
+  fail "neither ninja nor make is installed"
+fi
+
+if command_exists c++; then
+  cxx_bin="$(command -v c++)"
+elif command_exists g++; then
+  cxx_bin="$(command -v g++)"
+elif command_exists clang++; then
+  cxx_bin="$(command -v clang++)"
+else
+  cxx_bin=""
+fi
+
+if [[ -n "$cxx_bin" ]]; then
+  cxx_name="$(basename "$cxx_bin")"
+  cxx_version="$("$cxx_bin" --version | awk 'NR==1 {print $NF}')"
+  ok "$cxx_name: $cxx_version"
+  if printf 'int main() { return 0; }\n' | "$cxx_bin" -std=c++20 -x c++ -fsyntax-only - >/dev/null 2>&1; then
+    ok "$cxx_name supports C++20"
+  else
+    fail "$cxx_name does not accept -std=c++20"
+  fi
+else
+  fail "no C++ compiler found"
+fi
+
+if command_exists pkg-config; then
+  ok "pkg-config"
+  check_pkg_config_module Qt6Core
+  check_pkg_config_module Qt6Widgets
+  check_pkg_config_module KF6CoreAddons
+  check_pkg_config_module KF6I18n
+  check_pkg_config_module qtermwidget6
+  check_pkg_config_module sqlite3
+  check_pkg_config_module libgit2
+else
+  fail "pkg-config is missing"
+fi
+
+if command_exists gh; then
+  ok "gh: $(gh --version | awk 'NR==1 {print $3}')"
+else
+  fail "gh is missing"
+fi
+
+if [[ -x "$VENV_PYTHON" ]]; then
+  ok ".venv/python"
+  check_python_module openai
+  check_python_module psycopg
+  check_python_module mcp
+else
+  fail "missing .venv/bin/python"
+fi
+
+if [[ -n "${OPENAI_API_KEY:-}" ]]; then
+  ok "OpenAI API key from environment"
+elif [[ -f "$HOME/.openAi/key" ]]; then
+  ok "OpenAI API key from ~/.openAi/key"
+else
+  warn "OpenAI API key not found in OPENAI_API_KEY or ~/.openAi/key"
+fi
+
+if command_exists psql; then
+  ok "psql: $(psql --version | awk '{print $3}')"
+else
+  warn "psql is missing; PostgreSQL memory setup commands will not work yet"
+fi
+
+if command_exists pg_isready; then
+  if pg_isready >/dev/null 2>&1; then
+    ok "PostgreSQL is accepting connections"
+  else
+    warn "PostgreSQL is not accepting connections right now"
+  fi
+else
+  warn "pg_isready is missing"
+fi
+
+echo
+if [[ "$warnings" -gt 0 ]]; then
+  printf 'Warnings: %d\n' "$warnings"
+fi
+
+if [[ "$failures" -gt 0 ]]; then
+  printf 'Failures: %d\n' "$failures"
+  exit 1
+fi
+
+echo "Toolchain looks ready."

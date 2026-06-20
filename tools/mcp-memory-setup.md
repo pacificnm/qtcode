@@ -21,7 +21,7 @@ through the MCP tool `search_project_memory`.
 
 - PostgreSQL with the `pgvector` extension available.
 - Python 3 with the `openai`, `psycopg`, and `mcp` packages installed.
-- An OpenAI API key in the environment or in repo-local `.env`.
+- An OpenAI API key in `~/.openAi/key` or in the `OPENAI_API_KEY` environment variable.
 
 The default connection string is:
 
@@ -90,20 +90,25 @@ If the role already exists, keep it and only apply the grants.
 
 ## Python Setup
 
-Use the system Python runtime:
+On Ubuntu and other PEP 668-managed systems, install the MCP tooling into a
+project virtual environment instead of the system Python:
 
 ```bash
-/usr/bin/python3 -m pip install --user --upgrade pip
-/usr/bin/python3 -m pip install --user openai psycopg "mcp[cli]"
+sudo apt install python3-full
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install openai psycopg "mcp[cli]"
 ```
 
-Create `.env` from the example and fill in the local API key:
+Create `.env` from the example if you want to override the default key path or
+database URL:
 
 ```bash
 cp .env.example .env
 ```
 
-Required values:
+Required values when you use `.env`:
 
 ```env
 DATABASE_URL="postgresql:///qtcode_memory?host=/var/run/postgresql"
@@ -112,23 +117,34 @@ OPENAI_API_KEY="sk-..."
 
 Do not commit `.env`.
 
+If you prefer the key-file workflow, create the file once:
+
+```bash
+mkdir -p ~/.openAi
+printf '%s\n' 'sk-...' > ~/.openAi/key
+chmod 600 ~/.openAi/key
+```
+
 ## Index Project Memory
 
 Run the indexer from the repository root:
 
 ```bash
-/usr/bin/python3 tools/index_memory.py
+scripts/index-memory
 ```
 
-The indexer reads:
+The indexer automatically discovers repository documentation and repo-related
+text files, including:
 
-- `AGENTS.md`
-- `DECISIONS.md`
-- `KNOWN_ISSUES.md`
-- `BUILD_COMMANDS.md`
-- `README.md`
-- `doc/**/*.md`
-- `docs/**/*.md`, when present
+- root-level markdown files such as `README.md`, `PROMPT.md`, `AGENTS.md`,
+  `CONTRIBUTING.md`, and `SECURITY.md`
+- `docs/**/*.md`
+- `.github/**/*.md`
+- `.github/**/*.yml`
+- `.github/**/*.yaml`
+- `tools/*.md`
+
+Generated directories and local virtual environments are skipped.
 
 Each document is split into overlapping chunks. The indexer stores
 `source_path`, `content`, a `content_hash`, and the embedding. Existing chunks
@@ -143,7 +159,7 @@ TRUNCATE project_memory RESTART IDENTITY;
 Then rerun:
 
 ```bash
-/usr/bin/python3 tools/index_memory.py
+scripts/index-memory
 ```
 
 ## Test Local Search
@@ -151,7 +167,7 @@ Then rerun:
 Before wiring MCP into an agent, verify direct search:
 
 ```bash
-/usr/bin/python3 tools/search_memory.py "current milestone and QTCode architecture"
+scripts/search-memory "current milestone and QTCode architecture"
 ```
 
 Expected behavior:
@@ -165,7 +181,7 @@ Expected behavior:
 The MCP server runs over stdio:
 
 ```bash
-/usr/bin/python3 tools/mcp_memory_server.py
+scripts/run-memory-mcp
 ```
 
 It exposes one tool:
@@ -180,7 +196,7 @@ Example MCP client command configuration:
 {
   "mcpServers": {
     "qtcode-memory": {
-      "command": "/usr/bin/python3",
+      "command": "/home/jaimie/qtcode/.venv/bin/python",
       "args": [
         "/home/jaimie/qtcode/tools/mcp_memory_server.py"
       ],
@@ -195,6 +211,7 @@ Example MCP client command configuration:
 
 If the client launches the server from a shell where `.env` is readable from the
 repository root, the `env` block can omit `DATABASE_URL` and `OPENAI_API_KEY`.
+If `OPENAI_API_KEY` is not set, the tools will fall back to `~/.openAi/key`.
 Providing explicit environment values is usually clearer for editor and agent
 integrations.
 
@@ -217,9 +234,20 @@ the remaining project notes and existing code behavior.
 
 | Symptom | Likely cause | Fix |
 | --- | --- | --- |
-| `Missing Python dependency for QTCode memory MCP` | The MCP server dependencies are not installed for the system Python runtime. | Run with `/usr/bin/python3` and install `openai psycopg "mcp[cli]"`. |
+| `Missing OpenAI API key` | Neither `OPENAI_API_KEY` nor `~/.openAi/key` is available. | Set the environment variable or create the key file. |
+| `Missing Python dependency for QTCode memory MCP` | The MCP server dependencies are not installed in the project virtual environment. | Activate `.venv` and install `openai psycopg "mcp[cli]"`. |
 | `relation "project_memory" does not exist` | The table has not been created in the configured database. | Run the SQL table setup in this document. |
 | `type "vector" does not exist` | `pgvector` is not installed or `CREATE EXTENSION vector` has not been run. | Install the PostgreSQL `pgvector` package and enable the extension in `qtcode_memory`. |
 | Authentication or peer errors | The local PostgreSQL role does not match the OS user or lacks grants. | Create/grant the role or set `DATABASE_URL` to a connection string with explicit credentials. |
-| OpenAI authentication errors | `OPENAI_API_KEY` is missing or invalid. | Set the key in `.env` or the MCP client's environment configuration. |
-| Empty search results | The database is empty. | Run `/usr/bin/python3 tools/index_memory.py`. |
+| OpenAI authentication errors | `OPENAI_API_KEY` is missing or invalid, and `~/.openAi/key` is absent or unreadable. | Set the key in `.env`, export `OPENAI_API_KEY`, or create `~/.openAi/key`. |
+| Empty search results | The database is empty. | Run `scripts/index-memory`. |
+
+## Convenience Scripts
+
+- See [scripts/README.md](../scripts/README.md) for the short command list and
+  what each wrapper is for.
+- `scripts/check-toolchain` validates the local build and development setup.
+- `scripts/setup-memory-db` creates the `qtcode_memory` database and applies the schema.
+- `scripts/index-memory` indexes the repo docs and governance files.
+- `scripts/search-memory` searches indexed memory from the command line.
+- `scripts/run-memory-mcp` starts the FastMCP server.

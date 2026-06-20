@@ -2,8 +2,9 @@
 
 import argparse
 import sys
+from pathlib import Path
 
-from memory_common import database_url, vector_literal
+from memory_common import database_url, load_openai_api_key, vector_literal
 
 
 def parse_args() -> argparse.Namespace:
@@ -35,7 +36,13 @@ def main() -> int:
         import psycopg
         from openai import OpenAI
 
-        client = OpenAI()
+        api_key = load_openai_api_key()
+        if not api_key:
+            raise RuntimeError(
+                f"Missing OpenAI API key. Set OPENAI_API_KEY or create {Path.home() / '.openAi' / 'key'}."
+            )
+
+        client = OpenAI(api_key=api_key)
         embedding = client.embeddings.create(
             model="text-embedding-3-small",
             input=query,

@@ -27,15 +27,19 @@ This document records the baseline environment needed to build, run, and work on
 
 ## Local Scripting Runtime
 
-The repository helper scripts in `tools/` use the system Python runtime:
+The repository helper scripts in `tools/` should be run from a project virtual
+environment when they need third-party packages such as `openai`, `psycopg`, or
+`mcp`:
 
-- `/usr/bin/python3`
+```bash
+sudo apt install python3-full
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install openai psycopg "mcp[cli]"
+```
 
-Install the Python packages needed by the memory tooling when you plan to use it:
-
-- `openai`
-- `psycopg`
-- `mcp[cli]`
+Use `/usr/bin/python3` only for simple stdlib-only helper usage.
 
 ## Memory Tooling Dependencies
 
@@ -43,7 +47,7 @@ QTCode's memory workflow assumes:
 
 - PostgreSQL
 - `pgvector`
-- an `OPENAI_API_KEY` available to the memory helper scripts
+- an `OPENAI_API_KEY` environment variable or `~/.openAi/key`
 - the local `qtcode_memory` database
 
 ## GitHub Integration
@@ -54,9 +58,19 @@ For MVP GitHub workflows, install and authenticate:
 
 ## Suggested Verification Commands
 
-- `/usr/bin/python3 tools/search_memory.py "QTCode architecture"`
-- `/usr/bin/python3 -m py_compile tools/index_memory.py tools/mcp_memory_server.py tools/search_memory.py tools/memory_common.py`
+- `scripts/check-toolchain`
+- `scripts/build-app`
+- `scripts/test-app`
+- `scripts/index-memory`
+- `scripts/search-memory "QTCode architecture"`
+- `scripts/run-memory-mcp`
+- `.venv/bin/python -m py_compile tools/index_memory.py tools/mcp_memory_server.py tools/search_memory.py tools/memory_common.py`
 - `git status --short`
+
+## Script Reference
+
+See [scripts/README.md](../scripts/README.md) for the short command list and
+what each wrapper is for.
 
 ## Notes
 

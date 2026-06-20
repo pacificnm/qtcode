@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+DB_NAME="${QTcode_MEMORY_DB:-qtcode_memory}"
+
+echo "Creating PostgreSQL database: ${DB_NAME}"
+sudo -u postgres createdb "$DB_NAME" 2>/dev/null || true
+
+echo "Applying schema and pgvector extension"
+sudo -u postgres psql -d "$DB_NAME" <<'SQL'
+CREATE EXTENSION IF NOT EXISTS vector;
+
+CREATE TABLE IF NOT EXISTS project_memory (
+    id bigserial PRIMARY KEY,
+    source_path text NOT NULL,
+    content text NOT NULL,
+    content_hash text NOT NULL UNIQUE,
+    embedding vector(1536) NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS project_memory_embedding_idx
+    ON project_memory
+    USING hnsw (embedding vector_cosine_ops);
+
+CREATE INDEX IF NOT EXISTS project_memory_source_path_idx
+    ON project_memory (source_path);
+SQL
+
+echo "Done."

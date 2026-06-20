@@ -65,6 +65,7 @@ Start here:
 - [Documentation index](docs/README.md)
 - [Toolchain requirements](docs/toolchain-requirements.md)
 - [GitHub repo conventions](docs/github-repo-conventions.md)
+- [Scripts](scripts/README.md)
 - [Architecture and implementation plan](docs/plans/architecture-and-implementation-plan.md)
 - [Roadmap](docs/plans/roadmap.md)
 - [Product spec](docs/design/product-spec.md)

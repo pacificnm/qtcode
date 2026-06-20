@@ -8,6 +8,7 @@ from pathlib import Path
 
 
 DEFAULT_DATABASE_URL = "postgresql:///qtcode_memory?host=/var/run/postgresql"
+DEFAULT_OPENAI_KEY_PATH = Path.home() / ".openAi" / "key"
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -33,6 +34,23 @@ def load_project_env() -> None:
 def database_url() -> str:
     load_project_env()
     return os.environ.get("DATABASE_URL", DEFAULT_DATABASE_URL)
+
+
+def load_openai_api_key() -> str | None:
+    """Return the OpenAI API key from the environment or the user key file."""
+    load_project_env()
+
+    api_key = os.environ.get("OPENAI_API_KEY")
+    if api_key:
+        return api_key.strip() or None
+
+    if DEFAULT_OPENAI_KEY_PATH.is_file():
+        key = DEFAULT_OPENAI_KEY_PATH.read_text(encoding="utf-8").strip()
+        if key:
+            os.environ.setdefault("OPENAI_API_KEY", key)
+            return key
+
+    return None
 
 
 def vector_literal(values: Sequence[float]) -> str:
