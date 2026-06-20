@@ -1,5 +1,6 @@
 qtcode_add_module_library(qtcode_core STATIC
     ApplicationController.cpp
+    CliCapabilityService.cpp
     ProjectManager.cpp
     SettingsService.cpp
     ../settings/SettingsModels.cpp
