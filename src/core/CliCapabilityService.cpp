@@ -45,7 +45,13 @@ bool CliCapabilityService::detectCapabilities()
 
     qCInfo(qtcodeCore) << "CLI capabilities:"
                        << "git" << (m_snapshot.git.available ? m_snapshot.git.version : "missing")
-                       << "gh" << (m_snapshot.gh.available ? m_snapshot.gh.version : "missing")
+                       << "gh"
+                       << (m_snapshot.gh.available
+                               ? (m_snapshot.gh.authenticated
+                                      ? QStringLiteral("%1 authenticated as %2")
+                                            .arg(m_snapshot.gh.version, m_snapshot.gh.authAccount)
+                                      : QStringLiteral("%1 not authenticated").arg(m_snapshot.gh.version))
+                               : QStringLiteral("missing"))
                        << "agent"
                        << (m_snapshot.agentCli.available ? m_snapshot.agentCli.displayName
                                                          : "missing");
@@ -69,6 +75,11 @@ bool CliCapabilityService::isGhAvailable() const
     return m_snapshot.gh.available;
 }
 
+bool CliCapabilityService::isGhAuthenticated() const
+{
+    return m_snapshot.gh.available && m_snapshot.gh.authenticated;
+}
+
 bool CliCapabilityService::isAgentCliAvailable() const
 {
     return m_snapshot.agentCli.available;
@@ -87,13 +98,45 @@ CliToolCapability CliCapabilityService::detectGit() const
 
 CliToolCapability CliCapabilityService::detectGh() const
 {
-    return probeExecutable(
+    CliToolCapability capability = probeExecutable(
         QStringLiteral("gh"),
         QStringLiteral("GitHub CLI"),
         QStringLiteral("gh"),
         QStringLiteral(
-            "Install and authenticate GitHub CLI to browse issues and pull requests. "
-            "On Ubuntu/Debian: sudo apt install gh, then run gh auth login"));
+            "Install GitHub CLI to browse issues and pull requests. "
+            "On Ubuntu/Debian: sudo apt install gh"));
+
+    if (!capability.available) {
+        return capability;
+    }
+
+    capability.authUnavailableMessage = QStringLiteral(
+        "GitHub CLI is installed but not authenticated. "
+        "Run gh auth login to connect your GitHub account.");
+
+    const shared::ProcessResult authResult = shared::ProcessRunner::run(
+        capability.executablePath,
+        {QStringLiteral("auth"), QStringLiteral("status")},
+        kDetectionTimeoutMs);
+
+    const QString authOutput =
+        QStringLiteral("%1\n%2").arg(authResult.standardOutput, authResult.standardError).trimmed();
+
+    if (authResult.started && authResult.exitCode == 0) {
+        capability.authenticated = true;
+        capability.authAccount = parseGhAuthAccount(authOutput);
+        if (capability.authAccount.isEmpty()) {
+            qCDebug(qtcodeCore) << "GitHub CLI authenticated but account name was not parsed";
+        }
+        return capability;
+    }
+
+    capability.authenticated = false;
+    if (!authOutput.isEmpty()) {
+        qCDebug(qtcodeCore) << "GitHub CLI auth status:" << authOutput;
+    }
+
+    return capability;
 }
 
 CliToolCapability CliCapabilityService::detectFirstAgentCli() const
@@ -162,6 +205,28 @@ QString CliCapabilityService::firstOutputLine(const QString &output)
     }
 
     return output.left(newlineIndex).trimmed();
+}
+
+QString CliCapabilityService::parseGhAuthAccount(const QString &authStatusOutput)
+{
+    const QString accountPrefix = QStringLiteral("Logged in to github.com account ");
+    for (const QString &line : authStatusOutput.split(QLatin1Char('\n'))) {
+        const QString trimmedLine = line.trimmed();
+        const int prefixIndex = trimmedLine.indexOf(accountPrefix);
+        if (prefixIndex < 0) {
+            continue;
+        }
+
+        QString account = trimmedLine.mid(prefixIndex + accountPrefix.size()).trimmed();
+        const int suffixIndex = account.indexOf(QLatin1Char(' '));
+        if (suffixIndex >= 0) {
+            account = account.left(suffixIndex);
+        }
+
+        return account.trimmed();
+    }
+
+    return {};
 }
 
 } // namespace qtcode::core

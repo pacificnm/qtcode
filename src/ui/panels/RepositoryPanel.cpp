@@ -390,6 +390,8 @@ void RepositoryPanel::refreshCapabilityState()
     }
     if (!snapshot.gh.available) {
         messages.append(snapshot.gh.unavailableMessage);
+    } else if (!snapshot.gh.authenticated) {
+        messages.append(snapshot.gh.authUnavailableMessage);
     }
 
     if (messages.isEmpty()) {
