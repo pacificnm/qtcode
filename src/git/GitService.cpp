@@ -1,9 +1,11 @@
 #include "git/GitService.h"
 
+#include "git/GitCommitSummary.h"
 #include "shared/Logging.h"
 
 #include <git2.h>
 
+#include <QDateTime>
 #include <QFileInfo>
 
 #include <algorithm>
@@ -303,6 +305,117 @@ bool GitService::loadWorkingTreeStatus(
     qCInfo(qtcodeGit) << "Loaded" << status->changedFiles.size() << "changed file(s) for"
                       << repositoryInfo.localPath;
     return true;
+}
+
+QString commitSubject(const git_commit *commit)
+{
+    const char *message = git_commit_message(commit);
+    if (message == nullptr) {
+        return {};
+    }
+
+    return QString::fromUtf8(message).split(QLatin1Char('\n')).constFirst().trimmed();
+}
+
+bool GitService::loadRecentCommits(
+    const QString &path,
+    int limit,
+    QList<GitCommitSummary> *commits,
+    QString *errorMessage) const
+{
+    if (commits == nullptr) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("Git commit list output pointer is null.");
+        }
+        return false;
+    }
+
+    commits->clear();
+
+    if (limit <= 0) {
+        limit = 10;
+    }
+
+    GitRepositoryInfo repositoryInfo;
+    if (!inspectRepository(path, &repositoryInfo, errorMessage)) {
+        return false;
+    }
+
+    const QByteArray nativePath = repositoryInfo.localPath.toUtf8();
+    git_repository *repository = nullptr;
+    if (git_repository_open(&repository, nativePath.constData()) < 0) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("Failed to reopen repository for commit history: %1")
+                                .arg(libgit2ErrorMessage("unable to open repository"));
+        }
+        return false;
+    }
+
+    git_revwalk *walker = nullptr;
+    if (git_revwalk_new(&walker, repository) < 0) {
+        git_repository_free(repository);
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("Failed to initialize commit walker: %1")
+                                .arg(libgit2ErrorMessage("unable to create revwalk"));
+        }
+        return false;
+    }
+
+    git_revwalk_sorting(walker, GIT_SORT_TIME);
+    if (git_revwalk_push_head(walker) < 0) {
+        git_revwalk_free(walker);
+        git_repository_free(repository);
+        commits->clear();
+        qCInfo(qtcodeGit) << "No commits available for" << repositoryInfo.localPath;
+        return true;
+    }
+
+    git_oid oid {};
+    while (commits->size() < limit && git_revwalk_next(&oid, walker) == 0) {
+        git_commit *commit = nullptr;
+        if (git_commit_lookup(&commit, repository, &oid) < 0) {
+            continue;
+        }
+
+        GitCommitSummary summary;
+        summary.shortSha = shortOid(git_commit_id(commit));
+        summary.subject = commitSubject(commit);
+
+        const git_signature *author = git_commit_author(commit);
+        if (author != nullptr && author->name != nullptr) {
+            summary.author = QString::fromUtf8(author->name);
+        }
+
+        summary.committedAt = QDateTime::fromSecsSinceEpoch(git_commit_time(commit), Qt::UTC)
+                                .toString(Qt::ISODate);
+
+        commits->append(summary);
+        git_commit_free(commit);
+    }
+
+    git_revwalk_free(walker);
+    git_repository_free(repository);
+
+    qCInfo(qtcodeGit) << "Loaded" << commits->size() << "recent commit(s) for"
+                      << repositoryInfo.localPath;
+    return true;
+}
+
+RepositoryGitSnapshot loadRepositoryGitSnapshot(const QString &path, int commitLimit)
+{
+    RepositoryGitSnapshot snapshot;
+    GitService gitService;
+
+    if (!gitService.loadWorkingTreeStatus(path, &snapshot.status, &snapshot.errorMessage)) {
+        return snapshot;
+    }
+
+    if (!gitService.loadRecentCommits(path, commitLimit, &snapshot.commits, &snapshot.errorMessage)) {
+        return snapshot;
+    }
+
+    snapshot.success = true;
+    return snapshot;
 }
 
 } // namespace qtcode::git
