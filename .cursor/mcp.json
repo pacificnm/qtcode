@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "qtcode-memory": {
+      "command": "bash",
+      "args": [
+        "scripts/run-memory-mcp"
+      ]
+    }
+  }
+}
