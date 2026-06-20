@@ -1,6 +1,7 @@
 #include "core/ApplicationController.h"
 
 #include "core/CliCapabilityService.h"
+#include "core/McpServerService.h"
 #include "core/ProjectManager.h"
 #include "core/SettingsService.h"
 #include "git/GitService.h"
@@ -70,6 +71,13 @@ bool ApplicationController::initialize(QString *errorMessage)
 
     if (!m_agentManager->restoreState(errorMessage)) {
         qCWarning(qtcodeCore) << "Failed to restore agent sessions:"
+                              << (errorMessage != nullptr ? *errorMessage : QString());
+        return false;
+    }
+
+    m_mcpServerService = std::make_unique<McpServerService>(*m_storageService);
+    if (!m_mcpServerService->ensureDefaultConfiguration(errorMessage)) {
+        qCWarning(qtcodeCore) << "Failed to initialize MCP server configuration:"
                               << (errorMessage != nullptr ? *errorMessage : QString());
         return false;
     }
@@ -187,6 +195,7 @@ bool ApplicationController::initialize(QString *errorMessage)
 
 void ApplicationController::shutdown()
 {
+    m_mcpServerService.reset();
     m_agentManager.reset();
     m_cliCapabilityService.reset();
     m_terminalManager.reset();
@@ -236,6 +245,11 @@ CliCapabilityService *ApplicationController::cliCapabilityService() const
 agents::AgentManager *ApplicationController::agentManager() const
 {
     return m_agentManager.get();
+}
+
+McpServerService *ApplicationController::mcpServerService() const
+{
+    return m_mcpServerService.get();
 }
 
 bool ApplicationController::runSmokeTestAgentPromptIfRequested(

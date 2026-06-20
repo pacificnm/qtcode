@@ -1,9 +1,11 @@
 qtcode_add_module_library(qtcode_core STATIC
     ApplicationController.cpp
     CliCapabilityService.cpp
+    McpServerService.cpp
     ProjectManager.cpp
     SettingsService.cpp
     ../settings/SettingsModels.cpp
+    ../settings/McpServerModels.cpp
 )
 
 target_link_libraries(qtcode_core

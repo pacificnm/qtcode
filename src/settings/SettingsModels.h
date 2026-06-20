@@ -10,7 +10,7 @@ inline constexpr auto kPanelLayoutSettingKey = "app.panel_layout";
 
 struct PanelLayoutSettings
 {
-    QList<int> horizontalSizes {360, 920};
+    QList<int> horizontalSizes {280, 640, 320};
     QList<int> verticalSizes {560, 240};
     int windowWidth = 1280;
     int windowHeight = 800;

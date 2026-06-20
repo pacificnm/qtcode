@@ -12,6 +12,7 @@ namespace qtcode::core {
 class SettingsService;
 class ProjectManager;
 class CliCapabilityService;
+class McpServerService;
 
 } // namespace qtcode::core
 
@@ -48,6 +49,7 @@ public:
     [[nodiscard]] terminal::TerminalManager *terminalManager() const;
     [[nodiscard]] CliCapabilityService *cliCapabilityService() const;
     [[nodiscard]] agents::AgentManager *agentManager() const;
+    [[nodiscard]] McpServerService *mcpServerService() const;
     [[nodiscard]] bool runSmokeTestAgentPromptIfRequested(
         QString *errorMessage = nullptr,
         QString *sessionId = nullptr);
@@ -61,6 +63,7 @@ private:
     std::unique_ptr<terminal::TerminalManager> m_terminalManager;
     std::unique_ptr<CliCapabilityService> m_cliCapabilityService;
     std::unique_ptr<agents::AgentManager> m_agentManager;
+    std::unique_ptr<McpServerService> m_mcpServerService;
 };
 
 } // namespace qtcode::core
