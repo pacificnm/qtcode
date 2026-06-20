@@ -1,4 +1,5 @@
 qtcode_add_module_library(qtcode_github STATIC
+    GitHubRemoteResolver.cpp
     GitHubService.cpp
 )
 
