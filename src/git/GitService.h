@@ -1,9 +1,11 @@
 #pragma once
 
 #include "git/GitRepository.h"
+#include "git/GitCommitSummary.h"
 #include "git/GitStatus.h"
 
 #include <QString>
+#include <QList>
 
 namespace qtcode::git {
 
@@ -26,6 +28,11 @@ public:
     [[nodiscard]] bool loadWorkingTreeStatus(
         const QString &path,
         GitWorkingTreeStatus *status,
+        QString *errorMessage = nullptr) const;
+    [[nodiscard]] bool loadRecentCommits(
+        const QString &path,
+        int limit,
+        QList<GitCommitSummary> *commits,
         QString *errorMessage = nullptr) const;
 };
 
