@@ -254,6 +254,8 @@ bool AgentManager::dispatchRequest(
     userMessage.role = QStringLiteral("user");
     userMessage.content = normalizedRequest.prompt;
     userMessage.createdAt = QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs);
+    activeSession->clearLastErrorMessage();
+    activeSession->clearLastStatusUpdate();
     activeSession->addMessage(userMessage);
     if (!persistMessage(activeSession, userMessage, errorMessage)) {
         return false;
@@ -268,6 +270,9 @@ bool AgentManager::dispatchRequest(
 
     if (!selectedAdapter->startRequest(normalizedRequest, errorMessage)) {
         activeSession->setStatus(AgentSessionStatus::Failed);
+        if (errorMessage != nullptr && !errorMessage->isEmpty()) {
+            activeSession->setLastErrorMessage(*errorMessage);
+        }
         QString persistError;
         if (!persistSessionUpdate(activeSession, &persistError)) {
             qCWarning(qtcodeAgents) << "Failed to persist failed agent session:" << persistError;
@@ -279,6 +284,42 @@ bool AgentManager::dispatchRequest(
 
     emit sessionUpdated(activeSession);
     return true;
+}
+
+bool AgentManager::cancelRequest(const QString &sessionId, QString *errorMessage)
+{
+    AgentSession *activeSession = session(sessionId);
+    if (activeSession == nullptr) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("Agent session '%1' was not found.").arg(sessionId);
+        }
+        return false;
+    }
+
+    if (activeSession->status() != AgentSessionStatus::Running) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("No running agent request is active for this session.");
+        }
+        return false;
+    }
+
+    AgentAdapter *selectedAdapter = adapter(activeSession->agentKey());
+    if (selectedAdapter == nullptr) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("Agent adapter '%1' is not registered.")
+                                .arg(activeSession->agentKey());
+        }
+        return false;
+    }
+
+    selectedAdapter->cancelRequest();
+    return true;
+}
+
+bool AgentManager::isRequestActive(const QString &sessionId) const
+{
+    AgentSession *activeSession = session(sessionId);
+    return activeSession != nullptr && activeSession->status() == AgentSessionStatus::Running;
 }
 
 void AgentManager::onAdapterRequestFinished(
@@ -300,12 +341,13 @@ void AgentManager::onAdapterRequestFinished(
         activeSession->setStatus(AgentSessionStatus::Completed);
         break;
     case AgentRequestStatus::Canceled:
-        activeSession->setStatus(AgentSessionStatus::Idle);
+        activeSession->setStatus(AgentSessionStatus::Canceled);
         break;
     case AgentRequestStatus::Failed:
     default:
         activeSession->setStatus(AgentSessionStatus::Failed);
         if (!errorMessage.isEmpty()) {
+            activeSession->setLastErrorMessage(errorMessage);
             qCWarning(qtcodeAgents) << "Agent request failed for session" << activeSession->id()
                                     << errorMessage;
         }
@@ -388,6 +430,58 @@ bool AgentManager::persistMessage(
     return repository.insertMessage(record, errorMessage);
 }
 
+bool AgentManager::persistMessageUpdate(
+    const AgentSession *session,
+    const AgentMessage &message,
+    QString *errorMessage)
+{
+    if (session == nullptr) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("Agent session must not be null.");
+        }
+        return false;
+    }
+
+    storage::PersistedAgentMessage record;
+    record.id = message.id;
+    record.sessionId = session->id();
+    record.role = message.role;
+    record.content = message.content;
+    record.metadataJson = QString();
+    record.createdAt = message.createdAt;
+
+    storage::AgentSessionRepository repository(m_storageService);
+    return repository.updateMessage(record, errorMessage);
+}
+
+bool AgentManager::appendOrPersistAssistantOutput(
+    AgentSession *session,
+    const QString &text,
+    QString *errorMessage)
+{
+    if (session == nullptr || text.isEmpty()) {
+        return false;
+    }
+
+    if (session->appendAssistantOutput(text)) {
+        const QList<AgentMessage> messages = session->messages();
+        for (int index = messages.size() - 1; index >= 0; --index) {
+            if (messages.at(index).role == QStringLiteral("assistant")) {
+                return persistMessageUpdate(session, messages.at(index), errorMessage);
+            }
+        }
+        return false;
+    }
+
+    AgentMessage assistantMessage;
+    assistantMessage.id = createId();
+    assistantMessage.role = QStringLiteral("assistant");
+    assistantMessage.content = text;
+    assistantMessage.createdAt = QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs);
+    session->addMessage(assistantMessage);
+    return persistMessage(session, assistantMessage, errorMessage);
+}
+
 QString AgentManager::createId()
 {
     return QUuid::createUuid().toString(QUuid::WithoutBraces);
@@ -411,17 +505,18 @@ void AgentManager::connectAdapter(AgentAdapter *adapter)
             }
 
             if (event.type == AgentEventType::OutputText && !event.text.isEmpty()) {
-                AgentMessage assistantMessage;
-                assistantMessage.id = createId();
-                assistantMessage.role = QStringLiteral("assistant");
-                assistantMessage.content = event.text;
-                assistantMessage.createdAt =
-                    QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs);
-                activeSession->addMessage(assistantMessage);
                 QString persistError;
-                if (!persistMessage(activeSession, assistantMessage, &persistError)) {
-                    qCWarning(qtcodeAgents) << "Failed to persist assistant message:" << persistError;
+                if (!appendOrPersistAssistantOutput(activeSession, event.text, &persistError)) {
+                    qCWarning(qtcodeAgents) << "Failed to persist assistant output:" << persistError;
                 }
+            }
+
+            if (event.type == AgentEventType::StatusUpdate && !event.text.isEmpty()) {
+                activeSession->setLastStatusUpdate(event.text);
+            }
+
+            if (event.type == AgentEventType::Error && !event.error.message.isEmpty()) {
+                activeSession->setLastErrorMessage(event.error.message);
             }
 
             if (event.type == AgentEventType::ArtifactReady && !event.artifact.id.isEmpty()) {

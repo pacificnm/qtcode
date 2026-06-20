@@ -19,6 +19,7 @@
 #include <QPushButton>
 #include <QSignalBlocker>
 #include <QTextEdit>
+#include <QTextCursor>
 #include <QVBoxLayout>
 
 #include <algorithm>
@@ -121,6 +122,11 @@ void AgentPanel::configureLayout()
 
     m_sendButton = new QPushButton(i18n("Send prompt"), this);
     connect(m_sendButton, &QPushButton::clicked, this, &AgentPanel::sendPrompt);
+
+    m_cancelButton = new QPushButton(i18n("Cancel request"), this);
+    m_cancelButton->setVisible(false);
+    connect(m_cancelButton, &QPushButton::clicked, this, &AgentPanel::cancelActiveRequest);
+
     connect(m_newSessionButton, &QPushButton::clicked, this, &AgentPanel::createNewSession);
     connect(m_sessionList, &QListWidget::currentRowChanged, this, [this]() {
         onSessionListSelectionChanged();
@@ -135,6 +141,7 @@ void AgentPanel::configureLayout()
     layout->addWidget(m_conversationView, 1);
     layout->addWidget(m_promptInput);
     layout->addWidget(m_sendButton);
+    layout->addWidget(m_cancelButton);
 }
 
 void AgentPanel::refreshCapabilityState()
@@ -332,6 +339,10 @@ void AgentPanel::onSessionListSelectionChanged()
         m_activeSessionId.clear();
         refreshConversation();
         setPromptEnabled(false);
+        if (m_cancelButton != nullptr) {
+            m_cancelButton->setVisible(false);
+            m_cancelButton->setEnabled(false);
+        }
         return;
     }
 
@@ -367,11 +378,20 @@ void AgentPanel::onSessionUpdated(qtcode::agents::AgentSession *session)
 
     const bool running = session->status() == qtcode::agents::AgentSessionStatus::Running;
     setPromptEnabled(!running && m_projectManager != nullptr && m_projectManager->hasActiveProject());
+    updateSessionStatusDisplay(session);
+    updateRequestControls(session);
+}
 
-    if (session->status() == qtcode::agents::AgentSessionStatus::Failed) {
-        m_stateLabel->setText(i18n("The last agent request failed."));
-    } else if (session->status() == qtcode::agents::AgentSessionStatus::Completed) {
-        m_stateLabel->setText(i18n("Agent response completed."));
+void AgentPanel::cancelActiveRequest()
+{
+    if (m_agentManager == nullptr || m_activeSessionId.isEmpty()) {
+        return;
+    }
+
+    QString errorMessage;
+    if (!m_agentManager->cancelRequest(m_activeSessionId, &errorMessage)) {
+        m_stateLabel->setText(
+            errorMessage.isEmpty() ? i18n("Could not cancel the active agent request.") : errorMessage);
     }
 }
 
@@ -416,6 +436,55 @@ void AgentPanel::refreshConversation()
     }
 
     m_conversationView->setPlainText(lines.join(QStringLiteral("\n\n")));
+    m_conversationView->moveCursor(QTextCursor::End);
+}
+
+void AgentPanel::updateSessionStatusDisplay(const qtcode::agents::AgentSession *session)
+{
+    if (m_stateLabel == nullptr || session == nullptr) {
+        return;
+    }
+
+    switch (session->status()) {
+    case qtcode::agents::AgentSessionStatus::Running: {
+        const QString statusUpdate = session->lastStatusUpdate().trimmed();
+        if (statusUpdate.isEmpty()) {
+            m_stateLabel->setText(i18n("Agent request is running…"));
+        } else {
+            m_stateLabel->setText(i18n("Agent request is running: %1", statusUpdate));
+        }
+        break;
+    }
+    case qtcode::agents::AgentSessionStatus::Completed:
+        m_stateLabel->setText(i18n("Agent response completed."));
+        break;
+    case qtcode::agents::AgentSessionStatus::Failed: {
+        const QString errorMessage = session->lastErrorMessage().trimmed();
+        if (errorMessage.isEmpty()) {
+            m_stateLabel->setText(i18n("The last agent request failed. You can send another prompt."));
+        } else {
+            m_stateLabel->setText(i18n("The last agent request failed: %1", errorMessage));
+        }
+        break;
+    }
+    case qtcode::agents::AgentSessionStatus::Canceled:
+        m_stateLabel->setText(i18n("The last agent request was canceled."));
+        break;
+    case qtcode::agents::AgentSessionStatus::Idle:
+    default:
+        m_stateLabel->setText(i18n("Ready for the next prompt."));
+        break;
+    }
+}
+
+void AgentPanel::updateRequestControls(const qtcode::agents::AgentSession *session)
+{
+    const bool running = session != nullptr
+        && session->status() == qtcode::agents::AgentSessionStatus::Running;
+    if (m_cancelButton != nullptr) {
+        m_cancelButton->setVisible(running);
+        m_cancelButton->setEnabled(running);
+    }
 }
 
 void AgentPanel::setPromptEnabled(bool enabled)
@@ -442,6 +511,8 @@ void AgentPanel::selectSession(const QString &sessionId)
     }
 
     refreshConversation();
+    updateSessionStatusDisplay(session);
+    updateRequestControls(session);
 
     const bool running = session->status() == qtcode::agents::AgentSessionStatus::Running;
     setPromptEnabled(

@@ -46,6 +46,9 @@ public:
         const QString &sessionId,
         QList<PersistedAgentMessage> *messages,
         QString *errorMessage = nullptr) const;
+    [[nodiscard]] bool updateMessage(
+        const PersistedAgentMessage &message,
+        QString *errorMessage = nullptr);
     [[nodiscard]] bool insertMessage(
         const PersistedAgentMessage &message,
         QString *errorMessage = nullptr);

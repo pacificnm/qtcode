@@ -75,7 +75,8 @@ int QtCodeApplication::run()
                         }
 
                         if (session->status() == qtcode::agents::AgentSessionStatus::Completed
-                            || session->status() == qtcode::agents::AgentSessionStatus::Failed) {
+                            || session->status() == qtcode::agents::AgentSessionStatus::Failed
+                            || session->status() == qtcode::agents::AgentSessionStatus::Canceled) {
                             mainWindow.close();
                         }
                     });

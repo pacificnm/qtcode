@@ -59,6 +59,8 @@ QString agentSessionStatusLabel(AgentSessionStatus status)
         return QStringLiteral("Failed");
     case AgentSessionStatus::Completed:
         return QStringLiteral("Completed");
+    case AgentSessionStatus::Canceled:
+        return QStringLiteral("Canceled");
     }
 
     return QStringLiteral("Unknown");
@@ -75,6 +77,9 @@ AgentSessionStatus agentSessionStatusFromLabel(const QString &label)
     }
     if (normalizedLabel == QStringLiteral("Completed")) {
         return AgentSessionStatus::Completed;
+    }
+    if (normalizedLabel == QStringLiteral("Canceled")) {
+        return AgentSessionStatus::Canceled;
     }
 
     return AgentSessionStatus::Idle;

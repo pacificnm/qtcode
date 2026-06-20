@@ -179,6 +179,37 @@ bool AgentSessionRepository::listMessagesForSession(
     return true;
 }
 
+bool AgentSessionRepository::updateMessage(
+    const PersistedAgentMessage &message,
+    QString *errorMessage)
+{
+    QSqlQuery query(m_storageService.database());
+    query.prepare(QStringLiteral(
+        "UPDATE agent_messages SET "
+        "role = :role, "
+        "content = :content, "
+        "metadata_json = :metadata_json, "
+        "created_at = :created_at "
+        "WHERE id = :id AND session_id = :session_id"));
+    query.bindValue(QStringLiteral(":id"), message.id);
+    query.bindValue(QStringLiteral(":session_id"), message.sessionId);
+    query.bindValue(QStringLiteral(":role"), message.role);
+    query.bindValue(QStringLiteral(":content"), message.content);
+    query.bindValue(QStringLiteral(":metadata_json"), message.metadataJson);
+    query.bindValue(QStringLiteral(":created_at"), message.createdAt);
+
+    if (!query.exec()) {
+        const QString messageText = query.lastError().text();
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("Failed to update agent message: %1").arg(messageText);
+        }
+        qCWarning(qtcodeStorage) << "Failed to update agent message" << messageText;
+        return false;
+    }
+
+    return query.numRowsAffected() > 0;
+}
+
 bool AgentSessionRepository::insertMessage(
     const PersistedAgentMessage &message,
     QString *errorMessage)

@@ -24,6 +24,7 @@ enum class AgentSessionStatus {
     Running,
     Failed,
     Completed,
+    Canceled,
 };
 
 enum class AgentRequestStatus {

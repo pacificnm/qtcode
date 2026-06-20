@@ -38,6 +38,7 @@ private slots:
     void refreshSessionList();
     void sendPrompt();
     void createNewSession();
+    void cancelActiveRequest();
     void onSessionListSelectionChanged();
     void onSessionUpdated(qtcode::agents::AgentSession *session);
     void onActiveProjectChanged();
@@ -45,6 +46,8 @@ private slots:
 private:
     void configureLayout();
     void refreshConversation();
+    void updateSessionStatusDisplay(const qtcode::agents::AgentSession *session);
+    void updateRequestControls(const qtcode::agents::AgentSession *session);
     void setPromptEnabled(bool enabled);
     void selectSession(const QString &sessionId);
     [[nodiscard]] QString selectedAgentKey() const;
@@ -61,6 +64,7 @@ private:
     QTextEdit *m_conversationView = nullptr;
     QLineEdit *m_promptInput = nullptr;
     QPushButton *m_sendButton = nullptr;
+    QPushButton *m_cancelButton = nullptr;
     QString m_activeSessionId;
     bool m_refreshingSessionList = false;
 };
