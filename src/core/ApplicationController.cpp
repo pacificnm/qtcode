@@ -5,6 +5,7 @@
 #include "core/ProjectManager.h"
 #include "core/SettingsService.h"
 #include "git/GitService.h"
+#include "memory/MemoryService.h"
 #include "settings/ProjectModels.h"
 #include "shared/Logging.h"
 #include "storage/MigrationRunner.h"
@@ -17,6 +18,8 @@
 #include "terminal/TerminalProfile.h"
 
 #include <QUuid>
+
+#include <QTimer>
 
 #include <algorithm>
 
@@ -81,6 +84,8 @@ bool ApplicationController::initialize(QString *errorMessage)
                               << (errorMessage != nullptr ? *errorMessage : QString());
         return false;
     }
+
+    m_memoryService = std::make_unique<memory::MemoryService>();
 
     if (agents::AgentAdapter *registeredAdapter = m_agentManager->adapter(QStringLiteral("codex"));
         registeredAdapter != nullptr) {
@@ -189,12 +194,15 @@ bool ApplicationController::initialize(QString *errorMessage)
         }
     }
 
+    scheduleStartupMcpHealthChecks();
+
     qCInfo(qtcodeCore) << "Application services initialized";
     return true;
 }
 
 void ApplicationController::shutdown()
 {
+    m_memoryService.reset();
     m_mcpServerService.reset();
     m_agentManager.reset();
     m_cliCapabilityService.reset();
@@ -250,6 +258,11 @@ agents::AgentManager *ApplicationController::agentManager() const
 McpServerService *ApplicationController::mcpServerService() const
 {
     return m_mcpServerService.get();
+}
+
+memory::MemoryService *ApplicationController::memoryService() const
+{
+    return m_memoryService.get();
 }
 
 bool ApplicationController::runSmokeTestAgentPromptIfRequested(
@@ -388,6 +401,33 @@ bool ApplicationController::runSmokeTestDiffArtifactIfRequested(QString *errorMe
 
     qCInfo(qtcodeCore) << "Registered smoke-test diff artifact for" << artifact.filePath;
     return true;
+}
+
+void ApplicationController::scheduleStartupMcpHealthChecks()
+{
+    if (m_memoryService == nullptr || m_mcpServerService == nullptr) {
+        return;
+    }
+
+    const QList<settings::McpServerRecord> servers = m_mcpServerService->servers();
+    if (servers.isEmpty()) {
+        return;
+    }
+
+    QString workingDirectory;
+    if (m_projectManager != nullptr && m_projectManager->hasActiveProject()) {
+        settings::ProjectRecord activeProject;
+        if (m_projectManager->activeProject(&activeProject)) {
+            workingDirectory = activeProject.rootPath;
+        }
+    }
+
+    QTimer::singleShot(0, m_memoryService.get(), [this, servers, workingDirectory]() {
+        if (m_memoryService == nullptr) {
+            return;
+        }
+        m_memoryService->checkEnabledServers(servers, workingDirectory);
+    });
 }
 
 } // namespace qtcode::core

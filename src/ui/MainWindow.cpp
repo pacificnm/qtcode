@@ -58,6 +58,8 @@ void MainWindow::configureLayout()
         this);
     m_mcpServerPanel = new McpServerPanel(
         m_controller != nullptr ? m_controller->mcpServerService() : nullptr,
+        m_controller != nullptr ? m_controller->memoryService() : nullptr,
+        m_controller != nullptr ? m_controller->projectManager() : nullptr,
         this);
     m_terminalPanel = new TerminalPanel(
         m_controller != nullptr ? m_controller->terminalManager() : nullptr,
