@@ -10,4 +10,6 @@ target_link_libraries(qtcode_agents
     PUBLIC
         qtcode_shared
         Qt6::Core
+    PRIVATE
+        qtcode_storage
 )

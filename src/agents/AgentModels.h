@@ -94,6 +94,7 @@ struct AgentEvent
 [[nodiscard]] QString agentCapabilityLabel(AgentCapability capability);
 [[nodiscard]] QString agentErrorKindLabel(AgentErrorKind kind);
 [[nodiscard]] QString agentSessionStatusLabel(AgentSessionStatus status);
+[[nodiscard]] AgentSessionStatus agentSessionStatusFromLabel(const QString &label);
 
 } // namespace qtcode::agents
 

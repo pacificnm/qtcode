@@ -64,4 +64,20 @@ QString agentSessionStatusLabel(AgentSessionStatus status)
     return QStringLiteral("Unknown");
 }
 
+AgentSessionStatus agentSessionStatusFromLabel(const QString &label)
+{
+    const QString normalizedLabel = label.trimmed();
+    if (normalizedLabel == QStringLiteral("Running")) {
+        return AgentSessionStatus::Running;
+    }
+    if (normalizedLabel == QStringLiteral("Failed")) {
+        return AgentSessionStatus::Failed;
+    }
+    if (normalizedLabel == QStringLiteral("Completed")) {
+        return AgentSessionStatus::Completed;
+    }
+
+    return AgentSessionStatus::Idle;
+}
+
 } // namespace qtcode::agents

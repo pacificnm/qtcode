@@ -4,14 +4,16 @@
 #include "agents/AgentSession.h"
 #include "agents/adapters/CodexAgentAdapter.h"
 #include "shared/Logging.h"
+#include "storage/repositories/AgentSessionRepository.h"
 
 #include <QDateTime>
 #include <QUuid>
 
 namespace qtcode::agents {
 
-AgentManager::AgentManager(QObject *parent)
+AgentManager::AgentManager(storage::StorageService &storageService, QObject *parent)
     : QObject(parent)
+    , m_storageService(storageService)
 {
     qRegisterMetaType<qtcode::agents::AgentEvent>("qtcode::agents::AgentEvent");
     qRegisterMetaType<qtcode::agents::AgentRequestStatus>("qtcode::agents::AgentRequestStatus");
@@ -21,6 +23,50 @@ AgentManager::AgentManager(QObject *parent)
 }
 
 AgentManager::~AgentManager() = default;
+
+bool AgentManager::restoreState(QString *errorMessage)
+{
+    storage::AgentSessionRepository repository(m_storageService);
+    QList<storage::PersistedAgentSession> persistedSessions;
+    if (!repository.listSessions(&persistedSessions, errorMessage)) {
+        return false;
+    }
+
+    for (const storage::PersistedAgentSession &record : persistedSessions) {
+        QList<storage::PersistedAgentMessage> persistedMessages;
+        if (!repository.listMessagesForSession(record.id, &persistedMessages, errorMessage)) {
+            return false;
+        }
+
+        auto session = std::make_unique<AgentSession>(
+            record.id,
+            record.projectId,
+            record.agentKey,
+            record.title);
+
+        AgentSessionStatus status = agentSessionStatusFromLabel(record.status);
+        if (status == AgentSessionStatus::Running) {
+            status = AgentSessionStatus::Idle;
+        }
+
+        QList<AgentMessage> messages;
+        messages.reserve(persistedMessages.size());
+        for (const storage::PersistedAgentMessage &persistedMessage : persistedMessages) {
+            AgentMessage message;
+            message.id = persistedMessage.id;
+            message.role = persistedMessage.role;
+            message.content = persistedMessage.content;
+            message.createdAt = persistedMessage.createdAt;
+            messages.append(message);
+        }
+
+        session->restoreFromPersistence(status, messages, record.createdAt, record.updatedAt);
+        m_sessions.push_back(std::move(session));
+    }
+
+    qCInfo(qtcodeAgents) << "Restored" << m_sessions.size() << "agent session(s) from SQLite";
+    return true;
+}
 
 bool AgentManager::registerAdapter(
     std::unique_ptr<AgentAdapter> adapter,
@@ -127,6 +173,11 @@ AgentSession *AgentManager::createSession(
     AgentSession *rawSession = session.get();
     m_sessions.push_back(std::move(session));
 
+    if (!persistSessionInsert(rawSession, errorMessage)) {
+        m_sessions.pop_back();
+        return nullptr;
+    }
+
     qCInfo(qtcodeAgents) << "Created agent session" << rawSession->id() << "for project"
                          << projectId << "with adapter" << rawSession->agentKey();
 
@@ -204,12 +255,23 @@ bool AgentManager::dispatchRequest(
     userMessage.content = normalizedRequest.prompt;
     userMessage.createdAt = QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs);
     activeSession->addMessage(userMessage);
+    if (!persistMessage(activeSession, userMessage, errorMessage)) {
+        return false;
+    }
+
     activeSession->setStatus(AgentSessionStatus::Running);
+    if (!persistSessionUpdate(activeSession, errorMessage)) {
+        return false;
+    }
 
     m_activeSessionByAdapter.insert(selectedAdapter->agentKey(), activeSession);
 
     if (!selectedAdapter->startRequest(normalizedRequest, errorMessage)) {
         activeSession->setStatus(AgentSessionStatus::Failed);
+        QString persistError;
+        if (!persistSessionUpdate(activeSession, &persistError)) {
+            qCWarning(qtcodeAgents) << "Failed to persist failed agent session:" << persistError;
+        }
         m_activeSessionByAdapter.remove(selectedAdapter->agentKey());
         emit sessionUpdated(activeSession);
         return false;
@@ -250,7 +312,80 @@ void AgentManager::onAdapterRequestFinished(
         break;
     }
 
+    QString persistError;
+    if (!persistSessionUpdate(activeSession, &persistError)) {
+        qCWarning(qtcodeAgents) << "Failed to persist agent session update:" << persistError;
+    }
+
     emit sessionUpdated(activeSession);
+}
+
+bool AgentManager::persistSessionInsert(const AgentSession *session, QString *errorMessage)
+{
+    if (session == nullptr) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("Agent session must not be null.");
+        }
+        return false;
+    }
+
+    storage::PersistedAgentSession record;
+    record.id = session->id();
+    record.projectId = session->projectId();
+    record.agentKey = session->agentKey();
+    record.title = session->title();
+    record.status = agentSessionStatusLabel(session->status());
+    record.createdAt = session->createdAt();
+    record.updatedAt = session->updatedAt();
+
+    storage::AgentSessionRepository repository(m_storageService);
+    return repository.insertSession(record, errorMessage);
+}
+
+bool AgentManager::persistSessionUpdate(const AgentSession *session, QString *errorMessage)
+{
+    if (session == nullptr) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("Agent session must not be null.");
+        }
+        return false;
+    }
+
+    storage::PersistedAgentSession record;
+    record.id = session->id();
+    record.projectId = session->projectId();
+    record.agentKey = session->agentKey();
+    record.title = session->title();
+    record.status = agentSessionStatusLabel(session->status());
+    record.createdAt = session->createdAt();
+    record.updatedAt = session->updatedAt();
+
+    storage::AgentSessionRepository repository(m_storageService);
+    return repository.updateSession(record, errorMessage);
+}
+
+bool AgentManager::persistMessage(
+    const AgentSession *session,
+    const AgentMessage &message,
+    QString *errorMessage)
+{
+    if (session == nullptr) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("Agent session must not be null.");
+        }
+        return false;
+    }
+
+    storage::PersistedAgentMessage record;
+    record.id = message.id;
+    record.sessionId = session->id();
+    record.role = message.role;
+    record.content = message.content;
+    record.metadataJson = QString();
+    record.createdAt = message.createdAt;
+
+    storage::AgentSessionRepository repository(m_storageService);
+    return repository.insertMessage(record, errorMessage);
 }
 
 QString AgentManager::createId()
@@ -283,6 +418,10 @@ void AgentManager::connectAdapter(AgentAdapter *adapter)
                 assistantMessage.createdAt =
                     QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs);
                 activeSession->addMessage(assistantMessage);
+                QString persistError;
+                if (!persistMessage(activeSession, assistantMessage, &persistError)) {
+                    qCWarning(qtcodeAgents) << "Failed to persist assistant message:" << persistError;
+                }
             }
 
             if (event.type == AgentEventType::ArtifactReady && !event.artifact.id.isEmpty()) {

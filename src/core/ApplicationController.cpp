@@ -57,9 +57,15 @@ bool ApplicationController::initialize(QString *errorMessage)
         qCWarning(qtcodeCore) << "CLI capability detection failed";
     }
 
-    m_agentManager = std::make_unique<agents::AgentManager>();
+    m_agentManager = std::make_unique<agents::AgentManager>(*m_storageService);
     if (!m_agentManager->registerBuiltInAdapters(errorMessage)) {
         qCWarning(qtcodeCore) << "Failed to register built-in agent adapters:"
+                              << (errorMessage != nullptr ? *errorMessage : QString());
+        return false;
+    }
+
+    if (!m_agentManager->restoreState(errorMessage)) {
+        qCWarning(qtcodeCore) << "Failed to restore agent sessions:"
                               << (errorMessage != nullptr ? *errorMessage : QString());
         return false;
     }

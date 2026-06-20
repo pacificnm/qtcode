@@ -11,6 +11,10 @@
 #include <memory>
 #include <vector>
 
+namespace qtcode::storage {
+class StorageService;
+} // namespace qtcode::storage
+
 namespace qtcode::agents {
 
 class AgentAdapter;
@@ -21,8 +25,12 @@ class AgentManager final : public QObject
     Q_OBJECT
 
 public:
-    explicit AgentManager(QObject *parent = nullptr);
+    explicit AgentManager(
+        storage::StorageService &storageService,
+        QObject *parent = nullptr);
     ~AgentManager() override;
+
+    [[nodiscard]] bool restoreState(QString *errorMessage = nullptr);
 
     [[nodiscard]] bool registerAdapter(
         std::unique_ptr<AgentAdapter> adapter,
@@ -60,7 +68,18 @@ private slots:
 private:
     [[nodiscard]] static QString createId();
     void connectAdapter(AgentAdapter *adapter);
+    [[nodiscard]] bool persistSessionInsert(
+        const AgentSession *session,
+        QString *errorMessage = nullptr);
+    [[nodiscard]] bool persistSessionUpdate(
+        const AgentSession *session,
+        QString *errorMessage = nullptr);
+    [[nodiscard]] bool persistMessage(
+        const AgentSession *session,
+        const AgentMessage &message,
+        QString *errorMessage = nullptr);
 
+    storage::StorageService &m_storageService;
     std::vector<std::unique_ptr<AgentAdapter>> m_adapters;
     std::vector<std::unique_ptr<AgentSession>> m_sessions;
     QHash<QString, AgentAdapter *> m_adaptersByKey;
