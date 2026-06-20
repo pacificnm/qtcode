@@ -100,6 +100,14 @@ void MainWindow::configureLayout()
             &RepositoryPanel::refreshStatus);
     }
 
+    if (m_repositoryPanel != nullptr && m_agentPanel != nullptr) {
+        connect(
+            m_repositoryPanel,
+            &RepositoryPanel::pullRequestContextSelected,
+            m_agentPanel,
+            &AgentPanel::attachPullRequestContext);
+    }
+
     setCentralWidget(m_verticalSplitter);
 
     qCInfo(qtcodeUi) << "Initialized repository, agent, MCP, and terminal panel layout";

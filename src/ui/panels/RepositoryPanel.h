@@ -35,6 +35,7 @@ struct RepositoryRefreshBundle
 {
     qtcode::git::RepositoryGitSnapshot git;
     qtcode::github::GitHubIssueListResult issues;
+    qtcode::github::GitHubPullRequestListResult pullRequests;
 };
 
 class RepositoryPanel final : public QWidget
@@ -53,6 +54,9 @@ public:
 public slots:
     void refreshStatus();
 
+signals:
+    void pullRequestContextSelected(const qtcode::github::GitHubPullRequestDetail &detail);
+
 private slots:
     void onRefreshFinished();
     void addRepository();
@@ -69,6 +73,8 @@ private:
     void showChangedFiles(const qtcode::git::GitWorkingTreeStatus &status);
     void showRecentCommits(const QList<qtcode::git::GitCommitSummary> &commits);
     void showGitHubIssues(const qtcode::github::GitHubIssueListResult &result);
+    void showGitHubPullRequests(const qtcode::github::GitHubPullRequestListResult &result);
+    void onPullRequestSelected();
     void refreshCapabilityState();
 
     qtcode::git::GitService *m_gitService = nullptr;
@@ -85,9 +91,12 @@ private:
     QListWidget *m_commitsList = nullptr;
     QLabel *m_issuesStateLabel = nullptr;
     QListWidget *m_issuesList = nullptr;
+    QLabel *m_pullRequestsStateLabel = nullptr;
+    QListWidget *m_pullRequestsList = nullptr;
     QPushButton *m_addRepositoryButton = nullptr;
     QPushButton *m_refreshButton = nullptr;
     QFutureWatcher<RepositoryRefreshBundle> *m_refreshWatcher = nullptr;
+    QString m_activeProjectId;
 };
 
 } // namespace qtcode::ui

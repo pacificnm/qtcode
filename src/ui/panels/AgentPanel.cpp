@@ -9,6 +9,8 @@
 #include "memory/ContextResult.h"
 #include "storage/repositories/ContextRetrievalRepository.h"
 #include "core/ProjectManager.h"
+#include "github/GitHubContextFormatting.h"
+#include "github/GitHubModels.h"
 #include "settings/ProjectModels.h"
 #include "shared/Logging.h"
 #include "ui/views/ContextResultsView.h"
@@ -389,7 +391,9 @@ void AgentPanel::dispatchPromptWithContext(
     request.projectId = project.id;
     request.prompt = prompt;
     request.workingDirectory = project.rootPath;
-    request.contextExcerpts = contextExcerpts;
+    QStringList mergedContextExcerpts = m_attachedGitHubContextExcerpts;
+    mergedContextExcerpts.append(contextExcerpts);
+    request.contextExcerpts = mergedContextExcerpts;
     request.nonInteractive = true;
 
     QString errorMessage;
@@ -424,18 +428,30 @@ void AgentPanel::dispatchPromptWithContext(
     if (memoryUnavailable) {
         m_stateLabel->setText(
             i18n("Sent prompt without project memory: %1", statusMessage));
-    } else if (contextExcerpts.isEmpty() && !statusMessage.isEmpty()) {
+    } else if (mergedContextExcerpts.isEmpty() && !statusMessage.isEmpty()) {
         m_stateLabel->setText(statusMessage);
-    } else if (!contextExcerpts.isEmpty()) {
+    } else if (!mergedContextExcerpts.isEmpty()) {
         m_stateLabel->setText(
-            i18n("Sent prompt with %1 attached context result(s).", contextExcerpts.size()));
+            i18n("Sent prompt with %1 attached context excerpt(s).", mergedContextExcerpts.size()));
     }
+
+    m_attachedGitHubContextExcerpts.clear();
+    m_attachedPullRequestNumber = 0;
 
     if (m_promptInput != nullptr) {
         m_promptInput->clear();
     }
     setPromptEnabled(false);
     refreshConversation();
+}
+
+void AgentPanel::attachPullRequestContext(const qtcode::github::GitHubPullRequestDetail &detail)
+{
+    m_attachedGitHubContextExcerpts = {
+        qtcode::github::formatPullRequestContextExcerpt(detail)};
+    m_attachedPullRequestNumber = detail.number;
+    m_stateLabel->setText(
+        i18n("Attached GitHub pull request #%1 to the next agent prompt.", detail.number));
 }
 
 void AgentPanel::createNewSession()
