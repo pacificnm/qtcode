@@ -3,7 +3,7 @@
 #include "settings/ProjectModels.h"
 #include "shared/Logging.h"
 #include "storage/repositories/ProjectRepository.h"
-#include "storage/repositories/SettingsRepository.h"
+#include "storage/repositories/TerminalProfileStore.h"
 #include "storage/repositories/TerminalSessionRepository.h"
 #include "storage/StorageService.h"
 #include "terminal/TerminalProfile.h"
@@ -13,7 +13,7 @@
 #include <QDateTime>
 #include <QDir>
 #include <QFileInfo>
-#include <QJsonObject>
+#include <QJsonDocument>
 #include <QUuid>
 
 namespace qtcode::terminal {
@@ -26,7 +26,7 @@ TerminalManager::TerminalManager(storage::StorageService &storageService, QObjec
 
 bool TerminalManager::restoreState(QString *errorMessage)
 {
-    if (!loadConfiguredShellPath(errorMessage)) {
+    if (!loadGlobalProfile(errorMessage)) {
         return false;
     }
 
@@ -35,46 +35,169 @@ bool TerminalManager::restoreState(QString *errorMessage)
     }
 
     qCInfo(qtcodeTerminal) << "Restored" << m_sessions.size() << "terminal session(s) with shell"
-                           << resolveShellPath();
+                           << resolveShellPath() << "and working directory mode"
+                           << workingDirectoryModeToString(m_globalProfile.workingDirectoryMode);
     return true;
 }
 
 bool TerminalManager::setDefaultShellPath(const QString &shellPath, QString *errorMessage)
 {
-    const QString trimmedPath = shellPath.trimmed();
-    if (trimmedPath.isEmpty()) {
-        m_configuredShellPath.clear();
-    } else {
-        const QFileInfo shellInfo(trimmedPath);
+    TerminalProfile profile = m_globalProfile;
+    profile.shellPath = shellPath.trimmed().isEmpty() ? QString() : shellPath.trimmed();
+
+    if (!profile.shellPath.isEmpty()) {
+        const QFileInfo shellInfo(profile.shellPath);
         if (!shellInfo.exists() || !shellInfo.isExecutable()) {
             if (errorMessage != nullptr) {
-                *errorMessage = QStringLiteral("Shell path is not executable: %1").arg(trimmedPath);
+                *errorMessage = QStringLiteral("Shell path is not executable: %1").arg(profile.shellPath);
             }
             return false;
         }
-        m_configuredShellPath = shellInfo.canonicalFilePath();
+        profile.shellPath = shellInfo.canonicalFilePath();
     }
 
-    storage::SettingsRepository settingsRepository(m_storageService);
-    QJsonObject json;
-    json.insert(QStringLiteral("path"), m_configuredShellPath);
-    if (!settingsRepository.upsertJson(kDefaultShellSettingKey, json, errorMessage)) {
-        return false;
-    }
-
-    qCInfo(qtcodeTerminal) << "Configured default shell path"
-                           << (m_configuredShellPath.isEmpty() ? resolveShellPath() : m_configuredShellPath);
-    return true;
+    return setGlobalProfile(profile, errorMessage);
 }
 
 QString TerminalManager::defaultShellPath() const
 {
-    return m_configuredShellPath;
+    return m_globalProfile.shellPath;
 }
 
 QString TerminalManager::resolveShellPath() const
 {
-    return terminal::resolveShellPath(m_configuredShellPath);
+    return terminal::resolveShellPath(m_globalProfile.shellPath);
+}
+
+TerminalProfile TerminalManager::globalProfile() const
+{
+    return m_globalProfile;
+}
+
+bool TerminalManager::setGlobalProfile(const TerminalProfile &profile, QString *errorMessage)
+{
+    TerminalProfile validatedProfile = profile;
+
+    if (!validatedProfile.shellPath.trimmed().isEmpty()) {
+        const QFileInfo shellInfo(validatedProfile.shellPath);
+        if (!shellInfo.exists() || !shellInfo.isExecutable()) {
+            if (errorMessage != nullptr) {
+                *errorMessage =
+                    QStringLiteral("Shell path is not executable: %1").arg(validatedProfile.shellPath);
+            }
+            return false;
+        }
+        validatedProfile.shellPath = shellInfo.canonicalFilePath();
+    } else {
+        validatedProfile.shellPath.clear();
+    }
+
+    if (validatedProfile.workingDirectoryMode == WorkingDirectoryMode::CustomPath) {
+        const QFileInfo workingDirectoryInfo(validatedProfile.customWorkingDirectory);
+        if (!workingDirectoryInfo.exists() || !workingDirectoryInfo.isDir()) {
+            if (errorMessage != nullptr) {
+                *errorMessage = QStringLiteral("Custom working directory does not exist: %1")
+                                    .arg(validatedProfile.customWorkingDirectory);
+            }
+            return false;
+        }
+        validatedProfile.customWorkingDirectory = QDir::cleanPath(workingDirectoryInfo.canonicalFilePath());
+    }
+
+    storage::TerminalProfileStore profileStore(m_storageService);
+    if (!profileStore.saveGlobalProfile(validatedProfile, errorMessage)) {
+        return false;
+    }
+
+    m_globalProfile = validatedProfile;
+    emit profilesChanged();
+
+    qCInfo(qtcodeTerminal) << "Configured global terminal profile with shell"
+                           << resolveShellPath() << "and working directory mode"
+                           << workingDirectoryModeToString(m_globalProfile.workingDirectoryMode);
+    return true;
+}
+
+bool TerminalManager::projectProfile(
+    const QString &projectId,
+    TerminalProfile *profile,
+    bool *found,
+    QString *errorMessage) const
+{
+    storage::TerminalProfileStore profileStore(m_storageService);
+    return profileStore.loadProjectProfile(projectId, profile, found, errorMessage);
+}
+
+bool TerminalManager::setProjectProfile(
+    const QString &projectId,
+    const TerminalProfile &profile,
+    QString *errorMessage)
+{
+    TerminalProfile validatedProfile = profile;
+
+    if (!validatedProfile.shellPath.trimmed().isEmpty()) {
+        const QFileInfo shellInfo(validatedProfile.shellPath);
+        if (!shellInfo.exists() || !shellInfo.isExecutable()) {
+            if (errorMessage != nullptr) {
+                *errorMessage =
+                    QStringLiteral("Shell path is not executable: %1").arg(validatedProfile.shellPath);
+            }
+            return false;
+        }
+        validatedProfile.shellPath = shellInfo.canonicalFilePath();
+    }
+
+    if (validatedProfile.workingDirectoryMode == WorkingDirectoryMode::CustomPath) {
+        const QFileInfo workingDirectoryInfo(validatedProfile.customWorkingDirectory);
+        if (!workingDirectoryInfo.exists() || !workingDirectoryInfo.isDir()) {
+            if (errorMessage != nullptr) {
+                *errorMessage = QStringLiteral("Custom working directory does not exist: %1")
+                                    .arg(validatedProfile.customWorkingDirectory);
+            }
+            return false;
+        }
+        validatedProfile.customWorkingDirectory = QDir::cleanPath(workingDirectoryInfo.canonicalFilePath());
+    }
+
+    storage::TerminalProfileStore profileStore(m_storageService);
+    if (!profileStore.saveProjectProfile(projectId, validatedProfile, errorMessage)) {
+        return false;
+    }
+
+    emit profilesChanged();
+
+    qCInfo(qtcodeTerminal) << "Configured project terminal profile for" << projectId
+                           << "with working directory mode"
+                           << workingDirectoryModeToString(validatedProfile.workingDirectoryMode);
+    return true;
+}
+
+TerminalProfile TerminalManager::effectiveProfile(const QString &projectId) const
+{
+    TerminalProfile effectiveProfile = m_globalProfile;
+
+    if (projectId.isEmpty()) {
+        return effectiveProfile;
+    }
+
+    storage::TerminalProfileStore profileStore(m_storageService);
+    TerminalProfile projectProfile;
+    bool found = false;
+    QString errorMessage;
+    if (!profileStore.loadProjectProfile(projectId, &projectProfile, &found, &errorMessage)) {
+        qCWarning(qtcodeTerminal) << "Failed to load project terminal profile:" << errorMessage;
+        return effectiveProfile;
+    }
+
+    if (found) {
+        if (projectProfile.hasShellOverride()) {
+            effectiveProfile.shellPath = projectProfile.shellPath;
+        }
+        effectiveProfile.workingDirectoryMode = projectProfile.workingDirectoryMode;
+        effectiveProfile.customWorkingDirectory = projectProfile.customWorkingDirectory;
+    }
+
+    return effectiveProfile;
 }
 
 bool TerminalManager::resolveProjectWorkingDirectory(
@@ -119,6 +242,41 @@ bool TerminalManager::resolveProjectWorkingDirectory(
     }
 
     return true;
+}
+
+bool TerminalManager::resolveWorkingDirectory(
+    const TerminalProfile &profile,
+    const QString &projectId,
+    QString *workingDirectory,
+    QString *errorMessage) const
+{
+    if (workingDirectory == nullptr) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("Working directory output must not be null.");
+        }
+        return false;
+    }
+
+    switch (profile.workingDirectoryMode) {
+    case WorkingDirectoryMode::Home:
+        *workingDirectory = QDir::homePath();
+        return true;
+    case WorkingDirectoryMode::CustomPath: {
+        const QFileInfo workingDirectoryInfo(profile.customWorkingDirectory);
+        if (!workingDirectoryInfo.exists() || !workingDirectoryInfo.isDir()) {
+            if (errorMessage != nullptr) {
+                *errorMessage = QStringLiteral("Custom working directory does not exist: %1")
+                                    .arg(profile.customWorkingDirectory);
+            }
+            return false;
+        }
+        *workingDirectory = QDir::cleanPath(workingDirectoryInfo.canonicalFilePath());
+        return true;
+    }
+    case WorkingDirectoryMode::ProjectRoot:
+    default:
+        return resolveProjectWorkingDirectory(projectId, workingDirectory, nullptr, errorMessage);
+    }
 }
 
 bool TerminalManager::createTerminal(
@@ -203,21 +361,14 @@ QList<TerminalSession> TerminalManager::sessions() const
     return m_sessions;
 }
 
-bool TerminalManager::loadConfiguredShellPath(QString *errorMessage)
+bool TerminalManager::loadGlobalProfile(QString *errorMessage)
 {
-    storage::SettingsRepository settingsRepository(m_storageService);
-    QJsonObject json;
-    bool found = false;
-    if (!settingsRepository.loadJson(kDefaultShellSettingKey, &json, &found, errorMessage)) {
+    storage::TerminalProfileStore profileStore(m_storageService);
+    if (!profileStore.loadGlobalProfile(&m_globalProfile, errorMessage)) {
         return false;
     }
 
-    if (found) {
-        m_configuredShellPath = json.value(QStringLiteral("path")).toString();
-    } else {
-        m_configuredShellPath.clear();
-    }
-
+    emit profilesChanged();
     return true;
 }
 
@@ -245,16 +396,19 @@ TerminalSession TerminalManager::buildSessionForProject(
     TerminalSession session;
     session.id = createId();
     session.projectId = projectId;
-    session.shellPath = resolveShellPath();
     session.createdAt = currentTimestamp();
     session.updatedAt = session.createdAt;
 
+    const TerminalProfile profile = effectiveProfile(projectId);
+    session.shellPath = terminal::resolveShellPath(profile.shellPath);
+    session.profileJson = profileSnapshotJson(profile);
+
     QString projectName;
-    if (!resolveProjectWorkingDirectory(
-            projectId,
-            &session.workingDirectory,
-            &projectName,
-            errorMessage)) {
+    if (!resolveWorkingDirectory(profile, projectId, &session.workingDirectory, errorMessage)) {
+        return {};
+    }
+
+    if (!resolveProjectWorkingDirectory(projectId, nullptr, &projectName, errorMessage)) {
         return {};
     }
 
@@ -300,6 +454,12 @@ QString TerminalManager::currentTimestamp()
 QString TerminalManager::createId()
 {
     return QUuid::createUuid().toString(QUuid::WithoutBraces);
+}
+
+QString TerminalManager::profileSnapshotJson(const TerminalProfile &profile)
+{
+    return QString::fromUtf8(
+        QJsonDocument(profile.toJson()).toJson(QJsonDocument::Compact));
 }
 
 } // namespace qtcode::terminal

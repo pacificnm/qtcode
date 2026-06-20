@@ -2,6 +2,8 @@
 
 #include "terminal/TerminalSession.h"
 
+#include "terminal/TerminalProfile.h"
+
 #include <QList>
 #include <QString>
 
@@ -28,10 +30,30 @@ public:
     [[nodiscard]] QString defaultShellPath() const;
     [[nodiscard]] QString resolveShellPath() const;
 
+    [[nodiscard]] TerminalProfile globalProfile() const;
+    [[nodiscard]] bool setGlobalProfile(
+        const TerminalProfile &profile,
+        QString *errorMessage = nullptr);
+    [[nodiscard]] bool projectProfile(
+        const QString &projectId,
+        TerminalProfile *profile,
+        bool *found,
+        QString *errorMessage = nullptr) const;
+    [[nodiscard]] bool setProjectProfile(
+        const QString &projectId,
+        const TerminalProfile &profile,
+        QString *errorMessage = nullptr);
+    [[nodiscard]] TerminalProfile effectiveProfile(const QString &projectId) const;
+
     [[nodiscard]] bool resolveProjectWorkingDirectory(
         const QString &projectId,
         QString *workingDirectory,
         QString *projectName,
+        QString *errorMessage = nullptr) const;
+    [[nodiscard]] bool resolveWorkingDirectory(
+        const TerminalProfile &profile,
+        const QString &projectId,
+        QString *workingDirectory,
         QString *errorMessage = nullptr) const;
 
     [[nodiscard]] bool createTerminal(
@@ -50,9 +72,10 @@ public:
 
 signals:
     void sessionsChanged();
+    void profilesChanged();
 
 private:
-    [[nodiscard]] bool loadConfiguredShellPath(QString *errorMessage);
+    [[nodiscard]] bool loadGlobalProfile(QString *errorMessage);
     [[nodiscard]] bool loadSessions(QString *errorMessage);
     [[nodiscard]] bool persistSession(const TerminalSession &session, QString *errorMessage);
     [[nodiscard]] TerminalSession buildSessionForProject(
@@ -61,9 +84,10 @@ private:
     [[nodiscard]] bool configureWidget(QTermWidget *widget, const TerminalSession &session) const;
     [[nodiscard]] static QString currentTimestamp();
     [[nodiscard]] static QString createId();
+    [[nodiscard]] static QString profileSnapshotJson(const TerminalProfile &profile);
 
     storage::StorageService &m_storageService;
-    QString m_configuredShellPath;
+    TerminalProfile m_globalProfile;
     QList<TerminalSession> m_sessions;
 };
 
