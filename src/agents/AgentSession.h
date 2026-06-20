@@ -36,6 +36,11 @@ public:
     void addMessage(const AgentMessage &message);
     void addArtifact(const AgentArtifact &artifact);
     void touchUpdatedAt();
+    void restoreFromPersistence(
+        AgentSessionStatus status,
+        const QList<AgentMessage> &messages,
+        const QString &createdAt,
+        const QString &updatedAt);
 
 signals:
     void messageAdded(const qtcode::agents::AgentMessage &message);

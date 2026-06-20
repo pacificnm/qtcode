@@ -101,4 +101,16 @@ void AgentSession::touchUpdatedAt()
     m_updatedAt = QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs);
 }
 
+void AgentSession::restoreFromPersistence(
+    AgentSessionStatus status,
+    const QList<AgentMessage> &messages,
+    const QString &createdAt,
+    const QString &updatedAt)
+{
+    m_status = status;
+    m_messages = messages;
+    m_createdAt = createdAt;
+    m_updatedAt = updatedAt;
+}
+
 } // namespace qtcode::agents

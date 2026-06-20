@@ -6,6 +6,7 @@ qtcode_add_module_library(qtcode_storage STATIC
     repositories/ProjectRepository.cpp
     repositories/TerminalSessionRepository.cpp
     repositories/TerminalProfileStore.cpp
+    repositories/AgentSessionRepository.cpp
 )
 
 target_link_libraries(qtcode_storage
