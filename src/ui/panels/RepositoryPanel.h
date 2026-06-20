@@ -6,6 +6,7 @@
 #include "git/GitStatus.h"
 
 class QLabel;
+class QListView;
 class QListWidget;
 class QPushButton;
 
@@ -21,6 +22,8 @@ template <typename T>
 class QFutureWatcher;
 
 namespace qtcode::ui {
+
+class RepositoryListModel;
 
 class RepositoryPanel final : public QWidget
 {
@@ -38,6 +41,9 @@ public slots:
 
 private slots:
     void onRefreshFinished();
+    void addRepository();
+    void onRepositorySelected(const QModelIndex &current, const QModelIndex &previous);
+    void syncRepositorySelection();
 
 private:
     void configureLayout();
@@ -51,11 +57,14 @@ private:
 
     qtcode::git::GitService *m_gitService = nullptr;
     qtcode::core::ProjectManager *m_projectManager = nullptr;
+    RepositoryListModel *m_repositoryModel = nullptr;
+    QListView *m_repositoryList = nullptr;
     QLabel *m_projectLabel = nullptr;
     QLabel *m_changedFilesStateLabel = nullptr;
     QLabel *m_commitsStateLabel = nullptr;
     QListWidget *m_changedFilesList = nullptr;
     QListWidget *m_commitsList = nullptr;
+    QPushButton *m_addRepositoryButton = nullptr;
     QPushButton *m_refreshButton = nullptr;
     QFutureWatcher<qtcode::git::RepositoryGitSnapshot> *m_refreshWatcher = nullptr;
 };

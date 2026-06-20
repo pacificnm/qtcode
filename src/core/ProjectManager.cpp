@@ -15,8 +15,9 @@
 
 namespace qtcode::core {
 
-ProjectManager::ProjectManager(storage::StorageService &storageService, git::GitService &gitService)
-    : m_storageService(storageService)
+ProjectManager::ProjectManager(storage::StorageService &storageService, git::GitService &gitService, QObject *parent)
+    : QObject(parent)
+    , m_storageService(storageService)
     , m_gitService(gitService)
 {
 }
@@ -36,6 +37,7 @@ bool ProjectManager::restoreState(QString *errorMessage)
 
     if (!found) {
         qCInfo(qtcodeCore) << "No active project saved yet";
+        emit projectsChanged();
         return true;
     }
 
@@ -51,6 +53,7 @@ bool ProjectManager::restoreState(QString *errorMessage)
     if (!openProject(projectId, &project, errorMessage)) {
         qCWarning(qtcodeCore) << "Saved active project was not found:" << projectId;
         m_activeProjectId.clear();
+        emit projectsChanged();
         return true;
     }
 
@@ -209,11 +212,15 @@ bool ProjectManager::setActiveProject(const QString &projectId, QString *errorMe
         return false;
     }
 
+    const QString previousActiveId = m_activeProjectId;
     m_activeProjectId = projectId;
     if (!persistActiveProjectId(errorMessage)) {
         return false;
     }
 
+    if (previousActiveId != projectId) {
+        emit activeProjectChanged(m_activeProjectId);
+    }
     qCInfo(qtcodeCore) << "Active project set to" << project.name;
     return true;
 }
@@ -257,6 +264,7 @@ bool ProjectManager::refreshProjects(QString *errorMessage)
     }
 
     qCDebug(qtcodeCore) << "Loaded" << m_projects.size() << "project(s)";
+    emit projectsChanged();
     return true;
 }
 
