@@ -18,6 +18,10 @@ namespace qtcode::git {
 class GitService;
 } // namespace qtcode::git
 
+namespace qtcode::terminal {
+class TerminalManager;
+} // namespace qtcode::terminal
+
 namespace qtcode::core {
 
 class ApplicationController
@@ -36,12 +40,14 @@ public:
     [[nodiscard]] SettingsService *settingsService() const;
     [[nodiscard]] ProjectManager *projectManager() const;
     [[nodiscard]] git::GitService *gitService() const;
+    [[nodiscard]] terminal::TerminalManager *terminalManager() const;
 
 private:
     std::unique_ptr<storage::StorageService> m_storageService;
     std::unique_ptr<SettingsService> m_settingsService;
     std::unique_ptr<git::GitService> m_gitService;
     std::unique_ptr<ProjectManager> m_projectManager;
+    std::unique_ptr<terminal::TerminalManager> m_terminalManager;
 };
 
 } // namespace qtcode::core

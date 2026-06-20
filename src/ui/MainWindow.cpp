@@ -49,7 +49,10 @@ void MainWindow::configureLayout()
         m_controller != nullptr ? m_controller->projectManager() : nullptr,
         this);
     m_agentPanel = new AgentPanel(this);
-    m_terminalPanel = new TerminalPanel(this);
+    m_terminalPanel = new TerminalPanel(
+        m_controller != nullptr ? m_controller->terminalManager() : nullptr,
+        m_controller != nullptr ? m_controller->projectManager() : nullptr,
+        this);
 
     m_repositoryPanel->setMinimumWidth(240);
     m_agentPanel->setMinimumWidth(320);

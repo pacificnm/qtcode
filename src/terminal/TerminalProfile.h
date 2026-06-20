@@ -1,7 +1,10 @@
 #pragma once
 
+#include <QString>
+
 namespace qtcode::terminal {
 
-// Placeholder for shell and profile configuration.
+[[nodiscard]] QString defaultShellFromEnvironment();
+[[nodiscard]] QString resolveShellPath(const QString &configuredShellPath);
 
 } // namespace qtcode::terminal
