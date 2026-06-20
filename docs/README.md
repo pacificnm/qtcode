@@ -18,8 +18,10 @@ QTCode is a lightweight native KDE/Linux developer cockpit for AI-assisted devel
 10. `scripts/README.md`
 11. `specs/qtcommands-spec.md`
 12. `design/qtcommands-design.md`
-13. `milestones/`
-14. `adrs/`
+13. `engineering/beta-setup-guide.md`
+14. `engineering/packaging-notes.md`
+15. `milestones/`
+16. `adrs/`
 
 ## Folder Guide
 

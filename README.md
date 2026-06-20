@@ -104,6 +104,10 @@ Start here:
 - [Communication flows](docs/engineering/communication-flows.md)
 - [Design patterns](docs/engineering/design-patterns.md)
 - [Risk analysis](docs/engineering/risk-analysis.md)
+- [Beta setup guide](docs/engineering/beta-setup-guide.md)
+- [Packaging notes](docs/engineering/packaging-notes.md)
+- [Storage backup and migration](docs/engineering/storage-backup-and-migration.md)
+- [Performance notes](docs/engineering/performance-notes.md)
 
 ### Project Files
 
@@ -127,4 +131,4 @@ Start here:
 
 ## Current Status
 
-QTCode is implementing the M1 native app shell. The repository contains the native Qt/KDE application skeleton, SQLite storage, settings persistence, and the full planning documentation set for later milestones.
+QTCode is in the M6 beta hardening phase. The native Qt/KDE application shell, SQLite storage, GitHub workflows, agent sessions, MCP memory integration, and automated smoke/unit tests are implemented. See [beta setup guide](docs/engineering/beta-setup-guide.md) to build and run the app locally.
