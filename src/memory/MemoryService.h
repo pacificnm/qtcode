@@ -1,6 +1,7 @@
 #pragma once
 
 #include "memory/McpHealthResult.h"
+#include "memory/MemorySearchModels.h"
 #include "settings/McpServerModels.h"
 
 #include <QHash>
@@ -25,6 +26,12 @@ public:
     void checkEnabledServers(
         const QList<settings::McpServerRecord> &servers,
         const QString &workingDirectory);
+
+    [[nodiscard]] MemorySearchOutcome searchProjectMemory(
+        const settings::McpServerRecord &server,
+        const QString &workingDirectory,
+        const QString &query,
+        const MemorySearchOptions &options = {}) const;
 
 signals:
     void serverHealthUpdated(const QString &serverId, const qtcode::memory::McpHealthResult &result);

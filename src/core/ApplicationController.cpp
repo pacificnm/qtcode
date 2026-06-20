@@ -6,6 +6,8 @@
 #include "core/SettingsService.h"
 #include "git/GitService.h"
 #include "memory/MemoryService.h"
+#include "memory/ContextResult.h"
+#include "settings/ProjectModels.h"
 #include "settings/ProjectModels.h"
 #include "shared/Logging.h"
 #include "storage/MigrationRunner.h"
@@ -400,6 +402,81 @@ bool ApplicationController::runSmokeTestDiffArtifactIfRequested(QString *errorMe
     }
 
     qCInfo(qtcodeCore) << "Registered smoke-test diff artifact for" << artifact.filePath;
+    return true;
+}
+
+bool ApplicationController::runSmokeTestMemorySearchIfRequested(QString *errorMessage)
+{
+    const QByteArray queryBytes = qgetenv("QTCODE_MEMORY_SEARCH");
+    if (queryBytes.isEmpty()) {
+        return true;
+    }
+
+    if (m_memoryService == nullptr || m_mcpServerService == nullptr) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("Memory services are unavailable.");
+        }
+        return false;
+    }
+
+    const QList<settings::McpServerRecord> servers = m_mcpServerService->servers();
+    if (servers.isEmpty()) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("QTCODE_MEMORY_SEARCH requires at least one configured MCP server.");
+        }
+        return false;
+    }
+
+    settings::McpServerRecord targetServer;
+    for (const settings::McpServerRecord &server : servers) {
+        if (server.enabled && server.name == QStringLiteral("qtcode-memory")) {
+            targetServer = server;
+            break;
+        }
+    }
+    if (targetServer.id.isEmpty()) {
+        for (const settings::McpServerRecord &server : servers) {
+            if (server.enabled) {
+                targetServer = server;
+                break;
+            }
+        }
+    }
+    if (targetServer.id.isEmpty()) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("QTCODE_MEMORY_SEARCH requires an enabled MCP server.");
+        }
+        return false;
+    }
+
+    QString workingDirectory;
+    if (m_projectManager != nullptr && m_projectManager->hasActiveProject()) {
+        settings::ProjectRecord activeProject;
+        if (m_projectManager->activeProject(&activeProject)) {
+            workingDirectory = activeProject.rootPath;
+        }
+    }
+
+    const memory::MemorySearchOutcome outcome = m_memoryService->searchProjectMemory(
+        targetServer,
+        workingDirectory,
+        QString::fromUtf8(queryBytes));
+    if (!outcome.isSuccess()) {
+        if (errorMessage != nullptr) {
+            *errorMessage = outcome.error.detail.isEmpty() ? outcome.error.message
+                                                           : QStringLiteral("%1 %2")
+                                                                 .arg(outcome.error.message, outcome.error.detail);
+        }
+        qCWarning(qtcodeCore) << "Failed to run QTCODE_MEMORY_SEARCH:"
+                              << (errorMessage != nullptr ? *errorMessage : QString());
+        return false;
+    }
+
+    qCInfo(qtcodeCore) << "Smoke-test memory search returned" << outcome.results.size()
+                       << "result(s) from" << targetServer.name;
+    for (const memory::ContextResult &result : outcome.results) {
+        qCInfo(qtcodeCore) << "Memory result:" << result.title;
+    }
     return true;
 }
 
