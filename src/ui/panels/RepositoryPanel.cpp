@@ -6,6 +6,7 @@
 #include "git/GitCommitSummary.h"
 #include "git/GitService.h"
 #include "github/GitHubService.h"
+#include "github/GitHubCachePolicy.h"
 #include "settings/ProjectModels.h"
 #include "shared/Logging.h"
 #include "ui/models/RepositoryListModel.h"
@@ -24,6 +25,22 @@
 #include <QFutureWatcher>
 
 namespace qtcode::ui {
+
+namespace {
+
+qtcode::github::GitHubCacheMetadata cacheMetadataFromListResult(
+    bool fromCache,
+    bool isStale,
+    const QString &fetchedAt)
+{
+    qtcode::github::GitHubCacheMetadata metadata;
+    metadata.fromCache = fromCache;
+    metadata.isStale = isStale;
+    metadata.fetchedAt = fetchedAt;
+    return metadata;
+}
+
+} // namespace
 
 RepositoryPanel::RepositoryPanel(
     qtcode::git::GitService *gitService,
@@ -416,7 +433,16 @@ void RepositoryPanel::showGitHubIssues(const qtcode::github::GitHubIssueListResu
         return;
     }
 
-    m_issuesStateLabel->hide();
+    if (result.fromCache) {
+        m_issuesStateLabel->setText(
+            qtcode::github::GitHubCachePolicy::formatStatusLabel(
+                result.fromCache,
+                result.fetchedAt,
+                result.isStale));
+        m_issuesStateLabel->show();
+    } else {
+        m_issuesStateLabel->hide();
+    }
 
     for (const qtcode::github::GitHubIssue &issue : result.issues) {
         auto *item = new QListWidgetItem(
@@ -453,7 +479,16 @@ void RepositoryPanel::showGitHubPullRequests(const qtcode::github::GitHubPullReq
         return;
     }
 
-    m_pullRequestsStateLabel->hide();
+    if (result.fromCache) {
+        m_pullRequestsStateLabel->setText(
+            qtcode::github::GitHubCachePolicy::formatStatusLabel(
+                result.fromCache,
+                result.fetchedAt,
+                result.isStale));
+        m_pullRequestsStateLabel->show();
+    } else {
+        m_pullRequestsStateLabel->hide();
+    }
 
     for (const qtcode::github::GitHubPullRequest &pullRequest : result.pullRequests) {
         auto *item = new QListWidgetItem(
@@ -495,7 +530,12 @@ void RepositoryPanel::onPullRequestSelected()
         return;
     }
 
-    m_detailView->showPullRequest(detailResult.detail);
+    m_detailView->showPullRequest(
+        detailResult.detail,
+        cacheMetadataFromListResult(
+            detailResult.fromCache,
+            detailResult.isStale,
+            detailResult.fetchedAt));
 }
 
 void RepositoryPanel::onIssueSelected()
@@ -525,7 +565,12 @@ void RepositoryPanel::onIssueSelected()
         return;
     }
 
-    m_detailView->showIssue(detailResult.detail);
+    m_detailView->showIssue(
+        detailResult.detail,
+        cacheMetadataFromListResult(
+            detailResult.fromCache,
+            detailResult.isStale,
+            detailResult.fetchedAt));
 }
 
 void RepositoryPanel::addRepository()

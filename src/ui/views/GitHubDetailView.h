@@ -1,5 +1,6 @@
 #pragma once
 
+#include "github/GitHubCachePolicy.h"
 #include "github/GitHubModels.h"
 
 #include <QWidget>
@@ -17,8 +18,12 @@ class GitHubDetailView final : public QWidget
 public:
     explicit GitHubDetailView(QWidget *parent = nullptr);
 
-    void showIssue(const qtcode::github::GitHubIssueDetail &detail);
-    void showPullRequest(const qtcode::github::GitHubPullRequestDetail &detail);
+    void showIssue(
+        const qtcode::github::GitHubIssueDetail &detail,
+        const qtcode::github::GitHubCacheMetadata &cacheMetadata = {});
+    void showPullRequest(
+        const qtcode::github::GitHubPullRequestDetail &detail,
+        const qtcode::github::GitHubCacheMetadata &cacheMetadata = {});
     void showLoadingMessage(const QString &message);
     void showErrorMessage(const QString &message);
     void clearDetail();
@@ -48,6 +53,7 @@ private:
     qtcode::github::GitHubPullRequestDetail m_pullRequestDetail;
     QLabel *m_titleLabel = nullptr;
     QLabel *m_metadataLabel = nullptr;
+    QLabel *m_cacheStatusLabel = nullptr;
     QTextEdit *m_bodyView = nullptr;
     QPushButton *m_attachButton = nullptr;
 };

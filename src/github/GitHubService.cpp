@@ -1,6 +1,7 @@
 #include "github/GitHubService.h"
 
 #include "github/GhCliClient.h"
+#include "github/GitHubCachePolicy.h"
 #include "settings/ProjectModels.h"
 #include "shared/Logging.h"
 #include "storage/repositories/GitHubCacheRepository.h"
@@ -205,6 +206,18 @@ QString currentTimestamp()
     return QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs);
 }
 
+template<typename ResultT>
+void applyCacheMetadata(ResultT *result, const QString &fetchedAt, int ttlMs)
+{
+    if (result == nullptr) {
+        return;
+    }
+
+    result->fromCache = true;
+    result->fetchedAt = fetchedAt;
+    result->isStale = GitHubCachePolicy::isStale(fetchedAt, ttlMs);
+}
+
 } // namespace
 
 GitHubService::GitHubService(storage::StorageService &storageService)
@@ -347,13 +360,14 @@ GitHubIssueListResult GitHubService::loadIssuesFromCache(const QString &reposito
     storage::GitHubCacheRepository cacheRepository(m_storageService);
     QJsonObject payload;
     bool found = false;
+    QString fetchedAt;
     QString cacheError;
     if (!cacheRepository.loadEntry(
             repositoryId,
             QString::fromUtf8(kIssueListObjectType),
             QString::fromUtf8(kIssueListObjectKey),
             &payload,
-            nullptr,
+            &fetchedAt,
             &found,
             &cacheError)) {
         result.errorMessage = cacheError;
@@ -365,7 +379,9 @@ GitHubIssueListResult GitHubService::loadIssuesFromCache(const QString &reposito
         return result;
     }
 
-    return issuesFromCachePayload(payload);
+    result = issuesFromCachePayload(payload);
+    applyCacheMetadata(&result, fetchedAt, GitHubCachePolicy::kListCacheTtlMs);
+    return result;
 }
 
 bool GitHubService::persistIssuesToCache(
@@ -392,13 +408,14 @@ GitHubIssueDetailResult GitHubService::loadIssueFromCache(
     storage::GitHubCacheRepository cacheRepository(m_storageService);
     QJsonObject payload;
     bool found = false;
+    QString fetchedAt;
     QString cacheError;
     if (!cacheRepository.loadEntry(
             repositoryId,
             QString::fromUtf8(kIssueDetailObjectType),
             issueDetailCacheKey(issueNumber),
             &payload,
-            nullptr,
+            &fetchedAt,
             &found,
             &cacheError)) {
         result.errorMessage = cacheError;
@@ -410,7 +427,9 @@ GitHubIssueDetailResult GitHubService::loadIssueFromCache(
         return result;
     }
 
-    return issueDetailFromCachePayload(payload);
+    result = issueDetailFromCachePayload(payload);
+    applyCacheMetadata(&result, fetchedAt, GitHubCachePolicy::kDetailCacheTtlMs);
+    return result;
 }
 
 bool GitHubService::persistIssueToCache(
@@ -531,13 +550,14 @@ GitHubPullRequestListResult GitHubService::loadPullRequestsFromCache(const QStri
     storage::GitHubCacheRepository cacheRepository(m_storageService);
     QJsonObject payload;
     bool found = false;
+    QString fetchedAt;
     QString cacheError;
     if (!cacheRepository.loadEntry(
             repositoryId,
             QString::fromUtf8(kPullRequestListObjectType),
             QString::fromUtf8(kPullRequestListObjectKey),
             &payload,
-            nullptr,
+            &fetchedAt,
             &found,
             &cacheError)) {
         result.errorMessage = cacheError;
@@ -549,7 +569,9 @@ GitHubPullRequestListResult GitHubService::loadPullRequestsFromCache(const QStri
         return result;
     }
 
-    return pullRequestsFromCachePayload(payload);
+    result = pullRequestsFromCachePayload(payload);
+    applyCacheMetadata(&result, fetchedAt, GitHubCachePolicy::kListCacheTtlMs);
+    return result;
 }
 
 bool GitHubService::persistPullRequestsToCache(
@@ -576,13 +598,14 @@ GitHubPullRequestDetailResult GitHubService::loadPullRequestFromCache(
     storage::GitHubCacheRepository cacheRepository(m_storageService);
     QJsonObject payload;
     bool found = false;
+    QString fetchedAt;
     QString cacheError;
     if (!cacheRepository.loadEntry(
             repositoryId,
             QString::fromUtf8(kPullRequestDetailObjectType),
             pullRequestDetailCacheKey(pullRequestNumber),
             &payload,
-            nullptr,
+            &fetchedAt,
             &found,
             &cacheError)) {
         result.errorMessage = cacheError;
@@ -594,7 +617,9 @@ GitHubPullRequestDetailResult GitHubService::loadPullRequestFromCache(
         return result;
     }
 
-    return pullRequestDetailFromCachePayload(payload);
+    result = pullRequestDetailFromCachePayload(payload);
+    applyCacheMetadata(&result, fetchedAt, GitHubCachePolicy::kDetailCacheTtlMs);
+    return result;
 }
 
 bool GitHubService::persistPullRequestToCache(

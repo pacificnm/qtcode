@@ -32,6 +32,10 @@ void GitHubDetailView::configureLayout()
     m_metadataLabel->setWordWrap(true);
     m_metadataLabel->setAlignment(Qt::AlignTop | Qt::AlignLeft);
 
+    m_cacheStatusLabel = new QLabel(this);
+    m_cacheStatusLabel->setWordWrap(true);
+    m_cacheStatusLabel->setAlignment(Qt::AlignTop | Qt::AlignLeft);
+
     m_bodyView = new QTextEdit(this);
     m_bodyView->setReadOnly(true);
     m_bodyView->setMinimumHeight(120);
@@ -41,11 +45,14 @@ void GitHubDetailView::configureLayout()
 
     layout->addWidget(m_titleLabel);
     layout->addWidget(m_metadataLabel);
+    layout->addWidget(m_cacheStatusLabel);
     layout->addWidget(m_bodyView, 1);
     layout->addWidget(m_attachButton);
 }
 
-void GitHubDetailView::showIssue(const qtcode::github::GitHubIssueDetail &detail)
+void GitHubDetailView::showIssue(
+    const qtcode::github::GitHubIssueDetail &detail,
+    const qtcode::github::GitHubCacheMetadata &cacheMetadata)
 {
     m_mode = DetailMode::Issue;
     m_issueDetail = detail;
@@ -55,9 +62,19 @@ void GitHubDetailView::showIssue(const qtcode::github::GitHubIssueDetail &detail
         i18n("Issue #%1: %2", detail.number, detail.title),
         issueMetadata(detail),
         detail.body);
+
+    const QString cacheLabel = cacheMetadata.statusLabel();
+    if (cacheLabel.isEmpty()) {
+        m_cacheStatusLabel->hide();
+    } else {
+        m_cacheStatusLabel->setText(cacheLabel);
+        m_cacheStatusLabel->show();
+    }
 }
 
-void GitHubDetailView::showPullRequest(const qtcode::github::GitHubPullRequestDetail &detail)
+void GitHubDetailView::showPullRequest(
+    const qtcode::github::GitHubPullRequestDetail &detail,
+    const qtcode::github::GitHubCacheMetadata &cacheMetadata)
 {
     m_mode = DetailMode::PullRequest;
     m_pullRequestDetail = detail;
@@ -67,6 +84,14 @@ void GitHubDetailView::showPullRequest(const qtcode::github::GitHubPullRequestDe
         i18n("Pull request #%1: %2", detail.number, detail.title),
         pullRequestMetadata(detail),
         detail.body);
+
+    const QString cacheLabel = cacheMetadata.statusLabel();
+    if (cacheLabel.isEmpty()) {
+        m_cacheStatusLabel->hide();
+    } else {
+        m_cacheStatusLabel->setText(cacheLabel);
+        m_cacheStatusLabel->show();
+    }
 }
 
 void GitHubDetailView::showLoadingMessage(const QString &message)
@@ -76,6 +101,8 @@ void GitHubDetailView::showLoadingMessage(const QString &message)
     m_pullRequestDetail = {};
     m_titleLabel->setText(message);
     m_metadataLabel->clear();
+    m_cacheStatusLabel->clear();
+    m_cacheStatusLabel->hide();
     m_bodyView->clear();
     m_attachButton->setEnabled(false);
 }
@@ -92,6 +119,8 @@ void GitHubDetailView::clearDetail()
     m_pullRequestDetail = {};
     m_titleLabel->setText(i18n("Select a GitHub issue or pull request to view details."));
     m_metadataLabel->clear();
+    m_cacheStatusLabel->clear();
+    m_cacheStatusLabel->hide();
     m_bodyView->clear();
     m_attachButton->setEnabled(false);
 }

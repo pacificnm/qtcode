@@ -38,6 +38,8 @@ struct GitHubIssueDetailResult
 {
     bool success = false;
     bool fromCache = false;
+    bool isStale = false;
+    QString fetchedAt;
     QString errorMessage;
     GitHubIssueDetail detail;
 };
@@ -46,6 +48,8 @@ struct GitHubIssueListResult
 {
     bool success = false;
     bool fromCache = false;
+    bool isStale = false;
+    QString fetchedAt;
     QString errorMessage;
     QList<GitHubIssue> issues;
 };
@@ -64,6 +68,8 @@ struct GitHubPullRequestListResult
 {
     bool success = false;
     bool fromCache = false;
+    bool isStale = false;
+    QString fetchedAt;
     QString errorMessage;
     QList<GitHubPullRequest> pullRequests;
 };
@@ -85,6 +91,8 @@ struct GitHubPullRequestDetailResult
 {
     bool success = false;
     bool fromCache = false;
+    bool isStale = false;
+    QString fetchedAt;
     QString errorMessage;
     GitHubPullRequestDetail detail;
 };
