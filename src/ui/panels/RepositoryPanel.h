@@ -43,6 +43,8 @@ struct RepositoryRefreshBundle
     qtcode::github::GitHubPullRequestListResult pullRequests;
 };
 
+class CollapsibleSection;
+
 class RepositoryPanel final : public QWidget
 {
     Q_OBJECT
@@ -125,11 +127,13 @@ private:
     QLabel *m_workspaceSetupLabel = nullptr;
     QPushButton *m_installWorkspaceButton = nullptr;
     QLabel *m_changesStateLabel = nullptr;
-    QLabel *m_changesSectionLabel = nullptr;
+    CollapsibleSection *m_changesSection = nullptr;
     QPushButton *m_stageChangesButton = nullptr;
     QListWidget *m_unstagedFilesList = nullptr;
+    CollapsibleSection *m_issuesSection = nullptr;
     QLabel *m_issuesStateLabel = nullptr;
     QListWidget *m_issuesList = nullptr;
+    CollapsibleSection *m_pullRequestsSection = nullptr;
     QLabel *m_pullRequestsStateLabel = nullptr;
     QListWidget *m_pullRequestsList = nullptr;
     QFutureWatcher<RepositoryRefreshBundle> *m_refreshWatcher = nullptr;

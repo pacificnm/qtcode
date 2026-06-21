@@ -14,12 +14,14 @@
 #include "shared/Logging.h"
 #include "ui/dialogs/ChangeRepositoryDialog.h"
 #include "ui/dialogs/StageChangesDialog.h"
+#include "ui/widgets/CollapsibleSection.h"
 
 #include <KLocalizedString>
 
 #include <QDir>
 #include <QFileDialog>
 #include <QFileInfo>
+#include <QFrame>
 #include <QGuiApplication>
 #include <QClipboard>
 #include <QHBoxLayout>
@@ -297,27 +299,18 @@ void RepositoryPanel::configureLayout()
     workspaceSetupLayout->addWidget(m_installWorkspaceButton);
     m_workspaceSetupWidget->hide();
 
-    QFont sectionFont = m_projectLabel->font();
-    sectionFont.setBold(true);
-
     m_changesStateLabel = new QLabel(this);
     m_changesStateLabel->setWordWrap(true);
     m_changesStateLabel->setAlignment(Qt::AlignTop | Qt::AlignLeft);
-
-    m_changesSectionLabel = new QLabel(i18n("Changes"), this);
-    m_changesSectionLabel->setFont(sectionFont);
 
     m_stageChangesButton = new QPushButton(i18n("Stage Changes"), this);
     m_stageChangesButton->setFlat(true);
     connect(m_stageChangesButton, &QPushButton::clicked, this, &RepositoryPanel::onStageChangesClicked);
 
-    auto *changesHeader = new QHBoxLayout();
-    changesHeader->setContentsMargins(0, 0, 0, 0);
-    changesHeader->addWidget(m_changesSectionLabel);
-    changesHeader->addStretch();
-    changesHeader->addWidget(m_stageChangesButton);
-
-    m_unstagedFilesList = new QListWidget(this);
+    m_changesSection = new CollapsibleSection(i18n("Changes"), true, this);
+    m_changesSection->headerTrailingLayout()->addWidget(m_stageChangesButton);
+    m_changesSection->contentLayout()->addWidget(m_changesStateLabel);
+    m_changesSection->contentLayout()->addWidget(m_unstagedFilesList = new QListWidget(this));
     m_unstagedFilesList->setSelectionMode(QAbstractItemView::ExtendedSelection);
     m_unstagedFilesList->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(m_unstagedFilesList, &QListWidget::itemClicked, this, &RepositoryPanel::onChangedFileClicked);
@@ -326,9 +319,6 @@ void RepositoryPanel::configureLayout()
         &QListWidget::customContextMenuRequested,
         this,
         &RepositoryPanel::showUnstagedFilesContextMenu);
-
-    auto *issuesTitle = new QLabel(i18n("GitHub issues"), this);
-    issuesTitle->setFont(sectionFont);
 
     m_issuesStateLabel = new QLabel(this);
     m_issuesStateLabel->setWordWrap(true);
@@ -344,8 +334,9 @@ void RepositoryPanel::configureLayout()
         this,
         &RepositoryPanel::showIssuesContextMenu);
 
-    auto *pullRequestsTitle = new QLabel(i18n("GitHub pull requests"), this);
-    pullRequestsTitle->setFont(sectionFont);
+    m_issuesSection = new CollapsibleSection(i18n("GitHub issues"), false, this);
+    m_issuesSection->contentLayout()->addWidget(m_issuesStateLabel);
+    m_issuesSection->contentLayout()->addWidget(m_issuesList);
 
     m_pullRequestsStateLabel = new QLabel(this);
     m_pullRequestsStateLabel->setWordWrap(true);
@@ -359,19 +350,31 @@ void RepositoryPanel::configureLayout()
         this,
         &RepositoryPanel::onPullRequestSelected);
 
-    layout->addWidget(titleLabel);
-    layout->addWidget(m_capabilityStateLabel);
-    layout->addWidget(m_workspaceSetupWidget);
-    layout->addWidget(m_projectLabel);
-    layout->addWidget(m_changesStateLabel);
-    layout->addLayout(changesHeader);
-    layout->addWidget(m_unstagedFilesList);
-    layout->addWidget(issuesTitle);
-    layout->addWidget(m_issuesStateLabel);
-    layout->addWidget(m_issuesList);
-    layout->addWidget(pullRequestsTitle);
-    layout->addWidget(m_pullRequestsStateLabel);
-    layout->addWidget(m_pullRequestsList);
+    m_pullRequestsSection = new CollapsibleSection(i18n("GitHub pull requests"), false, this);
+    m_pullRequestsSection->contentLayout()->addWidget(m_pullRequestsStateLabel);
+    m_pullRequestsSection->contentLayout()->addWidget(m_pullRequestsList);
+
+    auto *headerWidget = new QWidget(this);
+    headerWidget->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Maximum);
+    auto *headerLayout = new QVBoxLayout(headerWidget);
+    headerLayout->setContentsMargins(0, 0, 0, 0);
+    headerLayout->setSpacing(8);
+    headerLayout->addWidget(titleLabel);
+    headerLayout->addWidget(m_projectLabel);
+    headerLayout->addWidget(m_capabilityStateLabel);
+    headerLayout->addWidget(m_workspaceSetupWidget);
+
+    auto *headerSeparator = new QFrame(this);
+    headerSeparator->setFrameShape(QFrame::HLine);
+    headerSeparator->setFrameShadow(QFrame::Plain);
+    headerSeparator->setLineWidth(1);
+
+    layout->addWidget(headerWidget, 0);
+    layout->addWidget(headerSeparator, 0);
+    layout->addWidget(m_changesSection, 0);
+    layout->addWidget(m_issuesSection, 0);
+    layout->addWidget(m_pullRequestsSection, 0);
+    layout->addStretch(1);
 }
 
 void RepositoryPanel::refreshStatus(bool showStatusFeedback)
@@ -486,7 +489,6 @@ void RepositoryPanel::setRefreshing(bool refreshing, bool showLoadingUi)
 
     setLabelTextIfChanged(m_changesStateLabel, i18n("Loading changes…"));
     setWidgetVisibleIfChanged(m_changesStateLabel, true);
-    setWidgetVisibleIfChanged(m_changesSectionLabel, false);
     setWidgetVisibleIfChanged(m_stageChangesButton, false);
     setWidgetVisibleIfChanged(m_unstagedFilesList, false);
     setLabelTextIfChanged(m_issuesStateLabel, i18n("Loading GitHub issues…"));
@@ -517,7 +519,6 @@ void RepositoryPanel::applyWorkingTreeStatus(const qtcode::git::GitWorkingTreeSt
     const bool hasUnstagedFiles = !status.unstagedFiles.isEmpty();
     const bool hasWorkingTreeChanges = hasStagedFiles || hasUnstagedFiles;
 
-    setWidgetVisibleIfChanged(m_changesSectionLabel, true);
     setWidgetVisibleIfChanged(m_stageChangesButton, true);
 
     if (!hasWorkingTreeChanges) {
@@ -551,11 +552,12 @@ void RepositoryPanel::applyWorkingTreeStatus(const qtcode::git::GitWorkingTreeSt
         }
     }
 
-    setLabelTextIfChanged(
-        m_changesSectionLabel,
-        hasUnstagedFiles
-            ? i18n("Changes (%1)", status.unstagedFiles.size())
-            : i18n("Changes"));
+    if (m_changesSection != nullptr) {
+        m_changesSection->setTitle(
+            hasUnstagedFiles
+                ? i18n("Changes (%1)", status.unstagedFiles.size())
+                : i18n("Changes"));
+    }
 
     updateChangesActions(status);
 }
@@ -568,7 +570,6 @@ void RepositoryPanel::showEmptyState(const QString &message)
     setWidgetVisibleIfChanged(m_changesStateLabel, true);
     m_unstagedFilesList->clear();
     setWidgetVisibleIfChanged(m_unstagedFilesList, false);
-    setWidgetVisibleIfChanged(m_changesSectionLabel, false);
     setWidgetVisibleIfChanged(m_stageChangesButton, false);
     setLabelTextIfChanged(
         m_issuesStateLabel,
@@ -595,7 +596,6 @@ void RepositoryPanel::showErrorState(const QString &message)
     m_changesStateLabel->show();
     m_unstagedFilesList->clear();
     m_unstagedFilesList->hide();
-    m_changesSectionLabel->hide();
     m_stageChangesButton->hide();
     m_issuesStateLabel->hide();
     m_issuesList->clear();
