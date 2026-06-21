@@ -24,7 +24,11 @@ Displays the active project's filesystem tree and emits `fileOpenRequested` when
 
 ### `WorkspaceTabs`
 
-Owns the main work-area tab widget. Hosts the permanent, non-closable AI chat tab and closable file tabs opened from the folder tree.
+Owns the main work-area tab widget. Hosts the permanent, non-closable AI chat tab and closable KTextEditor-backed file tabs opened from the folder tree. Handles deduplicated open requests, dirty-tab close prompts, and closing editor tabs on project switch.
+
+### `EditorTab`
+
+Wraps one `KTextEditor::Document` and `KTextEditor::View` pair for a single local file path. Surfaces load/save failures through `StatusService` and prompts before closing dirty documents.
 
 ## Project And Repository Classes
 

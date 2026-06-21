@@ -19,9 +19,12 @@
 #include <KHelpMenu>
 #include <KLocalizedString>
 #include <KStandardAction>
+#include <KTextEditor/Application>
+#include <KTextEditor/Editor>
 
 #include <QAction>
 #include <QApplication>
+#include <QCloseEvent>
 #include <QIcon>
 #include <QMenuBar>
 #include <QSignalBlocker>
@@ -90,8 +93,16 @@ void MainWindow::configureLayout()
         m_controller != nullptr ? m_controller->projectManager() : nullptr,
         this);
 
-    m_workspaceTabs = new WorkspaceTabs(this);
+    m_workspaceTabs = new WorkspaceTabs(
+        m_controller != nullptr ? m_controller->statusService() : nullptr,
+        m_controller != nullptr ? m_controller->projectManager() : nullptr,
+        this);
     m_workspaceTabs->setPermanentAiChatTab(m_agentPanel->conversationPanel());
+
+    if (m_controller != nullptr) {
+        m_ktextEditorApplication = std::make_unique<KTextEditor::Application>(this);
+        KTextEditor::Editor::instance()->setApplication(m_ktextEditorApplication.get());
+    }
 
     m_projectNavigationPanel->setMinimumWidth(240);
     m_workspaceTabs->setMinimumWidth(320);
@@ -150,6 +161,11 @@ void MainWindow::configureLayout()
             &FileTreePanel::fileOpenRequested,
             m_workspaceTabs,
             &WorkspaceTabs::requestOpenFile);
+        connect(
+            m_workspaceTabs,
+            &WorkspaceTabs::activeEditorStateChanged,
+            this,
+            &MainWindow::refreshEditorActions);
     }
 
     auto *centralContainer = new QWidget(this);
@@ -177,7 +193,20 @@ void MainWindow::configureActions()
     m_actionCollection = new KActionCollection(this);
     m_actionCollection->addAssociatedWidget(this);
 
-    KStandardAction::quit(qApp, &QApplication::quit, m_actionCollection);
+    KStandardAction::quit(this, &QWidget::close, m_actionCollection);
+
+    m_saveFileAction = KStandardAction::save(this, &MainWindow::saveCurrentFile, m_actionCollection);
+    m_saveFileAction->setEnabled(false);
+
+    m_closeFileTabAction = m_actionCollection->addAction(QStringLiteral("file_close_editor_tab"));
+    m_closeFileTabAction->setText(i18n("Close File Tab"));
+    m_closeFileTabAction->setIcon(QIcon::fromTheme(QStringLiteral("window-close")));
+    m_closeFileTabAction->setEnabled(false);
+    connect(
+        m_closeFileTabAction,
+        &QAction::triggered,
+        m_workspaceTabs,
+        &WorkspaceTabs::closeCurrentEditorTab);
 
     auto *addRepositoryAction = m_actionCollection->addAction(QStringLiteral("file_add_repository"));
     addRepositoryAction->setText(i18n("Add Repository"));
@@ -263,6 +292,9 @@ void MainWindow::configureMenus()
     fileMenu->addAction(m_actionCollection->action(QStringLiteral("file_add_repository")));
     fileMenu->addAction(m_actionCollection->action(QStringLiteral("file_refresh_status")));
     fileMenu->addAction(m_actionCollection->action(QStringLiteral("file_new_terminal_tab")));
+    fileMenu->addSeparator();
+    fileMenu->addAction(m_saveFileAction);
+    fileMenu->addAction(m_closeFileTabAction);
     fileMenu->addSeparator();
     fileMenu->addAction(m_actionCollection->action(KStandardAction::name(KStandardAction::Quit)));
 
@@ -424,6 +456,34 @@ void MainWindow::syncRightPanelVisibility()
     }
 
     m_rootHorizontalSplitter->setSizes(sizes);
+}
+
+void MainWindow::closeEvent(QCloseEvent *event)
+{
+    if (m_workspaceTabs != nullptr && !m_workspaceTabs->closeAllEditorTabs(true)) {
+        event->ignore();
+        return;
+    }
+
+    persistPanelLayout();
+    QMainWindow::closeEvent(event);
+}
+
+void MainWindow::saveCurrentFile()
+{
+    if (m_workspaceTabs != nullptr) {
+        (void) m_workspaceTabs->saveCurrentEditorTab();
+    }
+}
+
+void MainWindow::refreshEditorActions(bool hasActiveEditor, bool isModified)
+{
+    if (m_saveFileAction != nullptr) {
+        m_saveFileAction->setEnabled(hasActiveEditor && isModified);
+    }
+    if (m_closeFileTabAction != nullptr) {
+        m_closeFileTabAction->setEnabled(hasActiveEditor);
+    }
 }
 
 void MainWindow::resetPanelLayout()

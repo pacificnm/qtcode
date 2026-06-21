@@ -2,13 +2,20 @@
 
 #include <QMainWindow>
 
+#include <memory>
+
 class QAction;
+class QCloseEvent;
 class QSplitter;
 class QStackedWidget;
 class QToolBar;
 
 class KActionCollection;
 class KHelpMenu;
+
+namespace KTextEditor {
+class Application;
+} // namespace KTextEditor
 
 namespace qtcode::core {
 class ApplicationController;
@@ -36,8 +43,13 @@ public:
     explicit MainWindow(qtcode::core::ApplicationController *controller, QWidget *parent = nullptr);
     ~MainWindow() override;
 
+protected:
+    void closeEvent(QCloseEvent *event) override;
+
 private slots:
     void resetPanelLayout();
+    void saveCurrentFile();
+    void refreshEditorActions(bool hasActiveEditor, bool isModified);
     void onAgentSessionsPanelActionToggled(bool visible);
     void onContextPanelActionToggled(bool visible);
     void onChangesPanelActionToggled(bool visible);
@@ -74,6 +86,9 @@ private:
     QAction *m_contextPanelAction = nullptr;
     QAction *m_changesPanelAction = nullptr;
     QAction *m_mcpPanelAction = nullptr;
+    QAction *m_saveFileAction = nullptr;
+    QAction *m_closeFileTabAction = nullptr;
+    std::unique_ptr<KTextEditor::Application> m_ktextEditorApplication;
     int m_storedRightColumnWidth = 320;
 };
 
