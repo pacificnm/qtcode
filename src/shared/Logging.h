@@ -11,6 +11,7 @@ Q_DECLARE_LOGGING_CATEGORY(qtcodeTerminal)
 Q_DECLARE_LOGGING_CATEGORY(qtcodeGit)
 Q_DECLARE_LOGGING_CATEGORY(qtcodeGithub)
 Q_DECLARE_LOGGING_CATEGORY(qtcodeMemory)
+Q_DECLARE_LOGGING_CATEGORY(qtcodeCommands)
 
 namespace qtcode::shared {
 

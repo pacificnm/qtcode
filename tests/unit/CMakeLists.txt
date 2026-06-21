@@ -484,3 +484,23 @@ set_tests_properties(terminal_manager_working_directory PROPERTIES
     LABELS "unit;terminal"
     TIMEOUT 30
 )
+
+qtcode_add_executable(qtcode_command_library_service_test
+    commands/CommandLibraryServiceTest.cpp
+)
+
+target_link_libraries(qtcode_command_library_service_test
+    PRIVATE
+        qtcode_commands
+        Qt6::Test
+)
+
+add_test(
+    NAME command_library_service
+    COMMAND qtcode_command_library_service_test
+)
+
+set_tests_properties(command_library_service PROPERTIES
+    LABELS "unit;commands"
+    TIMEOUT 30
+)
