@@ -3,6 +3,8 @@
 #include "core/ProjectManager.h"
 #include "core/CliCapabilityService.h"
 #include "core/CliCapabilityModels.h"
+#include "core/StatusModels.h"
+#include "core/StatusService.h"
 #include "git/GitCommitSummary.h"
 #include "git/GitService.h"
 #include "github/GitHubService.h"
@@ -48,12 +50,14 @@ RepositoryPanel::RepositoryPanel(
     qtcode::core::ProjectManager *projectManager,
     qtcode::core::CliCapabilityService *cliCapabilityService,
     qtcode::github::GitHubService *gitHubService,
+    qtcode::core::StatusService *statusService,
     QWidget *parent)
     : QWidget(parent)
     , m_gitService(gitService)
     , m_projectManager(projectManager)
     , m_cliCapabilityService(cliCapabilityService)
     , m_gitHubService(gitHubService)
+    , m_statusService(statusService)
     , m_refreshWatcher(new QFutureWatcher<RepositoryRefreshBundle>(this))
 {
     configureLayout();
@@ -264,6 +268,10 @@ void RepositoryPanel::startRefresh(const QString &projectId, const QString &repo
     setRefreshing(true);
     m_refreshTimer.start();
 
+    if (m_statusService != nullptr) {
+        m_statusService->showProgress(i18n("Refreshing repository status…"));
+    }
+
     qtcode::github::GitHubService *gitHubService = m_gitHubService;
     m_refreshWatcher->setFuture(QtConcurrent::run(
         [projectId, repositoryPath, gitHubService]() {
@@ -308,6 +316,10 @@ void RepositoryPanel::onRefreshFinished()
                      << bundle.issues.issues.size() << "GitHub issue(s), and"
                      << bundle.pullRequests.pullRequests.size() << "pull request(s)"
                      << "in" << m_refreshTimer.elapsed() << "ms";
+
+    if (m_statusService != nullptr) {
+        m_statusService->showMessage(i18n("Repository status refreshed."));
+    }
 }
 
 void RepositoryPanel::setRefreshing(bool refreshing)
@@ -367,6 +379,10 @@ void RepositoryPanel::showEmptyState(const QString &message)
 
 void RepositoryPanel::showErrorState(const QString &message)
 {
+    if (m_statusService != nullptr) {
+        m_statusService->showMessage(message, qtcode::core::StatusSeverity::Error);
+    }
+
     m_changedFilesStateLabel->setText(message);
     m_changedFilesStateLabel->show();
     m_changedFilesList->clear();

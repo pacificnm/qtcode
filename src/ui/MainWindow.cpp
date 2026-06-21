@@ -1,6 +1,7 @@
 #include "ui/MainWindow.h"
 
 #include "core/ApplicationController.h"
+#include "core/StatusService.h"
 #include "agents/AgentManager.h"
 #include "core/SettingsService.h"
 #include "settings/SettingsModels.h"
@@ -9,6 +10,7 @@
 #include "ui/panels/McpServerPanel.h"
 #include "ui/panels/RepositoryPanel.h"
 #include "ui/panels/TerminalPanel.h"
+#include "ui/StatusBar.h"
 
 #include <KActionCollection>
 #include <KHelpMenu>
@@ -24,6 +26,7 @@
 #include <QSplitter>
 #include <QStackedWidget>
 #include <QToolBar>
+#include <QVBoxLayout>
 
 namespace qtcode::ui {
 
@@ -65,12 +68,14 @@ void MainWindow::configureLayout()
         m_controller != nullptr ? m_controller->projectManager() : nullptr,
         m_controller != nullptr ? m_controller->cliCapabilityService() : nullptr,
         m_controller != nullptr ? m_controller->gitHubService() : nullptr,
+        m_controller != nullptr ? m_controller->statusService() : nullptr,
         this);
     m_agentPanel = new AgentPanel(
         m_controller != nullptr ? m_controller->cliCapabilityService() : nullptr,
         m_controller != nullptr ? m_controller->agentManager() : nullptr,
         m_controller != nullptr ? m_controller->projectManager() : nullptr,
         m_controller != nullptr ? m_controller->contextManager() : nullptr,
+        m_controller != nullptr ? m_controller->statusService() : nullptr,
         this);
     m_mcpServerPanel = new McpServerPanel(
         m_controller != nullptr ? m_controller->mcpServerService() : nullptr,
@@ -133,9 +138,24 @@ void MainWindow::configureLayout()
             &AgentPanel::attachPullRequestContext);
     }
 
-    setCentralWidget(m_rootHorizontalSplitter);
+    auto *centralContainer = new QWidget(this);
+    auto *centralLayout = new QVBoxLayout(centralContainer);
+    centralLayout->setContentsMargins(0, 0, 0, 0);
+    centralLayout->setSpacing(0);
+    centralLayout->addWidget(m_rootHorizontalSplitter, 1);
 
-    qCInfo(qtcodeUi) << "Initialized three-column shell with four toggleable right-panel views";
+    m_statusBar = new StatusBar(
+        m_controller != nullptr ? m_controller->statusService() : nullptr,
+        centralContainer);
+    centralLayout->addWidget(m_statusBar, 0);
+
+    setCentralWidget(centralContainer);
+
+    if (m_controller != nullptr && m_controller->statusService() != nullptr) {
+        m_controller->statusService()->showMessage(i18n("Ready."));
+    }
+
+    qCInfo(qtcodeUi) << "Initialized three-column shell with global status bar";
 }
 
 void MainWindow::configureActions()

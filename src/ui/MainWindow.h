@@ -24,6 +24,7 @@ namespace qtcode::ui {
 class AgentPanel;
 class McpServerPanel;
 class RepositoryPanel;
+class StatusBar;
 class TerminalPanel;
 
 class MainWindow final : public QMainWindow
@@ -63,6 +64,7 @@ private:
     AgentPanel *m_agentPanel = nullptr;
     McpServerPanel *m_mcpServerPanel = nullptr;
     TerminalPanel *m_terminalPanel = nullptr;
+    StatusBar *m_statusBar = nullptr;
     KActionCollection *m_actionCollection = nullptr;
     KHelpMenu *m_helpMenu = nullptr;
     QToolBar *m_activityToolBar = nullptr;

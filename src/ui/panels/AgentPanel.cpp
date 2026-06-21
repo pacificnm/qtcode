@@ -9,6 +9,7 @@
 #include "memory/ContextResult.h"
 #include "storage/repositories/ContextRetrievalRepository.h"
 #include "core/ProjectManager.h"
+#include "core/StatusService.h"
 #include "github/GitHubContextFormatting.h"
 #include "github/GitHubModels.h"
 #include "settings/ProjectModels.h"
@@ -49,12 +50,14 @@ AgentPanel::AgentPanel(
     qtcode::agents::AgentManager *agentManager,
     qtcode::core::ProjectManager *projectManager,
     qtcode::core::ContextManager *contextManager,
+    qtcode::core::StatusService *statusService,
     QWidget *parent)
     : QWidget(parent)
     , m_cliCapabilityService(cliCapabilityService)
     , m_agentManager(agentManager)
     , m_projectManager(projectManager)
     , m_contextManager(contextManager)
+    , m_statusService(statusService)
 {
     configureLayout();
     refreshCapabilityState();
@@ -164,10 +167,6 @@ void AgentPanel::configureLayout()
     titleFont.setBold(true);
     titleLabel->setFont(titleFont);
 
-    m_stateLabel = new QLabel(m_conversationPanel);
-    m_stateLabel->setWordWrap(true);
-    m_stateLabel->setAlignment(Qt::AlignTop | Qt::AlignLeft);
-
     m_conversationView = new ConversationView(m_conversationPanel);
 
     m_promptInput = new QPlainTextEdit(m_conversationPanel);
@@ -198,7 +197,6 @@ void AgentPanel::configureLayout()
     connect(m_cancelButton, &QPushButton::clicked, this, &AgentPanel::cancelActiveRequest);
 
     conversationLayout->addWidget(titleLabel);
-    conversationLayout->addWidget(m_stateLabel);
     conversationLayout->addWidget(m_conversationView, 1);
     conversationLayout->addLayout(composerRowLayout);
     conversationLayout->addWidget(m_cancelButton);
@@ -244,21 +242,31 @@ void AgentPanel::configureLayout()
     setVisible(false);
 }
 
-void AgentPanel::refreshCapabilityState()
+void AgentPanel::showStatus(const QString &text, qtcode::core::StatusSeverity severity)
 {
-    if (m_stateLabel == nullptr) {
+    if (m_statusService == nullptr || text.trimmed().isEmpty()) {
         return;
     }
 
+    if (severity == qtcode::core::StatusSeverity::Progress) {
+        m_statusService->showProgress(text);
+        return;
+    }
+
+    m_statusService->showMessage(text, severity);
+}
+
+void AgentPanel::refreshCapabilityState()
+{
     if (m_cliCapabilityService == nullptr) {
-        m_stateLabel->setText(i18n("Agent services are unavailable."));
+        showStatus(i18n("Agent services are unavailable."), qtcode::core::StatusSeverity::Warning);
         setPromptEnabled(false);
         return;
     }
 
     const qtcode::core::CliCapabilitiesSnapshot snapshot = m_cliCapabilityService->snapshot();
     if (!snapshot.agentCli.available) {
-        m_stateLabel->setText(snapshot.agentCli.unavailableMessage);
+        showStatus(snapshot.agentCli.unavailableMessage, qtcode::core::StatusSeverity::Warning);
         setPromptEnabled(false);
     }
 }
@@ -373,13 +381,13 @@ void AgentPanel::sendPrompt()
 
     QString errorMessage;
     if (!ensureActiveSession(&errorMessage)) {
-        m_stateLabel->setText(errorMessage);
+        showStatus(errorMessage, qtcode::core::StatusSeverity::Warning);
         return;
     }
 
     settings::ProjectRecord activeProject;
     if (!m_projectManager->activeProject(&activeProject)) {
-        m_stateLabel->setText(i18n("Select an active repository before sending a prompt."));
+        showStatus(i18n("Select an active repository before sending a prompt."), qtcode::core::StatusSeverity::Warning);
         return;
     }
 
@@ -391,7 +399,7 @@ void AgentPanel::sendPrompt()
     m_pendingPrompt = prompt;
     m_contextRetrievalInFlight = true;
     refreshComposerControls();
-    m_stateLabel->setText(i18n("Retrieving project memory…"));
+    showStatus(i18n("Retrieving project memory…"), qtcode::core::StatusSeverity::Progress);
 
     auto *watcher = new QFutureWatcher<qtcode::core::ContextRetrievalOutcome>(this);
     connect(watcher, &QFutureWatcher<qtcode::core::ContextRetrievalOutcome>::finished, this, [this, watcher, activeProject]() {
@@ -453,7 +461,7 @@ void AgentPanel::dispatchPromptWithContext(
     QString errorMessage;
     if (!m_agentManager->dispatchRequest(m_activeSessionId, request, &errorMessage)) {
         qCWarning(qtcodeUi) << "Failed to dispatch agent prompt:" << errorMessage;
-        m_stateLabel->setText(i18n("Could not send prompt: %1", errorMessage));
+        showStatus(i18n("Could not send prompt: %1", errorMessage), qtcode::core::StatusSeverity::Error);
         setPromptEnabled(true);
         return;
     }
@@ -480,13 +488,13 @@ void AgentPanel::dispatchPromptWithContext(
     }
 
     if (memoryUnavailable) {
-        m_stateLabel->setText(
-            i18n("Sent prompt without project memory: %1", statusMessage));
+        showStatus(
+            i18n("Sent prompt without project memory: %1", statusMessage),
+            qtcode::core::StatusSeverity::Warning);
     } else if (mergedContextExcerpts.isEmpty() && !statusMessage.isEmpty()) {
-        m_stateLabel->setText(statusMessage);
+        showStatus(statusMessage);
     } else if (!mergedContextExcerpts.isEmpty()) {
-        m_stateLabel->setText(
-            i18n("Sent prompt with %1 attached context excerpt(s).", mergedContextExcerpts.size()));
+        showStatus(i18n("Sent prompt with %1 attached context excerpt(s).", mergedContextExcerpts.size()));
     }
 
     m_attachedGitHubContextExcerpts.clear();
@@ -503,7 +511,7 @@ void AgentPanel::attachIssueContext(const qtcode::github::GitHubIssueDetail &det
 {
     m_attachedGitHubContextExcerpts = {qtcode::github::formatIssueContextExcerpt(detail)};
     m_attachedPullRequestNumber = 0;
-    m_stateLabel->setText(i18n("Attached GitHub issue #%1 to the next agent prompt.", detail.number));
+    showStatus(i18n("Attached GitHub issue #%1 to the next agent prompt.", detail.number));
 }
 
 void AgentPanel::attachPullRequestContext(const qtcode::github::GitHubPullRequestDetail &detail)
@@ -511,7 +519,7 @@ void AgentPanel::attachPullRequestContext(const qtcode::github::GitHubPullReques
     m_attachedGitHubContextExcerpts = {
         qtcode::github::formatPullRequestContextExcerpt(detail)};
     m_attachedPullRequestNumber = detail.number;
-    m_stateLabel->setText(
+    showStatus(
         i18n("Attached GitHub pull request #%1 to the next agent prompt.", detail.number));
 }
 
@@ -522,12 +530,12 @@ void AgentPanel::createNewSession()
     }
 
     if (!m_projectManager->hasActiveProject()) {
-        m_stateLabel->setText(i18n("Select a repository before creating a session."));
+        showStatus(i18n("Select a repository before creating a session."), qtcode::core::StatusSeverity::Warning);
         return;
     }
 
     if (selectedAgentKey().isEmpty()) {
-        m_stateLabel->setText(i18n("No agent is available for a new session."));
+        showStatus(i18n("No agent is available for a new session."), qtcode::core::StatusSeverity::Warning);
         return;
     }
 
@@ -538,8 +546,9 @@ void AgentPanel::createNewSession()
         {},
         &errorMessage);
     if (session == nullptr) {
-        m_stateLabel->setText(
-            errorMessage.isEmpty() ? i18n("Could not create a new session.") : errorMessage);
+        showStatus(
+            errorMessage.isEmpty() ? i18n("Could not create a new session.") : errorMessage,
+            qtcode::core::StatusSeverity::Error);
         return;
     }
 
@@ -610,8 +619,9 @@ void AgentPanel::cancelActiveRequest()
 
     QString errorMessage;
     if (!m_agentManager->cancelRequest(m_activeSessionId, &errorMessage)) {
-        m_stateLabel->setText(
-            errorMessage.isEmpty() ? i18n("Could not cancel the active agent request.") : errorMessage);
+        showStatus(
+            errorMessage.isEmpty() ? i18n("Could not cancel the active agent request.") : errorMessage,
+            qtcode::core::StatusSeverity::Error);
     }
 }
 
@@ -629,7 +639,7 @@ void AgentPanel::onActiveProjectChanged()
     setPromptEnabled(canPrompt);
 
     if (m_projectManager != nullptr && !m_projectManager->hasActiveProject()) {
-        m_stateLabel->setText(i18n("Select a repository to start an agent conversation."));
+        showStatus(i18n("Select a repository to start an agent conversation."), qtcode::core::StatusSeverity::Warning);
     } else {
         refreshCapabilityState();
     }
@@ -699,7 +709,7 @@ void AgentPanel::approveSelectedArtifact(const QString &artifactId)
 
     settings::ProjectRecord activeProject;
     if (!m_projectManager->activeProject(&activeProject)) {
-        m_stateLabel->setText(i18n("Select an active repository before approving changes."));
+        showStatus(i18n("Select an active repository before approving changes."), qtcode::core::StatusSeverity::Warning);
         return;
     }
 
@@ -709,8 +719,9 @@ void AgentPanel::approveSelectedArtifact(const QString &artifactId)
             artifactId,
             activeProject.rootPath,
             &errorMessage)) {
-        m_stateLabel->setText(
-            errorMessage.isEmpty() ? i18n("Could not approve the selected change.") : errorMessage);
+        showStatus(
+            errorMessage.isEmpty() ? i18n("Could not approve the selected change.") : errorMessage,
+            qtcode::core::StatusSeverity::Error);
         return;
     }
 
@@ -725,8 +736,9 @@ void AgentPanel::rejectSelectedArtifact(const QString &artifactId)
 
     QString errorMessage;
     if (!m_agentManager->rejectArtifact(m_activeSessionId, artifactId, &errorMessage)) {
-        m_stateLabel->setText(
-            errorMessage.isEmpty() ? i18n("Could not reject the selected change.") : errorMessage);
+        showStatus(
+            errorMessage.isEmpty() ? i18n("Could not reject the selected change.") : errorMessage,
+            qtcode::core::StatusSeverity::Error);
         return;
     }
 
@@ -735,7 +747,7 @@ void AgentPanel::rejectSelectedArtifact(const QString &artifactId)
 
 void AgentPanel::updateSessionStatusDisplay(const qtcode::agents::AgentSession *session)
 {
-    if (m_stateLabel == nullptr || session == nullptr) {
+    if (session == nullptr) {
         return;
     }
 
@@ -743,30 +755,36 @@ void AgentPanel::updateSessionStatusDisplay(const qtcode::agents::AgentSession *
     case qtcode::agents::AgentSessionStatus::Running: {
         const QString statusUpdate = session->lastStatusUpdate().trimmed();
         if (statusUpdate.isEmpty()) {
-            m_stateLabel->setText(i18n("Agent request is running…"));
+            showStatus(i18n("Agent request is running…"), qtcode::core::StatusSeverity::Progress);
         } else {
-            m_stateLabel->setText(i18n("Agent request is running: %1", statusUpdate));
+            showStatus(
+                i18n("Agent request is running: %1", statusUpdate),
+                qtcode::core::StatusSeverity::Progress);
         }
         break;
     }
     case qtcode::agents::AgentSessionStatus::Completed:
-        m_stateLabel->setText(i18n("Agent response completed."));
+        showStatus(i18n("Agent response completed."));
         break;
     case qtcode::agents::AgentSessionStatus::Failed: {
         const QString errorMessage = session->lastErrorMessage().trimmed();
         if (errorMessage.isEmpty()) {
-            m_stateLabel->setText(i18n("The last agent request failed. You can send another prompt."));
+            showStatus(
+                i18n("The last agent request failed. You can send another prompt."),
+                qtcode::core::StatusSeverity::Error);
         } else {
-            m_stateLabel->setText(i18n("The last agent request failed: %1", errorMessage));
+            showStatus(
+                i18n("The last agent request failed: %1", errorMessage),
+                qtcode::core::StatusSeverity::Error);
         }
         break;
     }
     case qtcode::agents::AgentSessionStatus::Canceled:
-        m_stateLabel->setText(i18n("The last agent request was canceled."));
+        showStatus(i18n("The last agent request was canceled."), qtcode::core::StatusSeverity::Warning);
         break;
     case qtcode::agents::AgentSessionStatus::Idle:
     default:
-        m_stateLabel->setText(i18n("Ready for the next prompt."));
+        showStatus(i18n("Ready for the next prompt."));
         break;
     }
 }

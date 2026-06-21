@@ -3,7 +3,6 @@
 #include <QWidget>
 
 class QComboBox;
-class QLabel;
 class QListWidget;
 class QPlainTextEdit;
 class QPushButton;
@@ -17,9 +16,11 @@ namespace qtcode::core {
 class CliCapabilityService;
 class ContextManager;
 class ProjectManager;
+class StatusService;
 } // namespace qtcode::core
 
 #include "core/ContextManager.h"
+#include "core/StatusModels.h"
 #include "github/GitHubModels.h"
 
 namespace qtcode::settings {
@@ -42,6 +43,7 @@ public:
         qtcode::agents::AgentManager *agentManager,
         qtcode::core::ProjectManager *projectManager,
         qtcode::core::ContextManager *contextManager,
+        qtcode::core::StatusService *statusService,
         QWidget *parent = nullptr);
 
     [[nodiscard]] QWidget *sessionPanel() const;
@@ -88,11 +90,13 @@ private:
         const QStringList &contextExcerpts,
         const QString &statusMessage = {},
         bool memoryUnavailable = false);
+    void showStatus(const QString &text, qtcode::core::StatusSeverity severity = qtcode::core::StatusSeverity::Info);
 
     qtcode::core::CliCapabilityService *m_cliCapabilityService = nullptr;
     qtcode::agents::AgentManager *m_agentManager = nullptr;
     qtcode::core::ProjectManager *m_projectManager = nullptr;
     qtcode::core::ContextManager *m_contextManager = nullptr;
+    qtcode::core::StatusService *m_statusService = nullptr;
     QWidget *m_sessionPanel = nullptr;
     QWidget *m_conversationPanel = nullptr;
     QWidget *m_contextPanel = nullptr;
@@ -100,7 +104,6 @@ private:
     QComboBox *m_agentSelector = nullptr;
     QListWidget *m_sessionList = nullptr;
     QPushButton *m_newSessionButton = nullptr;
-    QLabel *m_stateLabel = nullptr;
     ContextResultsView *m_contextResultsView = nullptr;
     ConversationView *m_conversationView = nullptr;
     QPlainTextEdit *m_promptInput = nullptr;

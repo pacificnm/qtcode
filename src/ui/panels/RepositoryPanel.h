@@ -19,6 +19,7 @@ class GitService;
 namespace qtcode::core {
 class ProjectManager;
 class CliCapabilityService;
+class StatusService;
 } // namespace qtcode::core
 
 namespace qtcode::github {
@@ -50,6 +51,7 @@ public:
         qtcode::core::ProjectManager *projectManager,
         qtcode::core::CliCapabilityService *cliCapabilityService,
         qtcode::github::GitHubService *gitHubService,
+        qtcode::core::StatusService *statusService,
         QWidget *parent = nullptr);
     ~RepositoryPanel() override;
 
@@ -85,6 +87,7 @@ private:
     qtcode::core::ProjectManager *m_projectManager = nullptr;
     qtcode::core::CliCapabilityService *m_cliCapabilityService = nullptr;
     qtcode::github::GitHubService *m_gitHubService = nullptr;
+    qtcode::core::StatusService *m_statusService = nullptr;
     RepositoryListModel *m_repositoryModel = nullptr;
     QListView *m_repositoryList = nullptr;
     QLabel *m_projectLabel = nullptr;
