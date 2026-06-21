@@ -27,6 +27,7 @@ public:
     void setPermanentAiChatTab(QWidget *conversationPanel);
 
     [[nodiscard]] int aiChatTabIndex() const;
+    [[nodiscard]] int tabCount() const;
     [[nodiscard]] bool closeAllEditorTabs(bool promptForDirty);
     [[nodiscard]] bool saveCurrentEditorTab();
     [[nodiscard]] bool hasActiveEditorTab() const;

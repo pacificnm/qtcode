@@ -87,6 +87,11 @@ int WorkspaceTabs::aiChatTabIndex() const
     return m_aiChatTabIndex;
 }
 
+int WorkspaceTabs::tabCount() const
+{
+    return m_tabWidget != nullptr ? m_tabWidget->count() : 0;
+}
+
 void WorkspaceTabs::requestOpenFile(const QString &absolutePath)
 {
     if (m_tabWidget == nullptr || absolutePath.isEmpty()) {

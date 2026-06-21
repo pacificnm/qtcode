@@ -21,3 +21,14 @@ set_tests_properties(smoke_repository_add_open PROPERTIES
     LABELS "smoke"
     TIMEOUT 120
 )
+
+add_test(
+    NAME smoke_workspace
+    COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/workspace_smoke_test.sh"
+            "$<TARGET_FILE:qtcode>"
+)
+
+set_tests_properties(smoke_workspace PROPERTIES
+    LABELS "smoke"
+    TIMEOUT 60
+)

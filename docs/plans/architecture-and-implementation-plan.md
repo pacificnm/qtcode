@@ -13,7 +13,7 @@ It should feel closer to a developer cockpit than a general IDE. The terminal an
 - Context-first architecture: repository, memory, and GitHub state should enrich agent sessions.
 - Pluggable AI agents with no tight dependency on one provider.
 - Fast startup and low idle memory.
-- Editor features stay secondary: preview, diff, and optional read-only browsing before rich editing.
+- Editor features stay secondary: focused workspace editing, diff review, and lightweight browsing rather than a full IDE.
 - Prefer proven local tools: QTermWidget, libgit2, Git CLI, GitHub CLI, SQLite, KDE Frameworks.
 
 ## High-Level Architecture
@@ -186,7 +186,7 @@ Detailed pattern guidance is in `engineering/design-patterns.md`.
 - Pull request review workflow.
 - Build/test command profiles.
 - Terminal session restoration.
-- Optional KTextEditor read-only preview.
+- Focused KTextEditor workspace tabs for small in-cockpit file edits.
 - More complete diff viewer and patch application flow.
 
 ## Future Roadmap

@@ -43,6 +43,8 @@ public:
     explicit MainWindow(qtcode::core::ApplicationController *controller, QWidget *parent = nullptr);
     ~MainWindow() override;
 
+    [[nodiscard]] bool runWorkspaceSmokeChecks(QString *errorMessage);
+
 protected:
     void closeEvent(QCloseEvent *event) override;
 

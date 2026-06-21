@@ -9,7 +9,7 @@ QTCode could drift toward rebuilding VS Code or JetBrains features.
 Mitigation:
 
 - Keep terminal, agents, GitHub, and memory as milestone anchors.
-- Treat editor work as preview/review infrastructure only.
+- Treat editor work as focused workspace editing and preview/review infrastructure, not a full IDE.
 - Reject extensions that require web runtime compatibility.
 
 ## Agent CLI Instability

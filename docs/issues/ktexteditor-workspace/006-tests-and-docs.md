@@ -17,9 +17,9 @@ Add focused verification for the KTextEditor workspace and align older docs that
 
 ## Acceptance Criteria
 
-- Add unit coverage for project-root path validation and file/folder operation edge cases.
-- Add UI or smoke coverage for permanent AI chat tab, opening a file tab, dirty close prompt, and save.
-- Existing smoke tests still pass.
-- Update `docs/design/ui-layout-spec.md` to describe workspace tabs and the shared repository/files left project space.
-- Update roadmap, risk analysis, class responsibilities, beta setup, and packaging docs where they still conflict with ADR 0011.
-- Document any remaining editor non-goals so the feature does not expand into a full IDE scope.
+- [x] Add unit coverage for project-root path validation and file/folder operation edge cases.
+- [x] Add UI or smoke coverage for permanent AI chat tab, opening a file tab, dirty close prompt, and save.
+- [x] Existing smoke tests still pass.
+- [x] Update `docs/design/ui-layout-spec.md` to describe workspace tabs and the shared repository/files left project space.
+- [x] Update roadmap, risk analysis, class responsibilities, beta setup, and packaging docs where they still conflict with ADR 0011.
+- [x] Document any remaining editor non-goals so the feature does not expand into a full IDE scope.

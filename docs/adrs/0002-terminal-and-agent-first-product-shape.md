@@ -10,7 +10,7 @@ QTCode is for developers who spend most of their time working through AI agents,
 
 ## Decision
 
-Make terminal tabs, AI sessions, repository context, memory retrieval, and GitHub work the primary surfaces. Treat editor features as optional preview, diff, and browsing tools.
+Make terminal tabs, AI sessions, repository context, memory retrieval, and GitHub work the primary surfaces. Treat rich IDE features as out of scope while keeping focused file editing, diff review, and browsing tools secondary.
 
 ## Consequences
 
@@ -23,7 +23,7 @@ Positive:
 Tradeoffs:
 
 - Users expecting a traditional IDE may find the app incomplete.
-- Some workflows need external editors until optional KTextEditor support exists.
+- Some workflows may still need external editors for work that exceeds the focused workspace editing slice in [ADR 0011](0011-ktexteditor-workspace-tabs.md).
 
 ## Follow-Ups
 

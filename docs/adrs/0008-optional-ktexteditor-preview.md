@@ -2,15 +2,17 @@
 
 ## Status
 
-Accepted
+Accepted (partially superseded by [ADR 0011](0011-ktexteditor-workspace-tabs.md) for workspace file editing)
 
 ## Context
 
 QTCode should not become a traditional editor. Some code display is still useful for diffs, read-only browsing, and reviewing agent-generated changes.
 
+ADR 0011 added focused KTextEditor workspace tabs for small in-cockpit edits. This ADR still applies to diff review and any read-only preview surfaces that are not part of the workspace tab model.
+
 ## Decision
 
-Keep editor functionality optional and secondary. Use KTextEditor only for preview, read-only browsing, and focused review surfaces when needed.
+Keep general editor functionality secondary. Use KTextEditor for preview, read-only browsing, focused review surfaces, and the ADR 0011 workspace editing slice when needed.
 
 ## Consequences
 
