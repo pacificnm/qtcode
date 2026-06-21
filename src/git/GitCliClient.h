@@ -23,6 +23,8 @@ public:
     [[nodiscard]] GitOperationResult unstageAll() const;
     [[nodiscard]] GitOperationResult commit(const QString &message) const;
     [[nodiscard]] GitOperationResult push() const;
+    [[nodiscard]] GitOperationResult checkoutBranch(const QString &branchName) const;
+    [[nodiscard]] GitOperationResult createBranch(const QString &branchName) const;
 
 private:
     [[nodiscard]] GitOperationResult runGit(

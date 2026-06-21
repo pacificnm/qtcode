@@ -12,6 +12,8 @@ class GitServiceTest final : public QObject
 private slots:
     void loadWorkingTreeStatusReportsCommitsAheadWithUpstream();
     void loadWorkingTreeStatusReportsCommitsAheadWithoutConfiguredUpstream();
+    void listLocalBranchesReturnsSortedBranchNames();
+    void checkoutAndCreateBranchUpdateHead();
 };
 
 void GitServiceTest::loadWorkingTreeStatusReportsCommitsAheadWithUpstream()
@@ -113,6 +115,103 @@ void GitServiceTest::loadWorkingTreeStatusReportsCommitsAheadWithoutConfiguredUp
     QVERIFY(gitService.loadWorkingTreeStatus(repositoryPath, &status));
 
     QCOMPARE(status.commitsAhead, 1);
+}
+
+void GitServiceTest::listLocalBranchesReturnsSortedBranchNames()
+{
+    QTemporaryDir tempDir;
+    QVERIFY(tempDir.isValid());
+
+    const QString repositoryPath = tempDir.path();
+    const QString gitExecutable = QStringLiteral("git");
+
+    auto runGit = [&](const QStringList &arguments) {
+        QProcess process;
+        process.setWorkingDirectory(repositoryPath);
+        process.setProgram(gitExecutable);
+        process.setArguments(arguments);
+        process.start(QProcess::ReadOnly);
+        QVERIFY(process.waitForStarted(5000));
+        QVERIFY(process.waitForFinished(10000));
+        QCOMPARE(process.exitStatus(), QProcess::NormalExit);
+        QCOMPARE(process.exitCode(), 0);
+    };
+
+    runGit({QStringLiteral("init"), QStringLiteral("-b"), QStringLiteral("main")});
+    runGit({QStringLiteral("config"), QStringLiteral("user.email"), QStringLiteral("test@example.com")});
+    runGit({QStringLiteral("config"), QStringLiteral("user.name"), QStringLiteral("QTCode Test")});
+
+    QFile file(repositoryPath + QStringLiteral("/README.md"));
+    QVERIFY(file.open(QIODevice::WriteOnly | QIODevice::Text));
+    file.write("hello");
+    file.close();
+
+    runGit({QStringLiteral("add"), QStringLiteral("README.md")});
+    runGit({QStringLiteral("commit"), QStringLiteral("-m"), QStringLiteral("Initial commit")});
+    runGit({QStringLiteral("branch"), QStringLiteral("feature-a")});
+    runGit({QStringLiteral("checkout"), QStringLiteral("main")});
+    runGit({QStringLiteral("branch"), QStringLiteral("feature-b")});
+    runGit({QStringLiteral("checkout"), QStringLiteral("main")});
+
+    qtcode::git::GitService gitService;
+    QStringList branches;
+    QString currentBranch;
+    QVERIFY(gitService.listLocalBranches(repositoryPath, &branches, &currentBranch));
+
+    QCOMPARE(currentBranch, QStringLiteral("main"));
+    QCOMPARE(branches, QStringList({QStringLiteral("feature-a"), QStringLiteral("feature-b"), QStringLiteral("main")}));
+}
+
+void GitServiceTest::checkoutAndCreateBranchUpdateHead()
+{
+    QTemporaryDir tempDir;
+    QVERIFY(tempDir.isValid());
+
+    const QString repositoryPath = tempDir.path();
+    const QString gitExecutable = QStringLiteral("git");
+
+    auto runGit = [&](const QStringList &arguments) {
+        QProcess process;
+        process.setWorkingDirectory(repositoryPath);
+        process.setProgram(gitExecutable);
+        process.setArguments(arguments);
+        process.start(QProcess::ReadOnly);
+        QVERIFY(process.waitForStarted(5000));
+        QVERIFY(process.waitForFinished(10000));
+        QCOMPARE(process.exitStatus(), QProcess::NormalExit);
+        QCOMPARE(process.exitCode(), 0);
+    };
+
+    runGit({QStringLiteral("init"), QStringLiteral("-b"), QStringLiteral("main")});
+    runGit({QStringLiteral("config"), QStringLiteral("user.email"), QStringLiteral("test@example.com")});
+    runGit({QStringLiteral("config"), QStringLiteral("user.name"), QStringLiteral("QTCode Test")});
+
+    QFile file(repositoryPath + QStringLiteral("/README.md"));
+    QVERIFY(file.open(QIODevice::WriteOnly | QIODevice::Text));
+    file.write("hello");
+    file.close();
+
+    runGit({QStringLiteral("add"), QStringLiteral("README.md")});
+    runGit({QStringLiteral("commit"), QStringLiteral("-m"), QStringLiteral("Initial commit")});
+    runGit({QStringLiteral("branch"), QStringLiteral("feature-a")});
+    runGit({QStringLiteral("checkout"), QStringLiteral("main")});
+
+    qtcode::git::GitService gitService;
+
+    const qtcode::git::GitOperationResult checkoutResult =
+        gitService.checkoutBranch(repositoryPath, gitExecutable, QStringLiteral("feature-a"));
+    QVERIFY(checkoutResult.success);
+
+    qtcode::git::GitRepositoryInfo info;
+    QVERIFY(gitService.inspectRepository(repositoryPath, &info));
+    QCOMPARE(info.branchName, QStringLiteral("feature-a"));
+
+    const qtcode::git::GitOperationResult createResult =
+        gitService.createBranch(repositoryPath, gitExecutable, QStringLiteral("feature-b"));
+    QVERIFY(createResult.success);
+
+    QVERIFY(gitService.inspectRepository(repositoryPath, &info));
+    QCOMPARE(info.branchName, QStringLiteral("feature-b"));
 }
 
 QTEST_MAIN(GitServiceTest)

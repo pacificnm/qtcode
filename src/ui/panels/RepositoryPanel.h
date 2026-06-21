@@ -118,6 +118,13 @@ private:
     void showUnstagedFilesContextMenu(const QPoint &position);
     void attachIssueToContext(int issueNumber);
     void removeRepositoryAtIndex(const QModelIndex &index);
+    void selectBranchForRepository(const QString &projectId, const QString &repositoryPath);
+    void createBranchForRepository(const QString &projectId, const QString &repositoryPath);
+    void checkoutBranchForRepository(
+        const QString &projectId,
+        const QString &repositoryPath,
+        const QString &branchName,
+        bool createBranch = false);
     void stageRelativePaths(const QStringList &relativePaths);
     void unstageRelativePaths(const QStringList &relativePaths);
     [[nodiscard]] QStringList selectedRelativePaths(QListWidget *list) const;

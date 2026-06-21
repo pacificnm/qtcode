@@ -95,6 +95,32 @@ GitOperationResult GitCliClient::push() const
     return runGit({QStringLiteral("push")}, kGitPushTimeoutMs);
 }
 
+GitOperationResult GitCliClient::checkoutBranch(const QString &branchName) const
+{
+    const QString trimmedBranchName = branchName.trimmed();
+    if (trimmedBranchName.isEmpty()) {
+        GitOperationResult result;
+        result.errorMessage = QStringLiteral("Branch name is required.");
+        return result;
+    }
+
+    return runGit({QStringLiteral("checkout"), trimmedBranchName}, kGitCommandTimeoutMs);
+}
+
+GitOperationResult GitCliClient::createBranch(const QString &branchName) const
+{
+    const QString trimmedBranchName = branchName.trimmed();
+    if (trimmedBranchName.isEmpty()) {
+        GitOperationResult result;
+        result.errorMessage = QStringLiteral("Branch name is required.");
+        return result;
+    }
+
+    return runGit(
+        {QStringLiteral("checkout"), QStringLiteral("-b"), trimmedBranchName},
+        kGitCommandTimeoutMs);
+}
+
 GitOperationResult GitCliClient::runGit(const QStringList &arguments, int timeoutMs) const
 {
     GitOperationResult result;

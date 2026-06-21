@@ -445,6 +445,93 @@ GitOperationResult GitService::push(const QString &path, const QString &gitExecu
     return configuredGitCliClient(path, gitExecutable).push();
 }
 
+bool GitService::listLocalBranches(
+    const QString &path,
+    QStringList *branchNames,
+    QString *currentBranch,
+    QString *errorMessage) const
+{
+    if (branchNames == nullptr) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("Git branch list output pointer is null.");
+        }
+        return false;
+    }
+
+    branchNames->clear();
+    if (currentBranch != nullptr) {
+        currentBranch->clear();
+    }
+
+    GitRepositoryInfo repositoryInfo;
+    if (!inspectRepository(path, &repositoryInfo, errorMessage)) {
+        return false;
+    }
+
+    if (currentBranch != nullptr && !repositoryInfo.isDetachedHead) {
+        *currentBranch = repositoryInfo.branchName;
+    }
+
+    const QByteArray nativePath = repositoryInfo.localPath.toUtf8();
+    git_repository *repository = nullptr;
+    if (git_repository_open(&repository, nativePath.constData()) < 0) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("Failed to reopen repository for branch list: %1")
+                                .arg(libgit2ErrorMessage("unable to open repository"));
+        }
+        return false;
+    }
+
+    git_branch_iterator *iterator = nullptr;
+    if (git_branch_iterator_new(&iterator, repository, GIT_BRANCH_LOCAL) < 0) {
+        git_repository_free(repository);
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("Failed to enumerate local branches: %1")
+                                .arg(libgit2ErrorMessage("unable to create branch iterator"));
+        }
+        return false;
+    }
+
+    git_reference *reference = nullptr;
+    git_branch_t branchType = GIT_BRANCH_LOCAL;
+    while (git_branch_next(&reference, &branchType, iterator) == 0) {
+        const char *branchName = nullptr;
+        if (git_branch_name(&branchName, reference) == 0 && branchName != nullptr) {
+            branchNames->append(QString::fromUtf8(branchName));
+        }
+        git_reference_free(reference);
+        reference = nullptr;
+    }
+
+    git_branch_iterator_free(iterator);
+    git_repository_free(repository);
+
+    branchNames->removeDuplicates();
+    std::sort(branchNames->begin(), branchNames->end(), [](const QString &left, const QString &right) {
+        return left.compare(right, Qt::CaseInsensitive) < 0;
+    });
+
+    qCInfo(qtcodeGit) << "Loaded" << branchNames->size() << "local branch(es) for"
+                      << repositoryInfo.localPath;
+    return true;
+}
+
+GitOperationResult GitService::checkoutBranch(
+    const QString &path,
+    const QString &gitExecutable,
+    const QString &branchName) const
+{
+    return configuredGitCliClient(path, gitExecutable).checkoutBranch(branchName);
+}
+
+GitOperationResult GitService::createBranch(
+    const QString &path,
+    const QString &gitExecutable,
+    const QString &branchName) const
+{
+    return configuredGitCliClient(path, gitExecutable).createBranch(branchName);
+}
+
 QString commitSubject(const git_commit *commit)
 {
     const char *message = git_commit_message(commit);

@@ -64,6 +64,19 @@ public:
     [[nodiscard]] GitOperationResult push(
         const QString &path,
         const QString &gitExecutable) const;
+    [[nodiscard]] bool listLocalBranches(
+        const QString &path,
+        QStringList *branchNames,
+        QString *currentBranch = nullptr,
+        QString *errorMessage = nullptr) const;
+    [[nodiscard]] GitOperationResult checkoutBranch(
+        const QString &path,
+        const QString &gitExecutable,
+        const QString &branchName) const;
+    [[nodiscard]] GitOperationResult createBranch(
+        const QString &path,
+        const QString &gitExecutable,
+        const QString &branchName) const;
 };
 
 } // namespace qtcode::git
