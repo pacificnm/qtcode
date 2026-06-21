@@ -14,6 +14,7 @@
 #include "settings/ProjectModels.h"
 #include "shared/Logging.h"
 #include "ui/views/ContextResultsView.h"
+#include "ui/views/ConversationView.h"
 #include "ui/views/DiffReviewView.h"
 
 #include <KLocalizedString>
@@ -25,8 +26,6 @@
 #include <QListWidget>
 #include <QPushButton>
 #include <QSignalBlocker>
-#include <QTextEdit>
-#include <QTextCursor>
 #include <QVBoxLayout>
 
 #include <QFutureWatcher>
@@ -166,9 +165,7 @@ void AgentPanel::configureLayout()
     m_stateLabel->setWordWrap(true);
     m_stateLabel->setAlignment(Qt::AlignTop | Qt::AlignLeft);
 
-    m_conversationView = new QTextEdit(m_conversationPanel);
-    m_conversationView->setReadOnly(true);
-    m_conversationView->setPlaceholderText(i18n("Agent responses will appear here."));
+    m_conversationView = new ConversationView(m_conversationPanel);
 
     m_promptInput = new QLineEdit(m_conversationPanel);
     m_promptInput->setPlaceholderText(i18n("Ask the agent about the active repository…"));
@@ -621,7 +618,7 @@ void AgentPanel::onActiveProjectChanged()
 {
     m_activeSessionId.clear();
     if (m_conversationView != nullptr) {
-        m_conversationView->clear();
+        m_conversationView->clearConversation();
     }
 
     refreshSessionList();
@@ -645,20 +642,11 @@ void AgentPanel::refreshConversation()
 
     qtcode::agents::AgentSession *session = m_agentManager->session(m_activeSessionId);
     if (session == nullptr) {
-        m_conversationView->clear();
+        m_conversationView->clearConversation();
         return;
     }
 
-    QStringList lines;
-    for (const qtcode::agents::AgentMessage &message : session->messages()) {
-        const QString roleLabel = message.role == QStringLiteral("user")
-            ? i18n("You")
-            : i18n("Agent");
-        lines.append(QStringLiteral("%1: %2").arg(roleLabel, message.content));
-    }
-
-    m_conversationView->setPlainText(lines.join(QStringLiteral("\n\n")));
-    m_conversationView->moveCursor(QTextCursor::End);
+    m_conversationView->setMessages(session->messages());
 }
 
 void AgentPanel::refreshSavedContextRetrieval()

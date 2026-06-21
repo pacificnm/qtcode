@@ -7,7 +7,6 @@ class QLabel;
 class QLineEdit;
 class QListWidget;
 class QPushButton;
-class QTextEdit;
 
 namespace qtcode::agents {
 class AgentManager;
@@ -30,6 +29,7 @@ struct ProjectRecord;
 namespace qtcode::ui {
 
 class ContextResultsView;
+class ConversationView;
 class DiffReviewView;
 
 class AgentPanel final : public QWidget
@@ -98,7 +98,7 @@ private:
     QPushButton *m_newSessionButton = nullptr;
     QLabel *m_stateLabel = nullptr;
     ContextResultsView *m_contextResultsView = nullptr;
-    QTextEdit *m_conversationView = nullptr;
+    ConversationView *m_conversationView = nullptr;
     QLineEdit *m_promptInput = nullptr;
     QPushButton *m_sendButton = nullptr;
     QPushButton *m_cancelButton = nullptr;

@@ -609,13 +609,12 @@ void AgentManager::connectAdapter(AgentAdapter *adapter)
         adapter,
         &AgentAdapter::eventEmitted,
         this,
-        [this](const AgentEvent &event) {
-            AgentAdapter *sourceAdapter = qobject_cast<AgentAdapter *>(sender());
-            if (sourceAdapter == nullptr) {
+        [this, adapter](const AgentEvent &event) {
+            if (adapter == nullptr) {
                 return;
             }
 
-            AgentSession *activeSession = m_activeSessionByAdapter.value(sourceAdapter->agentKey());
+            AgentSession *activeSession = m_activeSessionByAdapter.value(adapter->agentKey());
             if (activeSession == nullptr) {
                 return;
             }

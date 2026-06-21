@@ -114,21 +114,17 @@ void AgentSession::clearLastStatusUpdate()
 
 bool AgentSession::appendAssistantOutput(const QString &text)
 {
-    if (text.isEmpty()) {
+    if (text.isEmpty() || m_messages.isEmpty()) {
         return false;
     }
 
-    for (int index = m_messages.size() - 1; index >= 0; --index) {
-        if (m_messages.at(index).role != QStringLiteral("assistant")) {
-            continue;
-        }
-
-        m_messages[index].content.append(text);
-        touchUpdatedAt();
-        return true;
+    if (m_messages.last().role != QStringLiteral("assistant")) {
+        return false;
     }
 
-    return false;
+    m_messages.last().content.append(text);
+    touchUpdatedAt();
+    return true;
 }
 
 bool AgentSession::updateAssistantMessage(const QString &messageId, const QString &content)

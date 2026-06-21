@@ -134,6 +134,7 @@ bool CodexAgentAdapter::startRequest(const AgentRequest &request, QString *error
 
     QStringList arguments;
     arguments << QStringLiteral("exec")
+              << QStringLiteral("--skip-git-repo-check")
               << QStringLiteral("--cd")
               << QDir::cleanPath(workingDirectoryInfo.canonicalFilePath())
               << QStringLiteral("--json")
@@ -267,7 +268,7 @@ void CodexAgentAdapter::emitNormalizedEvent(const QJsonObject &eventObject)
 {
     const QString type = eventObject.value(QStringLiteral("type")).toString();
 
-    if (type == QStringLiteral("item.completed")) {
+    if (type == QStringLiteral("item.completed") || type == QStringLiteral("item.updated")) {
         const QJsonObject item = eventObject.value(QStringLiteral("item")).toObject();
         if (item.value(QStringLiteral("type")).toString() == QStringLiteral("agent_message")) {
             const QString text = item.value(QStringLiteral("text")).toString();

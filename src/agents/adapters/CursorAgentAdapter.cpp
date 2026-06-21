@@ -128,6 +128,7 @@ bool CursorAgentAdapter::startRequest(const AgentRequest &request, QString *erro
     }
 
     m_pendingOutput.clear();
+    m_receivedAssistantOutput = false;
     m_requestInFlight = true;
 
     QStringList arguments;
@@ -136,6 +137,7 @@ bool CursorAgentAdapter::startRequest(const AgentRequest &request, QString *erro
               << QStringLiteral("--print")
               << QStringLiteral("--output-format")
               << QStringLiteral("stream-json")
+              << QStringLiteral("--stream-partial-output")
               << composePromptWithContext(request);
 
     qCInfo(qtcodeAgents) << "Starting Cursor agent in" << workingDirectory;
@@ -259,28 +261,53 @@ void CursorAgentAdapter::onProcessErrorOccurred(QProcess::ProcessError processEr
     finishRequest(AgentRequestStatus::Failed, message);
 }
 
+void CursorAgentAdapter::emitOutputText(const QString &text)
+{
+    if (text.isEmpty()) {
+        return;
+    }
+
+    m_receivedAssistantOutput = true;
+
+    AgentEvent event;
+    event.type = AgentEventType::OutputText;
+    event.text = text;
+    emit eventEmitted(event);
+}
+
+void CursorAgentAdapter::emitAssistantMessageObject(const QJsonObject &messageObject)
+{
+    const QJsonValue contentValue = messageObject.value(QStringLiteral("content"));
+    if (contentValue.isArray()) {
+        for (const QJsonValue &value : contentValue.toArray()) {
+            if (!value.isObject()) {
+                continue;
+            }
+
+            emitOutputText(value.toObject().value(QStringLiteral("text")).toString());
+        }
+        return;
+    }
+
+    if (contentValue.isString()) {
+        emitOutputText(contentValue.toString());
+        return;
+    }
+
+    emitOutputText(messageObject.value(QStringLiteral("text")).toString());
+}
+
 void CursorAgentAdapter::emitNormalizedEvent(const QJsonObject &eventObject)
 {
     const QString type = eventObject.value(QStringLiteral("type")).toString();
 
     if (type == QStringLiteral("assistant")) {
-        const QJsonArray content =
-            eventObject.value(QStringLiteral("message")).toObject().value(QStringLiteral("content")).toArray();
-        for (const QJsonValue &value : content) {
-            if (!value.isObject()) {
-                continue;
-            }
+        emitAssistantMessageObject(eventObject.value(QStringLiteral("message")).toObject());
+        return;
+    }
 
-            const QString text = value.toObject().value(QStringLiteral("text")).toString();
-            if (text.isEmpty()) {
-                continue;
-            }
-
-            AgentEvent event;
-            event.type = AgentEventType::OutputText;
-            event.text = text;
-            emit eventEmitted(event);
-        }
+    if (type == QStringLiteral("result") && !m_receivedAssistantOutput) {
+        emitOutputText(eventObject.value(QStringLiteral("result")).toString());
         return;
     }
 
