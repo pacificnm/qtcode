@@ -1,6 +1,7 @@
 #include "settings/SettingsModels.h"
 
 #include <QJsonArray>
+#include <QLatin1String>
 
 namespace qtcode::settings {
 
@@ -34,6 +35,18 @@ QJsonArray sizesToJsonArray(const QList<int> &sizes)
     return array;
 }
 
+QString normalizeRightPanelId(const QString &panelId, const QString &fallback)
+{
+    if (panelId == QLatin1String(kRightPanelContext)
+        || panelId == QLatin1String(kRightPanelChanges)
+        || panelId == QLatin1String(kRightPanelMcp)
+        || panelId == QLatin1String(kRightPanelNone)) {
+        return panelId;
+    }
+
+    return fallback;
+}
+
 } // namespace
 
 QJsonObject PanelLayoutSettings::toJson() const
@@ -41,9 +54,7 @@ QJsonObject PanelLayoutSettings::toJson() const
     QJsonObject json;
     json.insert(QStringLiteral("columnSizes"), sizesToJsonArray(columnSizes));
     json.insert(QStringLiteral("verticalSizes"), sizesToJsonArray(verticalSizes));
-    json.insert(QStringLiteral("agentPanelVisible"), agentPanelVisible);
-    json.insert(QStringLiteral("contextPanelVisible"), contextPanelVisible);
-    json.insert(QStringLiteral("changesPanelVisible"), changesPanelVisible);
+    json.insert(QStringLiteral("activeRightPanel"), activeRightPanel);
     json.insert(QStringLiteral("windowWidth"), windowWidth);
     json.insert(QStringLiteral("windowHeight"), windowHeight);
     return json;
@@ -74,41 +85,44 @@ PanelLayoutSettings PanelLayoutSettings::fromJson(const QJsonObject &json)
             defaults.verticalSizes);
     }
 
-    if (layout.columnSizes.size() == 2 && legacyHorizontalSizes.size() >= 2) {
-        layout.columnSizes = {
-            layout.columnSizes.at(0),
-            legacyHorizontalSizes.at(0),
-            0,
-            legacyHorizontalSizes.at(1),
-        };
-    } else if (layout.columnSizes.size() == 3) {
+    if (layout.columnSizes.size() == 4) {
+        const int rightWidth = layout.columnSizes.at(2) > 0 ? layout.columnSizes.at(2)
+                                                            : layout.columnSizes.at(3);
         layout.columnSizes = {
             layout.columnSizes.at(0),
             layout.columnSizes.at(1),
-            0,
-            layout.columnSizes.at(2),
+            rightWidth,
         };
+    } else if (layout.columnSizes.size() == 2 && legacyHorizontalSizes.size() >= 2) {
+        layout.columnSizes = {
+            layout.columnSizes.at(0),
+            legacyHorizontalSizes.at(0),
+            legacyHorizontalSizes.at(1),
+        };
+    } else if (layout.columnSizes.size() == 3 && legacyHorizontalSizes.empty()
+               && json.contains(QStringLiteral("columnSizes"))) {
+        // Preserve three-column layouts from the prior shell topology.
     } else if (!json.contains(QStringLiteral("columnSizes")) && legacyHorizontalSizes.size() >= 3) {
         layout.columnSizes = {
             legacyHorizontalSizes.at(0),
             legacyHorizontalSizes.at(1),
-            0,
             legacyHorizontalSizes.at(2),
         };
     }
 
-    if (json.contains(QStringLiteral("agentPanelVisible"))) {
-        layout.agentPanelVisible = json.value(QStringLiteral("agentPanelVisible")).toBool(defaults.agentPanelVisible);
-    }
-
-    if (json.contains(QStringLiteral("contextPanelVisible"))) {
-        layout.contextPanelVisible =
-            json.value(QStringLiteral("contextPanelVisible")).toBool(defaults.contextPanelVisible);
-    }
-
-    if (json.contains(QStringLiteral("changesPanelVisible"))) {
-        layout.changesPanelVisible =
-            json.value(QStringLiteral("changesPanelVisible")).toBool(defaults.changesPanelVisible);
+    if (json.contains(QStringLiteral("activeRightPanel"))) {
+        layout.activeRightPanel = normalizeRightPanelId(
+            json.value(QStringLiteral("activeRightPanel")).toString(),
+            defaults.activeRightPanel);
+    } else if (json.contains(QStringLiteral("changesPanelVisible"))
+               && json.value(QStringLiteral("changesPanelVisible")).toBool()) {
+        layout.activeRightPanel = QString::fromLatin1(kRightPanelChanges);
+    } else if (json.contains(QStringLiteral("contextPanelVisible"))
+               && json.value(QStringLiteral("contextPanelVisible")).toBool()) {
+        layout.activeRightPanel = QString::fromLatin1(kRightPanelContext);
+    } else if (json.contains(QStringLiteral("agentPanelVisible"))
+               && !json.value(QStringLiteral("agentPanelVisible")).toBool()) {
+        layout.activeRightPanel = QString::fromLatin1(kRightPanelNone);
     }
 
     if (json.contains(QStringLiteral("windowWidth"))) {

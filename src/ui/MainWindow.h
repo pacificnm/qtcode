@@ -36,9 +36,9 @@ public:
 
 private slots:
     void resetPanelLayout();
-    void onAgentPanelActionToggled(bool visible);
     void onContextPanelActionToggled(bool visible);
     void onChangesPanelActionToggled(bool visible);
+    void onMcpPanelActionToggled(bool visible);
 
 private:
     void configureLayout();
@@ -47,17 +47,18 @@ private:
     void configureToolBar();
     void configureActivityBar();
     void applyPanelLayout(const qtcode::settings::PanelLayoutSettings &layout);
-    void applyPanelVisibility(const qtcode::settings::PanelLayoutSettings &layout);
-    void syncSecondaryPanelVisibility();
-    void syncAgentPanelVisibility();
+    void applyActiveRightPanel(const QString &panelId);
+    void syncRightPanelVisibility();
+    void setActiveRightPanelAction(const QString &panelId);
+    [[nodiscard]] QString currentActiveRightPanel() const;
     [[nodiscard]] qtcode::settings::PanelLayoutSettings currentPanelLayout() const;
     void persistPanelLayout();
 
     qtcode::core::ApplicationController *m_controller = nullptr;
     qtcode::core::SettingsService *m_settingsService = nullptr;
     QSplitter *m_rootHorizontalSplitter = nullptr;
-    QSplitter *m_middleVerticalSplitter = nullptr;
-    QStackedWidget *m_secondaryPanelStack = nullptr;
+    QSplitter *m_mainVerticalSplitter = nullptr;
+    QStackedWidget *m_rightPanelStack = nullptr;
     RepositoryPanel *m_repositoryPanel = nullptr;
     AgentPanel *m_agentPanel = nullptr;
     McpServerPanel *m_mcpServerPanel = nullptr;
@@ -67,11 +68,10 @@ private:
     QToolBar *m_mainToolBar = nullptr;
     QToolBar *m_activityToolBar = nullptr;
     QAction *m_toggleToolBarAction = nullptr;
-    QAction *m_agentPanelAction = nullptr;
     QAction *m_contextPanelAction = nullptr;
     QAction *m_changesPanelAction = nullptr;
-    int m_storedSecondaryColumnWidth = 320;
-    int m_storedAgentPanelHeight = 560;
+    QAction *m_mcpPanelAction = nullptr;
+    int m_storedRightColumnWidth = 320;
 };
 
 } // namespace qtcode::ui

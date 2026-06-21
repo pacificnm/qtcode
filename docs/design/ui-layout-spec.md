@@ -5,16 +5,24 @@
 Primary layout:
 
 ```text
-+----------------------+------------------+--------------+--------------+---+
-| Repository Panel     | Agent Panel      | Secondary    | MCP Panel    |Act|
-| (full height)        |                  | panel column | (full height)|Bar|
-|                      +------------------+              |              |   |
-|                      | Terminal Panel   |              |              |   |
-|                      | (middle only)    |              |              |   |
-+----------------------+------------------+--------------+--------------+---+
++----------------------+----------------------+--------------+---+
+| Repository Panel     | AI Chat Panel        | Right Panel  |Act|
+| (left)               |                      | (one view)   |Bar|
+|                      +----------------------+              |   |
+|                      | Terminal Panel       |              |   |
+|                      | (main)               |              |   |
++----------------------+----------------------+--------------+---+
 ```
 
-The right activity bar toggles the AI Agent, Retrieved Context, and Generated Changes panels. Context and Generated Changes share the secondary panel column between the middle workspace and MCP column.
+The shell exposes exactly three content columns: repository on the left, AI chat plus terminal in the main column, and one shared right column. The activity bar toggles which right-panel view is active.
+
+Right-panel views:
+
+- Retrieved Context
+- Generated Changes
+- MCP Servers
+
+Only one right-panel view is visible at a time. AI chat and terminal remain in the main column at all times.
 
 ## Repository Panel
 
@@ -36,37 +44,29 @@ Expected sections:
 - Pull requests.
 - Repository search.
 
-## Agent Panels
+## Main Column
 
 Purpose:
 
-- Choose agent.
-- Manage conversations.
-- Show retrieved context.
-- Show responses and generated artifacts.
-- Approve or reject changes.
+- Run the primary AI chat workflow and terminal sessions.
 
 Expected surfaces:
 
-- **AI Agent panel** — agent selector, session list, prompt composer, conversation transcript, and status indicators in the middle column above the terminal.
-- **Retrieved Context panel** — context result viewer and attach/detach controls in the secondary column.
-- **Generated Changes panel** — diff review area and approve/reject controls in the secondary column.
-- **Activity bar** — right-edge icon buttons that toggle each panel open or closed.
+- **AI Chat panel** — agent selector, session list, prompt composer, conversation transcript, and status indicators.
+- **Terminal panel** — shell tabs and project-aware command output beneath the chat panel.
 
-## Terminal Panel
+## Right Panel
 
 Purpose:
 
-- Run shells and tools in project context.
-- Keep build/test output visible.
-- Run agent CLIs where interactive terminal behavior is needed.
+- Show one secondary workflow surface at a time without crowding the main chat column.
 
-Expected sections:
+Expected surfaces:
 
-- Tab bar.
-- Shell terminal.
-- New tab control.
-- Profile selector where useful.
+- **Retrieved Context** — context result viewer and attach/detach controls.
+- **Generated Changes** — diff review area and approve/reject controls.
+- **MCP Servers** — MCP server configuration and memory tooling.
+- **Activity bar** — right-edge icon buttons that switch the active right-panel view or hide the right column.
 
 ## Visual Direction
 
@@ -86,4 +86,4 @@ Although QTCode is desktop-first, the layout should tolerate:
 - vertical resizing
 - hidden/collapsed panels
 
-Panel sizes and activity-bar panel visibility should be persisted per user.
+Panel sizes, active right-panel selection, and right-column visibility should be persisted per user.

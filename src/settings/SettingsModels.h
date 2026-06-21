@@ -8,13 +8,16 @@ namespace qtcode::settings {
 
 inline constexpr auto kPanelLayoutSettingKey = "app.panel_layout";
 
+inline constexpr auto kRightPanelNone = "none";
+inline constexpr auto kRightPanelContext = "context";
+inline constexpr auto kRightPanelChanges = "changes";
+inline constexpr auto kRightPanelMcp = "mcp";
+
 struct PanelLayoutSettings
 {
-    QList<int> columnSizes {280, 480, 0, 320};
+    QList<int> columnSizes {280, 640, 320};
     QList<int> verticalSizes {560, 240};
-    bool agentPanelVisible = true;
-    bool contextPanelVisible = false;
-    bool changesPanelVisible = false;
+    QString activeRightPanel = QString::fromLatin1(kRightPanelMcp);
     int windowWidth = 1280;
     int windowHeight = 800;
 
