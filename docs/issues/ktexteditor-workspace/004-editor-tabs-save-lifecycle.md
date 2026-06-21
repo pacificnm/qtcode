@@ -1,5 +1,7 @@
 # Issue 004: Implement KTextEditor File Tabs And Save Lifecycle
 
+GitHub: https://github.com/pacificnm/qtcode/issues/114
+
 Labels: `type:task`, `component:ui`, `component:editor`, `priority:p1`
 
 Milestone: M6 Beta Hardening And Packaging, or the next active editor-workspace milestone if created.

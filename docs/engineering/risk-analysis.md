@@ -83,7 +83,7 @@ Qt, KDE Frameworks, QTermWidget, and libgit2 availability may vary.
 
 Mitigation:
 
-- Keep dependencies explicit, including required KF6 modules documented in [toolchain-requirements.md](../toolchain-requirements.md) and [ADR 0010](../adrs/0010-kf6-xmlgui-action-collections.md).
+- Keep dependencies explicit, including required KF6 modules documented in [toolchain-requirements.md](../toolchain-requirements.md), [ADR 0010](../adrs/0010-kf6-xmlgui-action-collections.md), and [ADR 0011](../adrs/0011-ktexteditor-workspace-tabs.md).
 - Document supported distribution versions.
 - Add packaging notes during M6.
 

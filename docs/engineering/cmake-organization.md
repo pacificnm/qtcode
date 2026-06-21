@@ -31,7 +31,7 @@ qtcode_app
 - Set project name and C++ standard.
 - Enable Qt automatic MOC/UIC/RCC.
 - Find Qt 6 components.
-- Find KDE Frameworks components, including `KF6XmlGui` for `KActionCollection` in `qtcode_ui`.
+- Find KDE Frameworks components, including `KF6XmlGui` for `KActionCollection` in `qtcode_ui` and `KF6TextEditor` for workspace editing.
 - Find QTermWidget.
 - Find libgit2.
 - Include project CMake helper modules.

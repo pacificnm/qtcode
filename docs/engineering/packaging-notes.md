@@ -36,6 +36,7 @@ A packaged QTCode binary should declare runtime dependencies equivalent to the b
 | KF6 CoreAddons | Required |
 | KF6 I18n | Required |
 | KF6 XmlGui | Required; menus, toolbars, and shared actions via `KActionCollection` |
+| KF6 TextEditor | Required; workspace file editing via KTextEditor |
 | QTermWidget 6 | Required |
 | SQLite 3 | Required |
 | libgit2 | Required |

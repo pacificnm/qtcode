@@ -26,4 +26,5 @@ target_link_libraries(qtcode_ui
         KF6::CoreAddons
         KF6::I18n
         KF6::XmlGui
+        KF6::TextEditor
 )
