@@ -14,6 +14,8 @@ private slots:
     void loadFromMissingFileReturnsEmptyConfig();
     void loadTopLevelRepoHelpPath();
     void loadNestedHelpEntryPath();
+    void loadNestedDefaultAgentKey();
+    void loadTopLevelDefaultAgentKey();
     void repoHelpPathOverridesSystemDefault();
 };
 
@@ -47,6 +49,27 @@ void RepoConfigLoaderTest::loadNestedHelpEntryPath()
     const qtcode::settings::RepoConfig config =
         qtcode::core::RepoConfigLoader::loadFromYamlContent(yaml);
     QCOMPARE(config.repoHelpPath, QStringLiteral("docs/index.md"));
+}
+
+void RepoConfigLoaderTest::loadNestedDefaultAgentKey()
+{
+    const QString yaml = QStringLiteral(
+        "agent:\n"
+        "  defaultAgentKey: cursor\n");
+
+    const qtcode::settings::RepoConfig config =
+        qtcode::core::RepoConfigLoader::loadFromYamlContent(yaml);
+    QCOMPARE(config.defaultAgentKey, QStringLiteral("cursor"));
+}
+
+void RepoConfigLoaderTest::loadTopLevelDefaultAgentKey()
+{
+    const QString yaml = QStringLiteral(
+        "defaultAgentKey: codex\n");
+
+    const qtcode::settings::RepoConfig config =
+        qtcode::core::RepoConfigLoader::loadFromYamlContent(yaml);
+    QCOMPARE(config.defaultAgentKey, QStringLiteral("codex"));
 }
 
 void RepoConfigLoaderTest::repoHelpPathOverridesSystemDefault()

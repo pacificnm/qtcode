@@ -96,13 +96,18 @@ The installer copies `templates/config.yaml.tpl` to `.qtcode/config.yaml` when t
 Example:
 
 ```yaml
+agent:
+  defaultAgentKey: codex
 help:
   entryPath: docs/README.md
 ```
 
-The first supported override is the repository help entry — the markdown file opened by **Help > Repo Help**. QTCode also accepts a top-level `repoHelpPath` key with the same meaning.
+Supported overrides:
 
-If no override is present, QTCode uses the system default from the Settings dialog (`doc/index.md` unless changed). See [settings spec](settings-spec.md) for resolution rules and normalization behavior.
+- **Default agent** — adapter key preselected in the agent panel for this repository (`agent.defaultAgentKey` or top-level `defaultAgentKey`).
+- **Repository help entry** — markdown file opened by **Help > Repo Help** (`help.entryPath` or top-level `repoHelpPath`).
+
+If no override is present, QTCode uses the system fallback from `AppConfigService` for help entry resolution and the first available registered agent adapter for agent selection. See [settings spec](settings-spec.md) for resolution rules and normalization behavior.
 
 ## Related Docs
 

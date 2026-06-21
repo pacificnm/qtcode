@@ -102,7 +102,7 @@ Purpose:
 
 Expected surfaces:
 
-- **Agent Sessions** — agent selector, session list, and new session control.
+- **Agent Sessions** — agent selector, session list, and new session control. The selector preselects the repository default agent from `.qtcode/config.yaml` when opening a project that has no prior selector value; session restore and auto-create behavior are described in [settings spec](../specs/settings-spec.md).
 - **Retrieved Context** — context result viewer and attach/detach controls.
 - **MCP Servers** — MCP server configuration and memory tooling.
 - **Activity bar** — right-edge icon buttons that switch the active right-panel view or hide the right column.
@@ -146,4 +146,4 @@ Although QTCode is desktop-first, the layout should tolerate:
 - vertical resizing
 - hidden/collapsed panels
 
-Panel sizes, active right-panel selection, and right-column visibility should be persisted per user.
+Panel sizes, active right-panel selection, and right-column visibility should be persisted per user. Default left and right column widths come from the KDE config file (`AppConfigService`) and apply on launch, after **File > Settings** save, and when resetting panel layout; splitter positions and collapse state come from SQLite.

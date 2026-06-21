@@ -1,2 +1,5 @@
+# Per-repository QTCode settings.
+agent:
+  defaultAgentKey: cursor
 help:
   entryPath: docs/README.md

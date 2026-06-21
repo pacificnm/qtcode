@@ -7,7 +7,8 @@ When a user selects a repository:
 - Repository panel marks it active.
 - Git status refreshes.
 - Terminal default working directory changes.
-- Agent preference loads.
+- Agent panel restores the last active session for that project or creates one with the selected agent.
+- Agent selector preselects the repository default from `.qtcode/config.yaml` when no prior selector value exists for that project.
 - GitHub remote resolution runs if available.
 - Context retrieval scope updates.
 

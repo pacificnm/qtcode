@@ -143,6 +143,7 @@ void MainWindow::configureLayout()
     m_rightPanelStack->addWidget(m_agentPanel->sessionPanel());
     m_rightPanelStack->addWidget(m_agentPanel->contextPanel());
     m_rightPanelStack->addWidget(m_mcpServerPanel);
+    m_rightPanelStack->setCurrentWidget(m_agentPanel->sessionPanel());
 
     m_mainVerticalSplitter = new QSplitter(Qt::Vertical, this);
     m_mainVerticalSplitter->addWidget(m_workspaceTabs);
@@ -362,7 +363,6 @@ void MainWindow::configureActions()
     m_agentSessionsPanelAction->setText(i18n("Agent Sessions"));
     m_agentSessionsPanelAction->setIcon(QIcon::fromTheme(QStringLiteral("system-users")));
     m_agentSessionsPanelAction->setCheckable(true);
-    m_agentSessionsPanelAction->setChecked(true);
 
     m_contextPanelAction = m_actionCollection->addAction(QStringLiteral("view_context_panel"));
     m_contextPanelAction->setText(i18n("Retrieved Context"));
@@ -500,6 +500,7 @@ void MainWindow::onRightPanelActionTriggered(QAction *action)
         setRightColumnCollapsed(false);
     }
 
+    m_savedActiveRightPanel = panelId;
     applyActiveRightPanel(panelId);
 }
 
@@ -606,6 +607,8 @@ void MainWindow::applyActiveRightPanel(const QString &panelId)
         m_rightPanelStack->setCurrentWidget(m_agentPanel->contextPanel());
     } else if (panelId == QString::fromLatin1(qtcode::settings::kRightPanelMcp) && m_mcpServerPanel != nullptr) {
         m_rightPanelStack->setCurrentWidget(m_mcpServerPanel);
+    } else if (m_agentPanel != nullptr) {
+        m_rightPanelStack->setCurrentWidget(m_agentPanel->sessionPanel());
     }
 
     syncRightColumnVisibility();
@@ -686,6 +689,7 @@ void MainWindow::showEvent(QShowEvent *event)
 
 void MainWindow::finalizeInitialLayout()
 {
+    setActiveRightPanelAction(m_savedActiveRightPanel);
     applyConfiguredColumnWidths();
     syncRightColumnVisibility();
     syncTerminalPanelHeight();
@@ -703,6 +707,7 @@ void MainWindow::openSettingsDialog()
     SettingsDialog dialog(
         m_controller != nullptr ? m_controller->appConfigService() : nullptr,
         m_controller != nullptr ? m_controller->projectManager() : nullptr,
+        m_controller != nullptr ? m_controller->agentManager() : nullptr,
         this);
 
     if (dialog.exec() != QDialog::Accepted) {
@@ -711,6 +716,10 @@ void MainWindow::openSettingsDialog()
 
     applyConfiguredColumnWidths();
     syncRightColumnVisibility();
+
+    if (m_agentPanel != nullptr) {
+        m_agentPanel->reloadAgentSelector();
+    }
 
     if (m_controller != nullptr && m_controller->statusService() != nullptr) {
         m_controller->statusService()->showMessage(i18n("Settings saved."));
@@ -761,6 +770,7 @@ void MainWindow::applyPanelLayout(const qtcode::settings::PanelLayoutSettings &l
         activePanel = QString::fromLatin1(qtcode::settings::kRightPanelSessions);
     }
 
+    m_savedActiveRightPanel = activePanel;
     m_rightColumnCollapsed = layout.rightColumnCollapsed;
     updateRightPanelToggleAction();
     setActiveRightPanelAction(activePanel);

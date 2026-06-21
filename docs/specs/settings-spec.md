@@ -37,10 +37,11 @@ Out of scope for this feature:
 
 - The user can choose whether QTCode restores the last active project on startup.
 - The user can choose whether the main window starts maximized.
-- The user can set a default repository help entry file that applies to all projects unless overridden.
-- Each repository can override the help entry file in `.qtcode/config.yaml` so documentation paths differ per project without changing global settings.
-- The user can resize and collapse the main shell panels and have that state restored later.
-- The user can quit and relaunch QTCode without losing their preferred shell layout.
+- The user can set default left and right column widths that apply on launch and after **Reset Panel Layout**.
+- Each repository can override the help entry file and default agent in `.qtcode/config.yaml` so documentation paths and agent choice differ per project.
+- When a repository has no prior agent selection, the agent selector uses that repository's default agent from `.qtcode/config.yaml`.
+- The user can resize and collapse the main shell panels and have splitter and collapse state restored later.
+- The user can quit and relaunch QTCode without losing their preferred shell layout or agent sessions.
 
 ## Settings Types
 
@@ -48,9 +49,9 @@ QTCode uses three persistence tiers. When adding a new setting, choose the tier 
 
 | Tier | Storage | When loaded | Examples |
 | --- | --- | --- | --- |
-| System startup | KDE config file via `AppConfigService` | Before SQLite opens | restore last project, start maximized, default repo help entry |
-| Repository | `.qtcode/config.yaml` via `RepoConfigLoader` | When the active project needs the value | repo help entry override |
-| Runtime shell | SQLite via `SettingsService` | After storage opens | panel layout, window size, collapse state |
+| System startup | KDE config file via `AppConfigService` | Before SQLite opens | restore last project, start maximized, default column widths, system default repo help entry |
+| Repository | `.qtcode/config.yaml` via `RepoConfigLoader` | When the active project needs the value | default agent, repo help entry override |
+| Runtime shell | SQLite via `SettingsService` | After storage opens | splitter sizes, window size, collapse state, agent sessions |
 
 ### System Startup Preferences
 
@@ -62,11 +63,13 @@ Supported fields in the `General` config group:
 | --- | --- | --- | --- |
 | `restoreLastProjectOnStartup` | `restoreLastProjectOnStartup` | `true` | Restore the last active project on launch |
 | `startMaximized` | `startMaximized` | `false` | Open the main window maximized |
-| `repoHelpPath` | `repoHelpPath` | `doc/index.md` | Default repository help entry file, relative to project root |
+| `leftPanelWidth` | `leftPanelWidth` | `240` | Default left column width in pixels |
+| `rightPanelWidth` | `rightPanelWidth` | `320` | Default right column width in pixels |
+| `repoHelpPath` | `repoHelpPath` | `doc/index.md` | System fallback repository help entry file, relative to project root |
 
 These values control the initial application experience and must be available during controller startup.
 
-The Settings dialog header explains that these are system defaults and that per-repository overrides belong in `.qtcode/config.yaml`.
+The Settings dialog **Global** group edits the first four user-facing fields. `repoHelpPath` remains in the KDE config file as the system fallback for help resolution, but it is not currently exposed in the dialog UI; the **Repository** group shows it as the placeholder for the per-repository help override field.
 
 ### Repository Preferences
 
@@ -84,12 +87,16 @@ Supported fields:
 
 | Field | YAML shape | Purpose |
 | --- | --- | --- |
+| `defaultAgentKey` | top-level scalar | Default agent adapter key for this repository |
+| `agent.defaultAgentKey` | nested under `agent:` | Same as `defaultAgentKey`; preferred documented form |
 | `repoHelpPath` | top-level scalar | Repository help entry file, relative to project root |
 | `help.entryPath` | nested under `help:` | Same as `repoHelpPath`; preferred documented form |
 
 Example:
 
 ```yaml
+agent:
+  defaultAgentKey: codex
 help:
   entryPath: docs/README.md
 ```
@@ -97,12 +104,13 @@ help:
 Alternative form:
 
 ```yaml
+defaultAgentKey: codex
 repoHelpPath: docs/README.md
 ```
 
-If a repository does not define an override, QTCode uses the system default from **File > Settings**.
+If a repository does not define an override, QTCode uses the system default from `AppConfigService` for help entry resolution and the first available registered agent adapter for agent selection.
 
-Repository preferences are repo-native, versioned with the project, and can differ between repositories without changing global settings.
+Repository preferences are repo-native, versioned with the project, and can differ between repositories without changing global settings. The Settings dialog **Repository** group writes these values to `.qtcode/config.yaml` through `RepoConfigWriter` when an active project is open.
 
 #### Repository help entry resolution
 
@@ -116,6 +124,18 @@ Resolution flow:
 4. `normalizedRepoHelpPath()` trims whitespace, applies the default `doc/index.md` when empty, and expands directory-only values to `index.md` inside that directory.
 
 Link navigation in `RepoHelpView` is scoped to the parent directory of the resolved entry file.
+
+#### Default agent resolution
+
+When the user opens or switches to a repository, `AgentPanel::refreshAgentSelector()` chooses the agent selector value in this order:
+
+1. Keep the current selector value when refreshing within the same project context.
+2. Otherwise use `agent.defaultAgentKey` or top-level `defaultAgentKey` from `.qtcode/config.yaml` when set and the adapter is registered and available.
+3. Otherwise select the first available registered adapter.
+
+After project switch, `AgentPanel::onActiveProjectChanged()` restores the last active session for that project from SQLite when one exists. If no session exists, `ensureActiveSession()` creates one using the currently selected agent key.
+
+Saving a new default agent in **File > Settings** updates `.qtcode/config.yaml` and triggers `AgentPanel::reloadAgentSelector()` so the selector reflects the saved preference immediately.
 
 Behavior on failure:
 
@@ -167,9 +187,10 @@ Repository preferences are plain YAML files checked into the project under `.qtc
 Behavior:
 
 - read on demand from the active project root
-- never written by the Settings dialog
+- written by the Settings dialog **Repository** group through `RepoConfigWriter` (atomic save via `QSaveFile`)
 - scaffolded by workspace setup when missing
-- parsed with a minimal line-oriented parser in `RepoConfigLoader` (comments, quoted strings, and the two supported key shapes only)
+- parsed with a minimal line-oriented parser in `RepoConfigLoader` (comments, quoted strings, and the supported scalar/nested key shapes only)
+- clearing a repository override field removes that key from the saved YAML; an empty config file is rewritten as commented template content
 
 Malformed or partial YAML does not crash the app. Unrecognized keys are ignored until explicitly supported.
 
@@ -186,38 +207,64 @@ Behavior:
 
 ## Startup Flow
 
+### Application startup
+
 1. `ApplicationController` creates `AppConfigService`.
-2. `AppConfigService::load()` reads the startup config file.
+2. `AppConfigService::load()` reads the KDE startup config file.
 3. `StorageService` opens SQLite.
 4. `MigrationRunner` applies any pending migrations.
 5. `SettingsService` becomes available for SQLite-backed settings.
-6. `ProjectManager` restores the active project unless startup config disables that behavior.
-7. `MainWindow` applies the restored shell layout and panel state.
+6. `AgentManager` registers built-in adapters and restores persisted agent sessions from SQLite.
+7. `CliCapabilityService` schedules background CLI detection; startup does not wait for agent, Git, or `gh` probes to finish.
+8. `ProjectManager` restores the active project unless `restoreLastProjectOnStartup` is disabled.
+9. `TerminalManager` restores terminal metadata from SQLite.
+10. `MainWindow` applies the restored shell layout, configured column widths from `AppConfigService`, and panel collapse state.
 
-Repository config is not loaded during startup. It is read when the user opens **Help > Repo Help** or when another feature resolves an effective repository preference for the active project.
+Repository config is not loaded during application startup. It is read when the active project changes, when **Help > Repo Help** opens, or when another feature resolves an effective repository preference.
 
-If startup config loading fails, QTCode continues with defaults so the app remains usable. If SQLite opening or migration fails, startup stops because the rest of the application depends on that storage.
+If startup config loading fails, QTCode continues with defaults so the app remains usable. If SQLite opening or migration fails, startup stops because the rest of the application depends on that storage. Agent session restore failure also stops startup because the agent workflow depends on that state.
+
+### Agent workflow startup (after UI is visible)
+
+When the main window connects panels to services and an active project is present:
+
+1. `AgentPanel::onActiveProjectChanged()` loads the last active session id for that project from `AgentManager`.
+2. `refreshAgentSelector()` applies the repository default agent when no prior selector value exists.
+3. `refreshSessionList()` selects the restored session or the most recently updated session for the project.
+4. If no session exists yet, `ensureActiveSession()` creates one with the selected agent key.
+5. When CLI capability detection completes, `AgentPanel` refreshes adapter availability and shows a warning if the agent CLI is missing.
+
+If no project is active, the agent panel stays disabled with guidance to select a repository.
 
 ## User Interaction
 
 ### Settings Dialog
 
-`MainWindow` opens the Settings dialog from the File menu.
+`MainWindow` opens the Settings dialog from the File menu. The dialog is grouped into **Global** and **Repository** sections.
 
-The dialog currently exposes:
+**Global** (always available):
 
 - restore last active project on startup
 - start main window maximized
-- default repository help entry path
+- left panel width
+- right panel width
 
-The dialog explains that per-repository overrides belong in `.qtcode/config.yaml`. Editing a repository override requires changing that file in the project (or committing a template change through workspace setup), not saving from the Settings dialog.
+**Repository** (requires an active project):
+
+- active repository name (read-only label)
+- default agent (dropdown of registered adapters)
+- repo help entry (repository override; placeholder shows the system fallback from `AppConfigService`)
+
+When no project is active, the Repository section shows guidance to open or select a project first.
 
 When the user saves:
 
-- system default values are written through `AppConfigService`
+- global values are written through `AppConfigService`
+- repository values are written to `.qtcode/config.yaml` through `RepoConfigWriter`, preserving both help and agent fields in the merged config
+- `MainWindow` applies configured column widths and reloads the agent selector
 - the dialog closes on success
-- the main window shows a brief success message
-- open repository help tabs are not automatically reloaded; the user can reopen **Help > Repo Help** to pick up a changed default or edited `.qtcode/config.yaml`
+- the main window shows a brief success message through `StatusService`
+- open repository help tabs are not automatically reloaded; reopen **Help > Repo Help** to pick up a changed help entry
 
 ### Automatic Layout Persistence
 
@@ -239,11 +286,14 @@ The current layout is restored on the next launch.
 | `AppConfigService` | Load/save system startup preferences in the KDE config file |
 | `AppConfig` / `RepoConfig` | Typed settings models and `effectiveRepoHelpPath()` merge helper |
 | `RepoConfigLoader` | Read `.qtcode/config.yaml` from a project root |
-| `SettingsDialog` | Edit system defaults; document repo override location |
+| `RepoConfigWriter` | Write merged repository preferences to `.qtcode/config.yaml` |
+| `SettingsDialog` | Edit global startup preferences and active-repository overrides |
+| `AgentPanel` | Apply repository default agent, restore sessions, and create the first session when needed |
 | `WorkspaceTabs` | Resolve effective repo help path for the active project |
 | `RepoHelpView` | Render the resolved markdown entry and in-doc links |
 | `WorkspaceInstaller` | Scaffold `.qtcode/config.yaml` from the bundled template |
 | `SettingsService` | Persist SQLite-backed shell layout state |
+| `AgentManager` | Register adapters, restore sessions, and create sessions on demand |
 
 ## Behavior Rules
 
@@ -269,13 +319,16 @@ When adding a new setting:
 
 ## Acceptance Criteria
 
-- Users can edit system startup preferences from the Settings dialog.
+- Users can edit global startup preferences from the Settings dialog **Global** group.
 - Startup preferences are loaded before SQLite opens.
-- Users can set a default repository help entry path in the Settings dialog.
-- Repositories can override the help entry path in `.qtcode/config.yaml`.
+- Users can edit per-repository default agent and help entry overrides from the Settings dialog **Repository** group when a project is active.
+- Repositories can also define overrides directly in `.qtcode/config.yaml`.
 - Effective help entry resolution prefers the repository override over the system default.
+- Default agent selection prefers the repository override when no prior selector value exists for that project context.
 - Directory-only help paths normalize to `index.md` inside that directory.
 - Workspace setup scaffolds `.qtcode/config.yaml` without overwriting existing files.
+- Agent sessions restore from SQLite on startup; project switch restores the last active session or creates one with the selected agent.
 - Main-window layout state is restored automatically across launches.
+- Configured column widths from the KDE config file apply on launch and after settings save.
 - Panel layout saves on normal shutdown.
-- The backup story remains coherent: runtime settings in SQLite, system defaults in the KDE config file, repository overrides in Git with the project.
+- The backup story remains coherent: runtime settings and agent sessions in SQLite, system defaults in the KDE config file, repository overrides in Git with the project.

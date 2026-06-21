@@ -1,11 +1,11 @@
 #include "core/RepoConfigWriter.h"
 
+#include "core/RepoConfigLoader.h"
 #include "settings/RepoConfig.h"
 
 #include <KLocalizedString>
 
 #include <QDir>
-#include <QFile>
 #include <QFileInfo>
 #include <QSaveFile>
 
@@ -19,33 +19,52 @@ namespace {
         QString::fromLatin1(qtcode::settings::kRepoConfigRelativePath));
 }
 
-[[nodiscard]] QString yamlContentForRepoHelpPath(const QString &repoHelpPath)
+[[nodiscard]] QString yamlContentForEmptyConfig()
 {
-    if (repoHelpPath.trimmed().isEmpty()) {
-        return QStringLiteral(
-            "# Per-repository QTCode settings.\n"
-            "# Values here override system defaults from File > Settings.\n"
-            "#\n"
-            "# help:\n"
-            "#   entryPath: docs/README.md\n"
-            "#\n"
-            "# Alternatively:\n"
-            "# repoHelpPath: docs/README.md\n");
+    return QStringLiteral(
+        "# Per-repository QTCode settings.\n"
+        "# Values here override system defaults from File > Settings.\n"
+        "#\n"
+        "# agent:\n"
+        "#   defaultAgentKey: codex\n"
+        "#\n"
+        "# help:\n"
+        "#   entryPath: docs/README.md\n"
+        "#\n"
+        "# Alternatively:\n"
+        "# repoHelpPath: docs/README.md\n"
+        "# defaultAgentKey: codex\n");
+}
+
+[[nodiscard]] QString yamlContentForRepoConfig(const qtcode::settings::RepoConfig &config)
+{
+    if (!config.hasRepoHelpPath() && !config.hasDefaultAgentKey()) {
+        return yamlContentForEmptyConfig();
     }
 
-    const QString normalized = qtcode::settings::normalizedRepoHelpPath(repoHelpPath);
-    return QStringLiteral(
-               "# Per-repository QTCode settings.\n"
-               "help:\n"
-               "  entryPath: %1\n")
-        .arg(normalized);
+    QStringList lines;
+    lines << QStringLiteral("# Per-repository QTCode settings.");
+
+    if (config.hasDefaultAgentKey()) {
+        lines << QStringLiteral("agent:");
+        lines << QStringLiteral("  defaultAgentKey: %1").arg(config.defaultAgentKey.trimmed());
+    }
+
+    if (config.hasRepoHelpPath()) {
+        const QString normalized =
+            qtcode::settings::normalizedRepoHelpPath(config.repoHelpPath);
+        lines << QStringLiteral("help:");
+        lines << QStringLiteral("  entryPath: %1").arg(normalized);
+    }
+
+    return lines.join(QLatin1Char('\n')) + QLatin1Char('\n');
 }
 
 } // namespace
 
-bool RepoConfigWriter::saveRepoHelpPath(
+bool RepoConfigWriter::save(
     const QString &projectRootPath,
-    const QString &repoHelpPath,
+    const qtcode::settings::RepoConfig &config,
     QString *errorMessage)
 {
     if (projectRootPath.trimmed().isEmpty()) {
@@ -80,7 +99,7 @@ bool RepoConfigWriter::saveRepoHelpPath(
         return false;
     }
 
-    const QString yamlContent = yamlContentForRepoHelpPath(repoHelpPath);
+    const QString yamlContent = yamlContentForRepoConfig(config);
     if (configFile.write(yamlContent.toUtf8()) != yamlContent.toUtf8().size()) {
         if (errorMessage != nullptr) {
             *errorMessage = i18n("Could not write repository config: %1").arg(configFile.errorString());
@@ -96,6 +115,17 @@ bool RepoConfigWriter::saveRepoHelpPath(
     }
 
     return true;
+}
+
+bool RepoConfigWriter::saveRepoHelpPath(
+    const QString &projectRootPath,
+    const QString &repoHelpPath,
+    QString *errorMessage)
+{
+    qtcode::settings::RepoConfig config =
+        RepoConfigLoader::loadFromProjectRoot(projectRootPath);
+    config.repoHelpPath = repoHelpPath.trimmed().isEmpty() ? QString() : repoHelpPath.trimmed();
+    return save(projectRootPath, config, errorMessage);
 }
 
 } // namespace qtcode::core

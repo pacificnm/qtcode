@@ -274,6 +274,7 @@ User selects repository
   -> GitService refreshes status
   -> GitHubService refreshes issue/PR summaries
   -> TerminalManager switches default working directory
-  -> AgentManager loads project agent preference
+  -> AgentPanel refreshes agent selector from .qtcode/config.yaml default
+  -> AgentManager restores last active session or creates one
   -> ContextManager scopes future retrieval
 ```

@@ -20,7 +20,14 @@ Use three persistence paths for settings:
 2. **Repository preferences** — stored in `.qtcode/config.yaml` inside each project, loaded on demand when that project is active.
 3. **Runtime shell state** — stored in SQLite through `SettingsService`, including panel layout and window geometry.
 
-The modal Settings dialog in `MainWindow` edits system startup preferences only. It exposes a **Default Repo Help Entry** field that defines the fallback path when a repository does not override help in `.qtcode/config.yaml`. Per-repository overrides are repo-native, versioned with the project, and edited directly in `.qtcode/config.yaml` rather than through the Settings dialog.
+The modal Settings dialog in `MainWindow` edits two groups:
+
+- **Global** — KDE config-backed system startup preferences: restore last project, start maximized, and default left/right column widths.
+- **Repository** — per-repository overrides for the active project, written to `.qtcode/config.yaml` through `RepoConfigWriter`: default agent and repository help entry.
+
+The KDE config file also stores `repoHelpPath` as the system fallback for help resolution (`doc/index.md` by default). That fallback is not currently exposed in the Settings dialog UI; the Repository group shows it as the placeholder for the per-repository help override field.
+
+Per-repository overrides remain repo-native, versioned with the project, and travel through Git with the repository.
 
 Panel layout and window geometry are restored and persisted automatically by the shell.
 
@@ -34,13 +41,23 @@ Repository-specific settings live beside the workspace manifest:
 
 The workspace installer scaffolds this file from a bundled template when a repository is prepared. Existing files are never overwritten.
 
-The first supported override is the repository help entry file — the markdown page opened by **Help > Repo Help**. Resolution order:
+The first supported overrides are:
+
+- **Repository help entry** — the markdown page opened by **Help > Repo Help**.
+- **Default agent** — the agent adapter key preselected in the agent panel when the repository has no prior selector value.
+
+Resolution order for help entry:
 
 1. If `.qtcode/config.yaml` defines `help.entryPath` or top-level `repoHelpPath`, use that value (relative to the project root).
-2. Otherwise use the system default from **File > Settings**.
+2. Otherwise use the system fallback from `AppConfigService` (`repoHelpPath`, default `doc/index.md`).
 3. Normalize directory-only values to `index.md` inside that directory (for example, `doc` becomes `doc/index.md`).
 
-`RepoConfigLoader` reads the YAML file with a minimal line parser. `effectiveRepoHelpPath()` in `RepoConfig.h` merges repository overrides over `AppConfig`. `WorkspaceTabs` resolves the active project's help entry at open time.
+Resolution order for default agent:
+
+1. If `.qtcode/config.yaml` defines `agent.defaultAgentKey` or top-level `defaultAgentKey`, use that adapter key when it is registered and available.
+2. Otherwise select the first available registered adapter.
+
+`RepoConfigLoader` reads the YAML file with a minimal line parser. `RepoConfigWriter` saves merged repository preferences from the Settings dialog. `effectiveRepoHelpPath()` in `RepoConfig.h` merges repository help overrides over `AppConfig`. `AgentPanel` reads the default agent override on project switch and after settings save. `WorkspaceTabs` resolves the active project's help entry at open time.
 
 ## Consequences
 

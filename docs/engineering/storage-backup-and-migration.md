@@ -33,9 +33,9 @@ All durable local settings and metadata are stored in `qtcode.db`, including:
 
 Most durable local settings live in SQLite, including panel layout and project selection. If you back up `qtcode.db`, you back up the state that matters for day-to-day shell restore.
 
-QTCode also keeps a small KDE config file for system app preferences that must load before SQLite opens, such as startup behavior and the default repository help entry path. That file uses the normal KDE INI-style config format and lives beside the rest of the user's KDE application config data.
+QTCode also keeps a small KDE config file for system app preferences that must load before SQLite opens, such as startup behavior, default column widths, and the system fallback repository help entry path. That file uses the normal KDE INI-style config format and lives beside the rest of the user's KDE application config data.
 
-Repository-specific preference overrides live in each project's `.qtcode/config.yaml`. Those files are repo-native and are backed up with the Git repository, not with `qtcode.db` or the KDE config file.
+Repository-specific preference overrides live in each project's `.qtcode/config.yaml`. Those files are repo-native, versioned with Git, and may define the default agent and repository help entry for that project. They are backed up with the Git repository, not with `qtcode.db` or the KDE config file.
 
 ## Migration Behavior
 

@@ -10,6 +10,7 @@ private slots:
     void fromJsonClampsOversizedLeftColumn();
     void clampLeftColumnWidthMovesExcessToCenter();
     void clampRightPanelWidthUsesConfiguredRange();
+    void defaultsUseAgentSessionsRightPanel();
 };
 
 void PanelLayoutSettingsTest::clampRightPanelWidthUsesConfiguredRange()
@@ -42,6 +43,16 @@ void PanelLayoutSettingsTest::clampLeftColumnWidthMovesExcessToCenter()
     QCOMPARE(sizes.at(0), qtcode::settings::kLeftColumnMaxWidth);
     QCOMPARE(sizes.at(1), 700);
     QCOMPARE(sizes.at(2), 320);
+}
+
+void PanelLayoutSettingsTest::defaultsUseAgentSessionsRightPanel()
+{
+    const qtcode::settings::PanelLayoutSettings layout =
+        qtcode::settings::PanelLayoutSettings::defaults();
+
+    QCOMPARE(
+        layout.activeRightPanel,
+        QString::fromLatin1(qtcode::settings::kRightPanelSessions));
 }
 
 QTEST_MAIN(PanelLayoutSettingsTest)

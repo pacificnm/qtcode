@@ -1,5 +1,7 @@
 #include "ui/dialogs/SettingsDialog.h"
 
+#include "agents/AgentAdapter.h"
+#include "agents/AgentManager.h"
 #include "core/AppConfigService.h"
 #include "core/ProjectManager.h"
 #include "core/RepoConfigLoader.h"
@@ -10,6 +12,7 @@
 #include <KLocalizedString>
 
 #include <QCheckBox>
+#include <QComboBox>
 #include <QDialogButtonBox>
 #include <QFormLayout>
 #include <QGroupBox>
@@ -25,10 +28,12 @@ namespace qtcode::ui {
 SettingsDialog::SettingsDialog(
     qtcode::core::AppConfigService *appConfigService,
     qtcode::core::ProjectManager *projectManager,
+    qtcode::agents::AgentManager *agentManager,
     QWidget *parent)
     : QDialog(parent)
     , m_appConfigService(appConfigService)
     , m_projectManager(projectManager)
+    , m_agentManager(agentManager)
 {
     setWindowTitle(i18n("Settings"));
     setModal(true);
@@ -90,7 +95,11 @@ void SettingsDialog::configureLayout()
     m_repoHelpEntryLineEdit->setPlaceholderText(
         QString::fromLatin1(qtcode::settings::kAppConfigDefaultRepoHelpPath));
 
+    m_defaultAgentComboBox = new QComboBox(repositoryDetailsWidget);
+    m_defaultAgentComboBox->setSizeAdjustPolicy(QComboBox::AdjustToContents);
+
     repositoryFormLayout->addRow(i18n("Active repository"), m_activeRepositoryLabel);
+    repositoryFormLayout->addRow(i18n("Default agent"), m_defaultAgentComboBox);
     repositoryFormLayout->addRow(i18n("Repo help entry"), m_repoHelpEntryLineEdit);
 
     m_repositoryDetailsWidget = repositoryDetailsWidget;
@@ -131,6 +140,41 @@ void SettingsDialog::loadCurrentValues()
     refreshRepositorySection();
 }
 
+void SettingsDialog::refreshDefaultAgentSelector()
+{
+    if (m_defaultAgentComboBox == nullptr) {
+        return;
+    }
+
+    const QString previousAgentKey = m_defaultAgentComboBox->currentData().toString();
+    m_defaultAgentComboBox->clear();
+
+    if (m_agentManager != nullptr) {
+        for (qtcode::agents::AgentAdapter *adapter : m_agentManager->adapters()) {
+            if (adapter == nullptr) {
+                continue;
+            }
+
+            m_defaultAgentComboBox->addItem(adapter->displayName(), adapter->agentKey());
+        }
+    }
+
+    m_defaultAgentComboBox->setEnabled(m_defaultAgentComboBox->count() > 0);
+    if (m_defaultAgentComboBox->count() == 0) {
+        return;
+    }
+
+    int selectedIndex = 0;
+    if (!previousAgentKey.isEmpty()) {
+        selectedIndex = m_defaultAgentComboBox->findData(previousAgentKey);
+        if (selectedIndex < 0) {
+            selectedIndex = 0;
+        }
+    }
+
+    m_defaultAgentComboBox->setCurrentIndex(selectedIndex);
+}
+
 void SettingsDialog::refreshRepositorySection()
 {
     const bool hasActiveProject =
@@ -144,8 +188,14 @@ void SettingsDialog::refreshRepositorySection()
     }
 
     if (!hasActiveProject) {
+        if (m_defaultAgentComboBox != nullptr) {
+            m_defaultAgentComboBox->clear();
+            m_defaultAgentComboBox->setEnabled(false);
+        }
         return;
     }
+
+    refreshDefaultAgentSelector();
 
     qtcode::settings::ProjectRecord activeProject;
     if (!m_projectManager->activeProject(&activeProject)) {
@@ -165,6 +215,16 @@ void SettingsDialog::refreshRepositorySection()
         m_repoHelpEntryLineEdit->setText(
             repoConfig.hasRepoHelpPath() ? repoConfig.repoHelpPath : QString());
         m_repoHelpEntryLineEdit->setPlaceholderText(appConfig.repoHelpPath);
+    }
+    if (m_defaultAgentComboBox != nullptr && m_defaultAgentComboBox->count() > 0) {
+        int selectedIndex = 0;
+        if (repoConfig.hasDefaultAgentKey()) {
+            selectedIndex = m_defaultAgentComboBox->findData(repoConfig.defaultAgentKey);
+            if (selectedIndex < 0) {
+                selectedIndex = 0;
+            }
+        }
+        m_defaultAgentComboBox->setCurrentIndex(selectedIndex);
     }
 }
 
@@ -202,11 +262,18 @@ bool SettingsDialog::saveRepositorySettings(QString *errorMessage) const
 
     const QString repoHelpPath =
         m_repoHelpEntryLineEdit != nullptr ? m_repoHelpEntryLineEdit->text() : QString();
+    const QString defaultAgentKey =
+        m_defaultAgentComboBox != nullptr && m_defaultAgentComboBox->currentIndex() >= 0
+        ? m_defaultAgentComboBox->currentData().toString()
+        : QString();
 
-    return qtcode::core::RepoConfigWriter::saveRepoHelpPath(
-        activeProject.rootPath,
-        repoHelpPath,
-        errorMessage);
+    qtcode::settings::RepoConfig config =
+        qtcode::core::RepoConfigLoader::loadFromProjectRoot(activeProject.rootPath);
+    config.repoHelpPath = repoHelpPath.trimmed().isEmpty() ? QString() : repoHelpPath.trimmed();
+    config.defaultAgentKey =
+        defaultAgentKey.trimmed().isEmpty() ? QString() : defaultAgentKey.trimmed();
+
+    return qtcode::core::RepoConfigWriter::save(activeProject.rootPath, config, errorMessage);
 }
 
 void SettingsDialog::setStatusMessage(const QString &message)

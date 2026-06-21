@@ -36,8 +36,9 @@ Application services own workflows and cross-feature coordination.
 - `ApplicationController`: startup and feature wiring.
 - `AppConfigService`: startup-time KDE config file for system preferences that must load before SQLite.
 - `RepoConfigLoader`: on-demand read of `.qtcode/config.yaml` repository overrides for the active project.
+- `RepoConfigWriter`: atomic write of merged repository preferences to `.qtcode/config.yaml`.
 - `ProjectManager`: active project and repository lifecycle.
-- `AgentManager`: agent discovery, selection, and session orchestration.
+- `AgentManager`: agent discovery, selection, session restore, and session orchestration.
 - `ContextManager`: context gathering before agent calls.
 - `TerminalManager`: terminal tab lifecycle.
 - `SettingsService`: app and project settings.

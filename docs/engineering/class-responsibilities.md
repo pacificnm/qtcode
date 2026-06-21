@@ -8,19 +8,23 @@ Owns process-level application setup, metadata, localization hooks, and startup 
 
 ### `AppConfigService`
 
-Loads and saves the KDE config file that contains system startup preferences before SQLite is opened. Current fields include restore-last-project behavior, start-maximized behavior, and the default repository help entry path.
+Loads and saves the KDE config file that contains system startup preferences before SQLite is opened. Current fields include restore-last-project behavior, start-maximized behavior, default left and right column widths, and the system fallback repository help entry path (`repoHelpPath`).
 
 ### `RepoConfigLoader`
 
 Reads `.qtcode/config.yaml` from an active project root and returns repository-specific preference overrides. Uses a minimal YAML line parser; missing or unreadable files yield an empty config so callers can fall back to system defaults.
 
+### `RepoConfigWriter`
+
+Writes merged repository preferences to `.qtcode/config.yaml` for the active project. Used by the Settings dialog **Repository** group and preserves both help and agent fields when saving. Uses atomic writes through `QSaveFile`.
+
 ### `ApplicationController`
 
-Wires services together, loads app config before storage, initializes storage, restores last state, and coordinates shutdown.
+Wires services together, loads app config before storage, initializes storage, registers agent adapters, restores agent sessions and project state, schedules background CLI capability detection, and coordinates shutdown.
 
 ### `MainWindow`
 
-Owns top-level layout, `KActionCollection`-backed actions, menus, toolbar, dock/panel arrangement, and major navigation state. Menu and toolbar actions delegate workflow behavior to panels and services. The File menu includes a modal Settings dialog that edits KDE config-backed system startup preferences. The Help menu includes **Repo Help**, which loads the effective repository help entry for the active project. The left column uses `ProjectNavigationPanel` for repository and file-tree views. The main column uses `WorkspaceTabs` for the permanent AI chat tab and file tabs above the terminal splitter.
+Owns top-level layout, `KActionCollection`-backed actions, menus, toolbar, dock/panel arrangement, and major navigation state. Menu and toolbar actions delegate workflow behavior to panels and services. The File menu includes a modal Settings dialog with **Global** and **Repository** groups: global startup preferences and column widths are saved through `AppConfigService`; active-repository default agent and help entry overrides are saved through `RepoConfigWriter`. The Help menu includes **Repo Help**, which loads the effective repository help entry for the active project. The left column uses `ProjectNavigationPanel` for repository and file-tree views. The main column uses `WorkspaceTabs` for the permanent AI chat tab and file tabs above the terminal splitter. Configured column widths from `AppConfigService` apply on launch, after settings save, and when resetting panel layout.
 
 ### `ProjectNavigationPanel`
 
@@ -60,7 +64,11 @@ Provides repository status, current branch, tags, commit summaries, diffs, and s
 
 ### `AgentManager`
 
-Discovers available agents, registers adapters, selects active agent per project, creates sessions, and dispatches requests.
+Discovers available agents, registers built-in adapters at startup, restores persisted sessions from SQLite, tracks the active session per project, creates sessions, and dispatches requests.
+
+### `AgentPanel`
+
+Hosts the AI chat conversation surface, prompt composer, and right-panel agent/session controls. On project switch or settings save, refreshes the agent selector using the repository default from `.qtcode/config.yaml` when no prior selection exists, restores the last active session for the project, and creates a default session when needed.
 
 ### `AgentAdapter`
 

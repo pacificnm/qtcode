@@ -11,7 +11,9 @@ This document describes the startup and repository refresh performance character
 
 ## Startup Path
 
-`ApplicationController::initialize()` opens SQLite, restores local state, and schedules CLI capability detection. It does **not** wait for `git`, `gh`, or agent CLI subprocess probes to finish before returning.
+`ApplicationController::initialize()` opens SQLite, registers agent adapters, restores agent sessions and other local state, and schedules CLI capability detection. It does **not** wait for `git`, `gh`, or agent CLI subprocess probes to finish before returning.
+
+After the main window is shown, `AgentPanel` restores the active project's session list and applies the repository default agent from `.qtcode/config.yaml` when no prior selector value exists. Creating the first session for a project happens on the UI thread and does not block application startup.
 
 `CliCapabilityService::scheduleDetection()` runs capability detection in a background thread via `QtConcurrent::run`. When detection completes, the service emits `capabilitiesDetected`, and `ApplicationController::applyIntegrationPathsFromCapabilities()` updates GitHub and agent executable paths.
 

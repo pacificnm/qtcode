@@ -53,6 +53,7 @@ public:
 public slots:
     void attachIssueContext(const qtcode::github::GitHubIssueDetail &detail);
     void attachPullRequestContext(const qtcode::github::GitHubPullRequestDetail &detail);
+    void reloadAgentSelector();
 
 private slots:
     void refreshCapabilityState();
@@ -77,6 +78,7 @@ private:
     void updateSessionStatusDisplay(const qtcode::agents::AgentSession *session);
     void updateRequestControls(const qtcode::agents::AgentSession *session);
     void setPromptEnabled(bool enabled);
+    void syncPromptComposerState();
     void refreshComposerControls();
     [[nodiscard]] bool isActiveRequestRunning() const;
     void selectSession(const QString &sessionId);
@@ -86,6 +88,7 @@ private:
     [[nodiscard]] static QString executionModeDisplayLabel(const QString &modeKey);
     [[nodiscard]] static QString sessionListLabel(const qtcode::agents::AgentSession *session);
     [[nodiscard]] bool ensureActiveSession(QString *errorMessage);
+    [[nodiscard]] QString preferredAgentKeyForProject() const;
     void refreshSavedContextRetrieval();
     void refreshRequestOptionSelectors();
     void onRequestOptionsChanged();

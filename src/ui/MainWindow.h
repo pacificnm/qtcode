@@ -108,6 +108,7 @@ private:
     int m_storedTerminalHeight = 240;
     bool m_rightColumnCollapsed = false;
     bool m_needsInitialLayoutSync = true;
+    QString m_savedActiveRightPanel;
 };
 
 } // namespace qtcode::ui

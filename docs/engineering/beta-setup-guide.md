@@ -138,6 +138,8 @@ Supported agent discovery order:
 
 Place the preferred tool on `PATH`, then restart QTCode or wait for capability detection to finish.
 
+Per-repository default agent selection is configured in `.qtcode/config.yaml` (`agent.defaultAgentKey`) or through **File > Settings > Repository** when a project is active. See [settings spec](../specs/settings-spec.md) for startup and restore behavior.
+
 ## Local Data Locations
 
 Application state is stored in SQLite:

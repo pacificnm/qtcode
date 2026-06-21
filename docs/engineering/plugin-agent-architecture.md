@@ -35,12 +35,15 @@ Capabilities should be explicit:
 
 Responsibilities:
 
-- Register built-in adapters.
-- Detect external CLIs.
+- Register built-in adapters at startup.
+- Restore persisted agent sessions from SQLite.
+- Detect external CLIs asynchronously after startup.
 - Store agent availability.
-- Select active agent per project.
+- Track active session per project.
 - Create sessions.
 - Dispatch requests.
+
+Default agent selection is not stored globally in SQLite. When the agent selector has no prior value for the active project, `AgentPanel` reads `agent.defaultAgentKey` or top-level `defaultAgentKey` from `.qtcode/config.yaml`. Per-project session history and the last active session id remain in SQLite.
 - Normalize errors.
 
 ### `AgentSession`

@@ -1,5 +1,23 @@
 # Communication Flows
 
+## Application Startup
+
+```text
+QtCodeApplication starts
+  -> ApplicationController::initialize()
+  -> AppConfigService loads KDE startup config
+  -> StorageService opens SQLite
+  -> MigrationRunner applies pending migrations
+  -> AgentManager registers built-in adapters
+  -> AgentManager restores persisted agent sessions
+  -> CliCapabilityService schedules background CLI detection
+  -> ProjectManager restores active project (unless disabled in settings)
+  -> TerminalManager restores terminal metadata
+  -> MainWindow applies SQLite panel layout and AppConfig column widths
+  -> AgentPanel restores project session list and default agent selector
+  -> CliCapabilityService completes and updates agent/GitHub executable paths
+```
+
 ## Open Repository
 
 ```text
@@ -19,7 +37,9 @@ User selects repository
   -> ProjectManager sets active project
   -> GitService refreshes status
   -> GitHubService resolves remote
-  -> AgentManager loads project agent preference
+  -> AgentPanel::onActiveProjectChanged()
+  -> AgentPanel refreshes agent selector (repo default from .qtcode/config.yaml when needed)
+  -> AgentManager restores last active session for project or creates one
   -> TerminalManager updates default cwd
   -> UI models refresh
 ```

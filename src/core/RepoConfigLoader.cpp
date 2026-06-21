@@ -12,6 +12,7 @@ enum class ParseSection
 {
     None,
     Help,
+    Agent,
 };
 
 [[nodiscard]] QString parseYamlScalarValue(const QString &line, const QString &key)
@@ -78,6 +79,10 @@ settings::RepoConfig RepoConfigLoader::loadFromYamlContent(const QString &yamlCo
                 section = ParseSection::Help;
                 continue;
             }
+            if (trimmed == QStringLiteral("agent:")) {
+                section = ParseSection::Agent;
+                continue;
+            }
 
             section = ParseSection::None;
             const QString repoHelpPath = parseYamlScalarValue(
@@ -85,6 +90,13 @@ settings::RepoConfig RepoConfigLoader::loadFromYamlContent(const QString &yamlCo
                 QString::fromLatin1(settings::kRepoConfigKeyRepoHelpPath));
             if (!repoHelpPath.isEmpty()) {
                 config.repoHelpPath = repoHelpPath;
+            }
+
+            const QString defaultAgentKey = parseYamlScalarValue(
+                line,
+                QString::fromLatin1(settings::kRepoConfigKeyDefaultAgentKey));
+            if (!defaultAgentKey.isEmpty()) {
+                config.defaultAgentKey = defaultAgentKey;
             }
             continue;
         }
@@ -95,6 +107,16 @@ settings::RepoConfig RepoConfigLoader::loadFromYamlContent(const QString &yamlCo
                 QString::fromLatin1(settings::kRepoConfigKeyHelpEntryPath));
             if (!entryPath.isEmpty()) {
                 config.repoHelpPath = entryPath;
+            }
+            continue;
+        }
+
+        if (section == ParseSection::Agent) {
+            const QString defaultAgentKey = parseYamlScalarValue(
+                line,
+                QString::fromLatin1(settings::kRepoConfigKeyDefaultAgentKey));
+            if (!defaultAgentKey.isEmpty()) {
+                config.defaultAgentKey = defaultAgentKey;
             }
         }
     }

@@ -10,10 +10,13 @@
 #include "memory/ContextResult.h"
 #include "storage/repositories/ContextRetrievalRepository.h"
 #include "core/ProjectManager.h"
+#include "core/RepoConfigLoader.h"
+#include "core/RepoConfigWriter.h"
 #include "core/StatusService.h"
 #include "github/GitHubContextFormatting.h"
 #include "github/GitHubModels.h"
 #include "settings/ProjectModels.h"
+#include "settings/RepoConfig.h"
 #include "shared/Logging.h"
 #include "ui/views/ContextResultsView.h"
 #include "ui/views/ConversationView.h"
@@ -258,15 +261,18 @@ void AgentPanel::refreshCapabilityState()
 {
     if (m_cliCapabilityService == nullptr) {
         showStatus(i18n("Agent services are unavailable."), qtcode::core::StatusSeverity::Warning);
-        setPromptEnabled(false);
+        syncPromptComposerState();
         return;
     }
 
-    const qtcode::core::CliCapabilitiesSnapshot snapshot = m_cliCapabilityService->snapshot();
-    if (!snapshot.agentCli.available) {
-        showStatus(snapshot.agentCli.unavailableMessage, qtcode::core::StatusSeverity::Warning);
-        setPromptEnabled(false);
+    if (!m_cliCapabilityService->isDetectionRunning()) {
+        const qtcode::core::CliCapabilitiesSnapshot snapshot = m_cliCapabilityService->snapshot();
+        if (!snapshot.agentCli.available) {
+            showStatus(snapshot.agentCli.unavailableMessage, qtcode::core::StatusSeverity::Warning);
+        }
     }
+
+    syncPromptComposerState();
 }
 
 void AgentPanel::refreshAgentSelector()
@@ -292,15 +298,45 @@ void AgentPanel::refreshAgentSelector()
         return;
     }
 
+    QString preferredAgentKey = previousAgentKey;
+    if (preferredAgentKey.isEmpty()) {
+        preferredAgentKey = preferredAgentKeyForProject();
+    }
+
     int selectedIndex = 0;
-    if (!previousAgentKey.isEmpty()) {
-        selectedIndex = m_agentSelector->findData(previousAgentKey);
+    if (!preferredAgentKey.isEmpty()) {
+        selectedIndex = m_agentSelector->findData(preferredAgentKey);
         if (selectedIndex < 0) {
             selectedIndex = 0;
         }
     }
 
     m_agentSelector->setCurrentIndex(selectedIndex);
+}
+
+void AgentPanel::reloadAgentSelector()
+{
+    refreshAgentSelector();
+}
+
+QString AgentPanel::preferredAgentKeyForProject() const
+{
+    if (m_projectManager == nullptr || !m_projectManager->hasActiveProject()) {
+        return {};
+    }
+
+    qtcode::settings::ProjectRecord activeProject;
+    if (!m_projectManager->activeProject(&activeProject)) {
+        return {};
+    }
+
+    const qtcode::settings::RepoConfig repoConfig =
+        qtcode::core::RepoConfigLoader::loadFromProjectRoot(activeProject.rootPath);
+    if (!repoConfig.hasDefaultAgentKey()) {
+        return {};
+    }
+
+    return repoConfig.defaultAgentKey.trimmed();
 }
 
 void AgentPanel::refreshSessionList()
@@ -373,7 +409,7 @@ void AgentPanel::refreshSessionList()
     m_activeSessionId.clear();
     refreshConversation();
     refreshRequestOptionSelectors();
-    setPromptEnabled(false);
+    syncPromptComposerState();
 }
 
 void AgentPanel::sendPrompt()
@@ -713,8 +749,7 @@ void AgentPanel::onSessionUpdated(qtcode::agents::AgentSession *session)
 
     refreshConversation();
 
-    const bool running = session->status() == qtcode::agents::AgentSessionStatus::Running;
-    setPromptEnabled(!running && m_projectManager != nullptr && m_projectManager->hasActiveProject());
+    syncPromptComposerState();
     updateSessionStatusDisplay(session);
     updateRequestControls(session);
 }
@@ -744,7 +779,15 @@ void AgentPanel::onActiveProjectChanged()
         m_conversationView->clearConversation();
     }
 
+    refreshAgentSelector();
     refreshSessionList();
+
+    if (m_projectManager != nullptr && m_projectManager->hasActiveProject() && m_activeSessionId.isEmpty()) {
+        QString errorMessage;
+        if (!ensureActiveSession(&errorMessage)) {
+            qCWarning(qtcodeUi) << "Failed to ensure default agent session:" << errorMessage;
+        }
+    }
 
     if (m_projectManager != nullptr && !m_projectManager->hasActiveProject()) {
         setPromptEnabled(false);
@@ -856,6 +899,35 @@ void AgentPanel::setPromptEnabled(bool enabled)
     refreshComposerControls();
 }
 
+void AgentPanel::syncPromptComposerState()
+{
+    if (m_projectManager == nullptr || !m_projectManager->hasActiveProject()) {
+        setPromptEnabled(false);
+        return;
+    }
+
+    if (m_cliCapabilityService != nullptr
+        && !m_cliCapabilityService->isDetectionRunning()
+        && !m_cliCapabilityService->isAgentCliAvailable()) {
+        setPromptEnabled(false);
+        return;
+    }
+
+    if (m_agentManager == nullptr || m_activeSessionId.isEmpty()) {
+        setPromptEnabled(false);
+        return;
+    }
+
+    const qtcode::agents::AgentSession *session = m_agentManager->session(m_activeSessionId);
+    if (session == nullptr) {
+        setPromptEnabled(false);
+        return;
+    }
+
+    const bool running = session->status() == qtcode::agents::AgentSessionStatus::Running;
+    setPromptEnabled(!running);
+}
+
 bool AgentPanel::isActiveRequestRunning() const
 {
     if (m_agentManager == nullptr || m_activeSessionId.isEmpty()) {
@@ -952,7 +1024,7 @@ void AgentPanel::selectSession(const QString &sessionId)
     if (session == nullptr) {
         refreshConversation();
         refreshRequestOptionSelectors();
-        setPromptEnabled(false);
+        syncPromptComposerState();
         return;
     }
 
@@ -972,9 +1044,7 @@ void AgentPanel::selectSession(const QString &sessionId)
         }
     }
 
-    const bool running = session->status() == qtcode::agents::AgentSessionStatus::Running;
-    setPromptEnabled(
-        !running && m_projectManager != nullptr && m_projectManager->hasActiveProject());
+    syncPromptComposerState();
 }
 
 QString AgentPanel::selectedAgentKey() const
