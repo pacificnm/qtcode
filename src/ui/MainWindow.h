@@ -48,8 +48,7 @@ private:
     qtcode::core::ApplicationController *m_controller = nullptr;
     qtcode::core::SettingsService *m_settingsService = nullptr;
     QSplitter *m_rootHorizontalSplitter = nullptr;
-    QSplitter *m_rightVerticalSplitter = nullptr;
-    QSplitter *m_horizontalSplitter = nullptr;
+    QSplitter *m_middleVerticalSplitter = nullptr;
     RepositoryPanel *m_repositoryPanel = nullptr;
     AgentPanel *m_agentPanel = nullptr;
     McpServerPanel *m_mcpServerPanel = nullptr;

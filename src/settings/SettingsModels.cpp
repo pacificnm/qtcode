@@ -40,7 +40,6 @@ QJsonObject PanelLayoutSettings::toJson() const
 {
     QJsonObject json;
     json.insert(QStringLiteral("columnSizes"), sizesToJsonArray(columnSizes));
-    json.insert(QStringLiteral("horizontalSizes"), sizesToJsonArray(horizontalSizes));
     json.insert(QStringLiteral("verticalSizes"), sizesToJsonArray(verticalSizes));
     json.insert(QStringLiteral("windowWidth"), windowWidth);
     json.insert(QStringLiteral("windowHeight"), windowHeight);
@@ -52,6 +51,8 @@ PanelLayoutSettings PanelLayoutSettings::fromJson(const QJsonObject &json)
     const PanelLayoutSettings defaults = PanelLayoutSettings::defaults();
     PanelLayoutSettings layout = defaults;
 
+    QList<int> legacyHorizontalSizes;
+
     if (json.contains(QStringLiteral("columnSizes"))) {
         layout.columnSizes = jsonArrayToSizes(
             json.value(QStringLiteral("columnSizes")).toArray(),
@@ -59,9 +60,9 @@ PanelLayoutSettings PanelLayoutSettings::fromJson(const QJsonObject &json)
     }
 
     if (json.contains(QStringLiteral("horizontalSizes"))) {
-        layout.horizontalSizes = jsonArrayToSizes(
+        legacyHorizontalSizes = jsonArrayToSizes(
             json.value(QStringLiteral("horizontalSizes")).toArray(),
-            defaults.horizontalSizes);
+            QList<int> {640, 320});
     }
 
     if (json.contains(QStringLiteral("verticalSizes"))) {
@@ -70,9 +71,18 @@ PanelLayoutSettings PanelLayoutSettings::fromJson(const QJsonObject &json)
             defaults.verticalSizes);
     }
 
-    if (!json.contains(QStringLiteral("columnSizes")) && layout.horizontalSizes.size() >= 3) {
-        layout.columnSizes = {layout.horizontalSizes.at(0), defaults.columnSizes.at(1)};
-        layout.horizontalSizes = {layout.horizontalSizes.at(1), layout.horizontalSizes.at(2)};
+    if (layout.columnSizes.size() == 2 && legacyHorizontalSizes.size() >= 2) {
+        layout.columnSizes = {
+            layout.columnSizes.at(0),
+            legacyHorizontalSizes.at(0),
+            legacyHorizontalSizes.at(1),
+        };
+    } else if (!json.contains(QStringLiteral("columnSizes")) && legacyHorizontalSizes.size() >= 3) {
+        layout.columnSizes = {
+            legacyHorizontalSizes.at(0),
+            legacyHorizontalSizes.at(1),
+            legacyHorizontalSizes.at(2),
+        };
     }
 
     if (json.contains(QStringLiteral("windowWidth"))) {

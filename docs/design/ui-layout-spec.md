@@ -5,13 +5,13 @@
 Primary layout:
 
 ```text
-+----------------------+-----------------------------+
-| Repository Panel     | AI Agent Panel | MCP Panel  |
-|                      | (top-right)                 |
-| (full height)        +-----------------------------+
-|                      | Terminal Panel              |
-|                      | (bottom-right only)         |
-+----------------------+-----------------------------+
++----------------------+------------------+--------------+
+| Repository Panel     | Agent Panel      | MCP Panel    |
+| (full height)        |                  | (full height)|
+|                      +------------------+              |
+|                      | Terminal Panel   |              |
+|                      | (middle only)    |              |
++----------------------+------------------+--------------+
 ```
 
 ## Repository Panel
