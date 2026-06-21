@@ -4,6 +4,7 @@
 #include "core/McpServerService.h"
 #include "core/ProjectManager.h"
 #include "core/SettingsService.h"
+#include "core/StatusService.h"
 #include "git/GitService.h"
 #include "github/GitHubService.h"
 #include "core/ContextManager.h"
@@ -66,6 +67,7 @@ bool ApplicationController::initialize(QString *errorMessage)
     }
 
     m_settingsService = std::make_unique<SettingsService>(*m_storageService);
+    m_statusService = std::make_unique<StatusService>();
     m_gitService = std::make_unique<git::GitService>();
     m_projectManager = std::make_unique<ProjectManager>(*m_storageService, *m_gitService);
     m_terminalManager = std::make_unique<terminal::TerminalManager>(*m_storageService);
@@ -209,6 +211,7 @@ bool ApplicationController::initialize(QString *errorMessage)
 
 void ApplicationController::shutdown()
 {
+    m_statusService.reset();
     m_contextManager.reset();
     m_memoryService.reset();
     m_mcpServerService.reset();
@@ -236,6 +239,11 @@ storage::StorageService *ApplicationController::storageService() const
 SettingsService *ApplicationController::settingsService() const
 {
     return m_settingsService.get();
+}
+
+StatusService *ApplicationController::statusService() const
+{
+    return m_statusService.get();
 }
 
 ProjectManager *ApplicationController::projectManager() const

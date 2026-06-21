@@ -5,6 +5,7 @@ qtcode_add_module_library(qtcode_core STATIC
     McpServerService.cpp
     ProjectManager.cpp
     SettingsService.cpp
+    StatusService.cpp
     ../settings/SettingsModels.cpp
     ../settings/McpServerModels.cpp
 )

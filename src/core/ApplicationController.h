@@ -10,6 +10,7 @@ class StorageService;
 namespace qtcode::core {
 
 class SettingsService;
+class StatusService;
 class ProjectManager;
 class CliCapabilityService;
 class McpServerService;
@@ -53,6 +54,7 @@ public:
 
     [[nodiscard]] storage::StorageService *storageService() const;
     [[nodiscard]] SettingsService *settingsService() const;
+    [[nodiscard]] StatusService *statusService() const;
     [[nodiscard]] ProjectManager *projectManager() const;
     [[nodiscard]] git::GitService *gitService() const;
     [[nodiscard]] terminal::TerminalManager *terminalManager() const;
@@ -74,6 +76,7 @@ private:
 
     std::unique_ptr<storage::StorageService> m_storageService;
     std::unique_ptr<SettingsService> m_settingsService;
+    std::unique_ptr<StatusService> m_statusService;
     std::unique_ptr<git::GitService> m_gitService;
     std::unique_ptr<ProjectManager> m_projectManager;
     std::unique_ptr<terminal::TerminalManager> m_terminalManager;

@@ -12,9 +12,11 @@ Primary layout:
 |                      | Terminal Panel       |              |   |
 |                      | (main)               |              |   |
 +----------------------+----------------------+--------------+---+
+| Status bar: agent progress, repository refresh, errors, and other operational feedback |
++----------------------------------------------------------------------------------------+
 ```
 
-The shell exposes exactly three content columns: repository on the left, AI chat plus terminal in the main column, and one shared right column. The activity bar toggles which right-panel view is active.
+The shell exposes exactly three content columns: repository on the left, AI chat plus terminal in the main column, and one shared right column. The activity bar toggles which right-panel view is active. A compact status bar spans the full window width below all columns.
 
 Right-panel views:
 
@@ -53,7 +55,7 @@ Purpose:
 
 Expected surfaces:
 
-- **AI Chat panel** — conversation transcript, multi-line prompt composer with inline send control, status indicators, and request controls.
+- **AI Chat panel** — conversation transcript, multi-line prompt composer with inline send control, and request controls.
 - **Terminal panel** — shell tabs and project-aware command output beneath the chat panel.
 
 ### Prompt composer
@@ -76,6 +78,27 @@ Expected surfaces:
 - **Generated Changes** — diff review area and approve/reject controls.
 - **MCP Servers** — MCP server configuration and memory tooling.
 - **Activity bar** — right-edge icon buttons that switch the active right-panel view or hide the right column.
+
+## Status Bar
+
+Purpose:
+
+- Provide one application-wide place for short-lived operational feedback.
+- Keep agent, repository, memory, and startup messages visible regardless of which panel has focus.
+
+Expected message categories:
+
+- Agent session progress, completion, cancellation, and failures.
+- Memory retrieval and prompt dispatch outcomes.
+- Repository refresh started, completed, and failed states.
+- Capability and service availability warnings.
+- Transient success and informational confirmations.
+
+Implementation notes:
+
+- Panels and services publish status through `StatusService` on `ApplicationController`; widgets do not reach into `MainWindow` directly.
+- Panel-specific empty-state copy inside list sections stays local; the global bar is not used for static placeholders.
+- Info messages auto-clear after a short delay; errors and in-progress operations remain until replaced or cleared.
 
 ## Visual Direction
 
