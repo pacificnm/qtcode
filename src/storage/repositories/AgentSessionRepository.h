@@ -52,6 +52,7 @@ public:
     [[nodiscard]] bool insertMessage(
         const PersistedAgentMessage &message,
         QString *errorMessage = nullptr);
+    [[nodiscard]] bool deleteSession(const QString &sessionId, QString *errorMessage = nullptr);
 
 private:
     StorageService &m_storageService;

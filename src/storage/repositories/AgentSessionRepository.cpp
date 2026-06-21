@@ -5,6 +5,7 @@
 
 #include <QSqlError>
 #include <QSqlQuery>
+#include <QVariantMap>
 
 namespace qtcode::storage {
 
@@ -233,6 +234,58 @@ bool AgentSessionRepository::insertMessage(
             *errorMessage = QStringLiteral("Failed to insert agent message: %1").arg(messageText);
         }
         qCWarning(qtcodeStorage) << "Failed to insert agent message" << messageText;
+        return false;
+    }
+
+    return true;
+}
+
+bool AgentSessionRepository::deleteSession(const QString &sessionId, QString *errorMessage)
+{
+    if (sessionId.isEmpty()) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("Agent session id must not be empty.");
+        }
+        return false;
+    }
+
+    const auto execDelete = [this, errorMessage](const QString &sql, const QVariantMap &bindings) {
+        QSqlQuery query(m_storageService.database());
+        query.prepare(sql);
+        for (auto it = bindings.constBegin(); it != bindings.constEnd(); ++it) {
+            query.bindValue(it.key(), it.value());
+        }
+
+        if (!query.exec()) {
+            const QString message = query.lastError().text();
+            if (errorMessage != nullptr) {
+                *errorMessage = QStringLiteral("Failed to delete agent session data: %1").arg(message);
+            }
+            qCWarning(qtcodeStorage) << "Failed to delete agent session data" << message;
+            return false;
+        }
+
+        return true;
+    };
+
+    const QVariantMap sessionBinding {{QStringLiteral(":session_id"), sessionId}};
+
+    if (!execDelete(
+            QStringLiteral(
+                "DELETE FROM context_results "
+                "WHERE retrieval_id IN ("
+                "SELECT id FROM context_retrievals WHERE session_id = :session_id"
+                ")"),
+            sessionBinding)
+        || !execDelete(
+            QStringLiteral("DELETE FROM context_retrievals WHERE session_id = :session_id"),
+            sessionBinding)
+        || !execDelete(
+            QStringLiteral("DELETE FROM agent_messages WHERE session_id = :session_id"),
+            sessionBinding)
+        || !execDelete(
+            QStringLiteral("DELETE FROM agent_sessions WHERE id = :session_id"),
+            sessionBinding)) {
         return false;
     }
 

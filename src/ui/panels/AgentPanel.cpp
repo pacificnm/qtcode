@@ -26,6 +26,8 @@
 #include <QKeyEvent>
 #include <QLabel>
 #include <QListWidget>
+#include <QMenu>
+#include <QMessageBox>
 #include <QPlainTextEdit>
 #include <QPushButton>
 #include <QSignalBlocker>
@@ -145,11 +147,17 @@ void AgentPanel::configureLayout()
 
     m_sessionList = new QListWidget(m_sessionPanel);
     m_sessionList->setSelectionMode(QAbstractItemView::SingleSelection);
+    m_sessionList->setContextMenuPolicy(Qt::CustomContextMenu);
 
     connect(m_newSessionButton, &QPushButton::clicked, this, &AgentPanel::createNewSession);
     connect(m_sessionList, &QListWidget::currentRowChanged, this, [this]() {
         onSessionListSelectionChanged();
     });
+    connect(
+        m_sessionList,
+        &QListWidget::customContextMenuRequested,
+        this,
+        &AgentPanel::showSessionContextMenu);
 
     sessionLayout->addWidget(sessionTitleLabel);
     sessionLayout->addWidget(agentSelectorLabel);
@@ -559,6 +567,104 @@ void AgentPanel::createNewSession()
     }
 
     selectSession(session->id());
+}
+
+void AgentPanel::showSessionContextMenu(const QPoint &position)
+{
+    if (m_sessionList == nullptr) {
+        return;
+    }
+
+    QListWidgetItem *item = m_sessionList->itemAt(position);
+    if (item == nullptr) {
+        return;
+    }
+
+    if (!m_sessionList->selectedItems().contains(item)) {
+        m_sessionList->setCurrentItem(item);
+    }
+
+    const QString sessionId = item->data(kSessionIdRole).toString();
+    if (sessionId.isEmpty()) {
+        return;
+    }
+
+    const qtcode::agents::AgentSession *session =
+        m_agentManager != nullptr ? m_agentManager->session(sessionId) : nullptr;
+    const bool running =
+        session != nullptr
+        && session->status() == qtcode::agents::AgentSessionStatus::Running;
+
+    QMenu menu(this);
+    menu.addAction(
+        QIcon::fromTheme(QStringLiteral("list-add")),
+        i18n("New session"),
+        this,
+        &AgentPanel::createNewSession);
+
+    menu.addSeparator();
+
+    QAction *removeAction = menu.addAction(
+        QIcon::fromTheme(QStringLiteral("list-remove")),
+        i18n("Remove session"),
+        this,
+        &AgentPanel::removeSelectedSession);
+    removeAction->setEnabled(!running);
+    if (running) {
+        removeAction->setToolTip(i18n("Cancel the running request before removing this session."));
+    }
+
+    menu.exec(m_sessionList->viewport()->mapToGlobal(position));
+}
+
+void AgentPanel::removeSelectedSession()
+{
+    if (m_sessionList == nullptr || m_agentManager == nullptr) {
+        return;
+    }
+
+    QListWidgetItem *currentItem = m_sessionList->currentItem();
+    if (currentItem == nullptr) {
+        return;
+    }
+
+    const QString sessionId = currentItem->data(kSessionIdRole).toString();
+    if (sessionId.isEmpty()) {
+        return;
+    }
+
+    const qtcode::agents::AgentSession *session = m_agentManager->session(sessionId);
+    const QString sessionLabel = session != nullptr ? sessionListLabel(session) : currentItem->text();
+
+    const QMessageBox::StandardButton choice = QMessageBox::question(
+        this,
+        i18n("Remove session"),
+        i18n("Remove the agent session \"%1\" and its conversation history?", sessionLabel),
+        QMessageBox::Yes | QMessageBox::No,
+        QMessageBox::No);
+    if (choice != QMessageBox::Yes) {
+        return;
+    }
+
+    QString errorMessage;
+    if (!m_agentManager->deleteSession(sessionId, &errorMessage)) {
+        showStatus(
+            errorMessage.isEmpty() ? i18n("Could not remove the agent session.") : errorMessage,
+            qtcode::core::StatusSeverity::Error);
+        return;
+    }
+
+    if (sessionId == m_activeSessionId) {
+        m_activeSessionId.clear();
+        if (m_conversationView != nullptr) {
+            m_conversationView->clearConversation();
+        }
+        if (m_contextResultsView != nullptr) {
+            m_contextResultsView->clearResults();
+        }
+    }
+
+    showStatus(i18n("Agent session removed."));
 }
 
 void AgentPanel::onSessionListSelectionChanged()

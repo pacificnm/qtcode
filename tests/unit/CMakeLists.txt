@@ -106,6 +106,28 @@ set_tests_properties(agent_manager_active_session PROPERTIES
     TIMEOUT 30
 )
 
+qtcode_add_executable(qtcode_agent_manager_delete_session_test
+    agents/AgentManagerDeleteSessionTest.cpp
+)
+
+target_link_libraries(qtcode_agent_manager_delete_session_test
+    PRIVATE
+        qtcode_agents
+        qtcode_memory
+        qtcode_storage
+        Qt6::Test
+)
+
+add_test(
+    NAME agent_manager_delete_session
+    COMMAND qtcode_agent_manager_delete_session_test
+)
+
+set_tests_properties(agent_manager_delete_session PROPERTIES
+    LABELS "unit;agents"
+    TIMEOUT 30
+)
+
 qtcode_add_executable(qtcode_settings_persistence_test
     storage/SettingsPersistenceTest.cpp
 )

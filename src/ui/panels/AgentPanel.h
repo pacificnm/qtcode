@@ -61,6 +61,8 @@ private slots:
     void sendPrompt();
     void onComposerActionClicked();
     void createNewSession();
+    void removeSelectedSession();
+    void showSessionContextMenu(const QPoint &position);
     void cancelActiveRequest();
     void onSessionListSelectionChanged();
     void onSessionUpdated(qtcode::agents::AgentSession *session);

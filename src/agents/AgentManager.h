@@ -51,6 +51,7 @@ public:
         const QString &agentKey,
         const QString &title,
         QString *errorMessage = nullptr);
+    [[nodiscard]] bool deleteSession(const QString &sessionId, QString *errorMessage = nullptr);
     [[nodiscard]] QList<AgentSession *> sessions() const;
     [[nodiscard]] QList<AgentSession *> sessionsForProject(const QString &projectId) const;
     [[nodiscard]] AgentSession *session(const QString &sessionId) const;

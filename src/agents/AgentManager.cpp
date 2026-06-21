@@ -15,6 +15,8 @@
 #include <QTimer>
 #include <QUuid>
 
+#include <algorithm>
+
 namespace qtcode::agents {
 
 AgentManager::AgentManager(storage::StorageService &storageService, QObject *parent)
@@ -201,6 +203,94 @@ AgentSession *AgentManager::createSession(
     emit sessionsChanged();
     emit sessionUpdated(rawSession);
     return rawSession;
+}
+
+bool AgentManager::deleteSession(const QString &sessionId, QString *errorMessage)
+{
+    AgentSession *targetSession = session(sessionId);
+    if (targetSession == nullptr) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("Agent session '%1' was not found.").arg(sessionId);
+        }
+        return false;
+    }
+
+    if (targetSession->status() == AgentSessionStatus::Running) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("Cancel the running request before removing this session.");
+        }
+        return false;
+    }
+
+    const QString projectId = targetSession->projectId();
+    const QString agentKey = targetSession->agentKey();
+
+    if (QTimer *timer = m_messagePersistTimers.take(sessionId)) {
+        timer->stop();
+        delete timer;
+    }
+
+    if (m_activeSessionByAdapter.value(agentKey) == targetSession) {
+        m_activeSessionByAdapter.remove(agentKey);
+    }
+
+    storage::AgentSessionRepository repository(m_storageService);
+    if (!repository.deleteSession(sessionId, errorMessage)) {
+        return false;
+    }
+
+    if (activeSessionIdForProject(projectId) == sessionId) {
+        storage::SettingsRepository settingsRepository(m_storageService);
+        QJsonObject activeSessionJson;
+        bool found = false;
+        QString persistError;
+        if (settingsRepository.loadJson(
+                settings::kActiveAgentSessionByProjectSettingKey,
+                &activeSessionJson,
+                &found,
+                &persistError)) {
+            activeSessionJson.remove(projectId);
+            if (!settingsRepository.upsertJson(
+                    settings::kActiveAgentSessionByProjectSettingKey,
+                    activeSessionJson,
+                    &persistError)) {
+                qCWarning(qtcodeAgents) << "Failed to clear active agent session setting:" << persistError;
+            }
+        }
+    }
+
+    storage::SettingsRepository settingsRepository(m_storageService);
+    QJsonObject requestOptionsJson;
+    bool requestOptionsFound = false;
+    QString requestOptionsError;
+    if (settingsRepository.loadJson(
+            settings::kAgentSessionRequestOptionsSettingKey,
+            &requestOptionsJson,
+            &requestOptionsFound,
+            &requestOptionsError)
+        && requestOptionsJson.contains(sessionId)) {
+        requestOptionsJson.remove(sessionId);
+        if (!settingsRepository.upsertJson(
+                settings::kAgentSessionRequestOptionsSettingKey,
+                requestOptionsJson,
+                &requestOptionsError)) {
+            qCWarning(qtcodeAgents) << "Failed to clear agent session request options:" << requestOptionsError;
+        }
+    }
+
+    const auto sessionIt = std::find_if(
+        m_sessions.begin(),
+        m_sessions.end(),
+        [&sessionId](const std::unique_ptr<AgentSession> &entry) {
+            return entry != nullptr && entry->id() == sessionId;
+        });
+    if (sessionIt != m_sessions.end()) {
+        m_sessions.erase(sessionIt);
+    }
+
+    qCInfo(qtcodeAgents) << "Removed agent session" << sessionId;
+    emit sessionsChanged();
+    return true;
 }
 
 QList<AgentSession *> AgentManager::sessions() const
