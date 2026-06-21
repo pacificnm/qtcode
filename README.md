@@ -89,6 +89,7 @@ Start here:
 ### Feature Specs
 
 - [QTCommands specification](docs/specs/qtcommands-spec.md)
+- [KTextEditor workspace specification](docs/specs/ktexteditor-workspace-spec.md)
 - [QTCommands design](docs/design/qtcommands-design.md)
 
 ### Engineering Specs
@@ -129,6 +130,7 @@ Start here:
 - [ADR 0008: Treat KTextEditor as optional preview and review infrastructure](docs/adrs/0008-optional-ktexteditor-preview.md)
 - [ADR 0009: QTCommands must be repo-native](docs/adrs/0009-qtcommands-repo-native.md)
 - [ADR 0010: Use KF6 XmlGui for application actions, menus, and toolbars](docs/adrs/0010-kf6-xmlgui-action-collections.md)
+- [ADR 0011: Add KTextEditor workspace tabs for focused file editing](docs/adrs/0011-ktexteditor-workspace-tabs.md)
 
 ## Current Status
 
