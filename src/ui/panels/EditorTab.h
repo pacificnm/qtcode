@@ -36,6 +36,7 @@ public:
     [[nodiscard]] bool isModified() const;
     [[nodiscard]] bool save(QString *errorMessage = nullptr);
     [[nodiscard]] EditorCloseChoice promptClose(QWidget *parentWidget);
+    void repathTo(const QString &newAbsolutePath);
 
 signals:
     void modificationChanged(bool modified);

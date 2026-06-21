@@ -20,7 +20,11 @@ Hosts the left-column **Repository** and **Files** views in a compact tab bar. R
 
 ### `FileTreePanel`
 
-Displays the active project's filesystem tree and emits `fileOpenRequested` when the user activates an openable text file.
+Displays the active project's filesystem tree, emits `fileOpenRequested` when the user activates an openable text file, and provides project-root-scoped create, rename, and delete operations through `FileOperationService`.
+
+### `FileOperationService`
+
+Validates paths against the active repository root and performs create, rename, and delete filesystem mutations for the Files view.
 
 ### `WorkspaceTabs`
 

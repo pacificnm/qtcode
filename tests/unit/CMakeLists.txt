@@ -103,3 +103,23 @@ set_tests_properties(settings_persistence PROPERTIES
     LABELS "unit;storage;settings"
     TIMEOUT 30
 )
+
+qtcode_add_executable(qtcode_file_operation_service_test
+    core/FileOperationServiceTest.cpp
+)
+
+target_link_libraries(qtcode_file_operation_service_test
+    PRIVATE
+        qtcode_core
+        Qt6::Test
+)
+
+add_test(
+    NAME file_operation_service
+    COMMAND qtcode_file_operation_service_test
+)
+
+set_tests_properties(file_operation_service PROPERTIES
+    LABELS "unit;core"
+    TIMEOUT 30
+)

@@ -125,6 +125,14 @@ bool EditorTab::save(QString *errorMessage)
     return true;
 }
 
+void EditorTab::repathTo(const QString &newAbsolutePath)
+{
+    m_filePath = QFileInfo(newAbsolutePath).absoluteFilePath();
+    if (m_document != nullptr) {
+        m_document->openUrl(QUrl::fromLocalFile(m_filePath));
+    }
+}
+
 EditorCloseChoice EditorTab::promptClose(QWidget *parentWidget)
 {
     if (!isModified()) {
