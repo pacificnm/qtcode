@@ -12,7 +12,7 @@
 #include "github/GitHubCachePolicy.h"
 #include "settings/ProjectModels.h"
 #include "shared/Logging.h"
-#include "ui/models/RepositoryListModel.h"
+#include "ui/dialogs/ChangeRepositoryDialog.h"
 
 #include <KLocalizedString>
 
@@ -23,10 +23,8 @@
 #include <QClipboard>
 #include <QHBoxLayout>
 #include <QIcon>
-#include <QInputDialog>
 #include <QLabel>
 #include <QLineEdit>
-#include <QListView>
 #include <QListWidget>
 #include <QMenu>
 #include <QMessageBox>
@@ -211,26 +209,12 @@ RepositoryPanel::RepositoryPanel(
     }
 
     if (m_projectManager != nullptr) {
-        m_repositoryModel = new RepositoryListModel(m_projectManager, this);
-        m_repositoryList->setModel(m_repositoryModel);
-
-        connect(
-            m_repositoryList->selectionModel(),
-            &QItemSelectionModel::currentChanged,
-            this,
-            &RepositoryPanel::onRepositorySelected);
         connect(
             m_projectManager,
             &qtcode::core::ProjectManager::activeProjectChanged,
             this,
             &RepositoryPanel::onActiveProjectChanged);
-        connect(
-            m_projectManager,
-            &qtcode::core::ProjectManager::projectsChanged,
-            this,
-            &RepositoryPanel::syncRepositorySelection);
 
-        syncRepositorySelection();
         updateAutoRefreshTimer();
     }
 
@@ -316,19 +300,6 @@ void RepositoryPanel::configureLayout()
 
     QFont sectionFont = m_projectLabel->font();
     sectionFont.setBold(true);
-
-    auto *localRepositoriesTitle = new QLabel(i18n("Local repositories"), this);
-    localRepositoriesTitle->setFont(sectionFont);
-
-    m_repositoryList = new QListView(this);
-    m_repositoryList->setSelectionMode(QAbstractItemView::SingleSelection);
-    m_repositoryList->setEditTriggers(QAbstractItemView::NoEditTriggers);
-    m_repositoryList->setContextMenuPolicy(Qt::CustomContextMenu);
-    connect(
-        m_repositoryList,
-        &QListView::customContextMenuRequested,
-        this,
-        &RepositoryPanel::showRepositoryContextMenu);
 
     auto *sourceControlTitle = new QLabel(i18n("Source control"), this);
     sourceControlTitle->setFont(sectionFont);
@@ -436,8 +407,6 @@ void RepositoryPanel::configureLayout()
     layout->addWidget(m_capabilityStateLabel);
     layout->addWidget(m_workspaceSetupWidget);
     layout->addWidget(m_projectLabel);
-    layout->addWidget(localRepositoriesTitle);
-    layout->addWidget(m_repositoryList);
     layout->addWidget(sourceControlTitle);
     layout->addWidget(m_sourceControlStateLabel);
     layout->addWidget(m_commitMessageEdit);
@@ -957,11 +926,32 @@ void RepositoryPanel::addRepository()
     refreshStatus(true);
 }
 
+void RepositoryPanel::changeRepository()
+{
+    if (m_projectManager == nullptr) {
+        showErrorState(i18n("Repository services are unavailable."));
+        return;
+    }
+
+    ChangeRepositoryDialog dialog(
+        m_projectManager,
+        m_gitService,
+        m_cliCapabilityService,
+        m_statusService,
+        this);
+    connect(
+        &dialog,
+        &ChangeRepositoryDialog::activeRepositoryChanged,
+        this,
+        [this]() { refreshStatus(true); });
+
+    dialog.exec();
+}
+
 void RepositoryPanel::onActiveProjectChanged()
 {
     m_hasLoadedSnapshot = false;
 
-    syncRepositorySelection();
     updateAutoRefreshTimer();
     refreshWorkspaceSetupState();
 
@@ -998,49 +988,6 @@ void RepositoryPanel::updateAutoRefreshTimer()
     }
 
     m_autoRefreshTimer->stop();
-}
-
-void RepositoryPanel::onRepositorySelected(const QModelIndex &current, const QModelIndex &)
-{
-    if (!current.isValid() || m_projectManager == nullptr) {
-        return;
-    }
-
-    const QString projectId = current.data(RepositoryListModel::ProjectIdRole).toString();
-    if (projectId.isEmpty() || projectId == m_projectManager->activeProjectId()) {
-        return;
-    }
-
-    QString errorMessage;
-    if (!m_projectManager->openProject(projectId, nullptr, &errorMessage)) {
-        qCWarning(qtcodeUi) << "Failed to open selected repository:" << errorMessage;
-        showErrorState(i18n("Could not open repository: %1", errorMessage));
-        return;
-    }
-
-    refreshStatus(true);
-}
-
-void RepositoryPanel::syncRepositorySelection()
-{
-    if (m_repositoryModel == nullptr || m_repositoryList == nullptr || m_projectManager == nullptr) {
-        return;
-    }
-
-    const QString activeProjectId = m_projectManager->activeProjectId();
-    if (activeProjectId.isEmpty()) {
-        m_repositoryList->clearSelection();
-        return;
-    }
-
-    for (int row = 0; row < m_repositoryModel->rowCount(); ++row) {
-        const QModelIndex index = m_repositoryModel->index(row);
-        if (index.data(RepositoryListModel::ProjectIdRole).toString() == activeProjectId) {
-            QSignalBlocker blocker(m_repositoryList->selectionModel());
-            m_repositoryList->setCurrentIndex(index);
-            return;
-        }
-    }
 }
 
 void RepositoryPanel::refreshCapabilityState()
@@ -1550,203 +1497,6 @@ void RepositoryPanel::attachIssueToContext(int issueNumber)
     }
 
     emit issueContextRequested(detailResult.detail);
-}
-
-void RepositoryPanel::showRepositoryContextMenu(const QPoint &position)
-{
-    if (m_repositoryList == nullptr || m_repositoryModel == nullptr || m_projectManager == nullptr) {
-        return;
-    }
-
-    const QModelIndex index = m_repositoryList->indexAt(position);
-    if (!index.isValid()) {
-        return;
-    }
-
-    const QString projectId = index.data(RepositoryListModel::ProjectIdRole).toString();
-    const QString repositoryPath = index.data(RepositoryListModel::RootPathRole).toString();
-    const bool gitReady = m_gitAvailable && m_gitService != nullptr && !repositoryPath.isEmpty();
-
-    QMenu menu(this);
-
-    QAction *selectBranchAction = menu.addAction(
-        QIcon::fromTheme(QStringLiteral("vcs-branch")),
-        i18n("Select Branch"),
-        this,
-        [this, projectId, repositoryPath]() {
-            selectBranchForRepository(projectId, repositoryPath);
-        });
-    selectBranchAction->setEnabled(gitReady);
-
-    QAction *createBranchAction = menu.addAction(
-        QIcon::fromTheme(QStringLiteral("list-add")),
-        i18n("Create Branch"),
-        this,
-        [this, projectId, repositoryPath]() {
-            createBranchForRepository(projectId, repositoryPath);
-        });
-    createBranchAction->setEnabled(gitReady);
-
-    menu.addSeparator();
-
-    menu.addAction(
-        QIcon::fromTheme(QStringLiteral("list-remove")),
-        i18n("Remove from list"),
-        this,
-        [this, index]() {
-            removeRepositoryAtIndex(index);
-        });
-
-    menu.exec(m_repositoryList->viewport()->mapToGlobal(position));
-}
-
-void RepositoryPanel::selectBranchForRepository(
-    const QString &projectId,
-    const QString &repositoryPath)
-{
-    Q_UNUSED(projectId)
-
-    if (m_gitService == nullptr || repositoryPath.isEmpty()) {
-        return;
-    }
-
-    QStringList branches;
-    QString currentBranch;
-    QString errorMessage;
-    if (!m_gitService->listLocalBranches(repositoryPath, &branches, &currentBranch, &errorMessage)) {
-        qCWarning(qtcodeUi) << "Failed to list branches:" << errorMessage;
-        if (m_statusService != nullptr) {
-            m_statusService->showMessage(errorMessage, qtcode::core::StatusSeverity::Error);
-        }
-        return;
-    }
-
-    if (branches.isEmpty()) {
-        QMessageBox::information(
-            this,
-            i18n("Select Branch"),
-            i18n("This repository has no local branches yet."));
-        return;
-    }
-
-    bool accepted = false;
-    const int currentIndex = branches.indexOf(currentBranch);
-    const QString selectedBranch = QInputDialog::getItem(
-        this,
-        i18n("Select Branch"),
-        i18n("Branch:"),
-        branches,
-        currentIndex >= 0 ? currentIndex : 0,
-        false,
-        &accepted);
-    if (!accepted || selectedBranch.isEmpty() || selectedBranch == currentBranch) {
-        return;
-    }
-
-    checkoutBranchForRepository(projectId, repositoryPath, selectedBranch);
-}
-
-void RepositoryPanel::createBranchForRepository(
-    const QString &projectId,
-    const QString &repositoryPath)
-{
-    if (repositoryPath.isEmpty()) {
-        return;
-    }
-
-    bool accepted = false;
-    const QString branchName = QInputDialog::getText(
-        this,
-        i18n("Create Branch"),
-        i18n("Branch name:"),
-        QLineEdit::Normal,
-        QString {},
-        &accepted);
-    if (!accepted) {
-        return;
-    }
-
-    const QString trimmedBranchName = branchName.trimmed();
-    if (trimmedBranchName.isEmpty()) {
-        if (m_statusService != nullptr) {
-            m_statusService->showMessage(
-                i18n("Branch name is required."),
-                qtcode::core::StatusSeverity::Warning);
-        }
-        return;
-    }
-
-    checkoutBranchForRepository(
-        projectId,
-        repositoryPath,
-        trimmedBranchName,
-        true);
-}
-
-void RepositoryPanel::checkoutBranchForRepository(
-    const QString &projectId,
-    const QString &repositoryPath,
-    const QString &branchName,
-    bool createBranch)
-{
-    Q_UNUSED(projectId)
-
-    const QString gitExecutable = resolveGitExecutable();
-    if (gitExecutable.isEmpty() || m_gitService == nullptr || repositoryPath.isEmpty() || branchName.isEmpty()) {
-        return;
-    }
-
-    startGitOperation(
-        [this, repositoryPath, gitExecutable, branchName, createBranch]() {
-            if (createBranch) {
-                return m_gitService->createBranch(repositoryPath, gitExecutable, branchName);
-            }
-
-            return m_gitService->checkoutBranch(repositoryPath, gitExecutable, branchName);
-        },
-        createBranch
-            ? i18n("Created and checked out branch %1.", branchName)
-            : i18n("Checked out branch %1.", branchName));
-}
-
-void RepositoryPanel::removeRepositoryAtIndex(const QModelIndex &index)
-{
-    if (!index.isValid() || m_projectManager == nullptr) {
-        return;
-    }
-
-    const QString projectId = index.data(RepositoryListModel::ProjectIdRole).toString();
-    const QString projectName = index.data(RepositoryListModel::NameRole).toString();
-    if (projectId.isEmpty()) {
-        return;
-    }
-
-    const QMessageBox::StandardButton choice = QMessageBox::question(
-        this,
-        i18n("Remove repository"),
-        i18n(
-            "Remove %1 from the local repository list?\n\n"
-            "This only removes it from QTCode. Files on disk are not deleted.",
-            projectName),
-        QMessageBox::Yes | QMessageBox::No,
-        QMessageBox::No);
-    if (choice != QMessageBox::Yes) {
-        return;
-    }
-
-    QString errorMessage;
-    if (!m_projectManager->removeLocalRepository(projectId, &errorMessage)) {
-        qCWarning(qtcodeUi) << "Failed to remove repository:" << errorMessage;
-        showErrorState(i18n("Could not remove repository: %1", errorMessage));
-        return;
-    }
-
-    if (m_projectManager->hasActiveProject()) {
-        refreshStatus(true);
-    } else {
-        showEmptyState(i18n("Add a local repository to browse branches, changes, and GitHub context."));
-        updateAutoRefreshTimer();
-    }
 }
 
 } // namespace qtcode::ui

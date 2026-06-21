@@ -331,6 +331,15 @@ void MainWindow::configureActions()
         m_projectNavigationPanel->repositoryPanel(),
         &RepositoryPanel::addRepository);
 
+    auto *changeRepositoryAction = m_actionCollection->addAction(QStringLiteral("file_change_repository"));
+    changeRepositoryAction->setText(i18n("Change Repository"));
+    changeRepositoryAction->setIcon(QIcon::fromTheme(QStringLiteral("folder-open")));
+    connect(
+        changeRepositoryAction,
+        &QAction::triggered,
+        m_projectNavigationPanel->repositoryPanel(),
+        &RepositoryPanel::changeRepository);
+
     auto *refreshStatusAction = m_actionCollection->addAction(QStringLiteral("file_refresh_status"));
     refreshStatusAction->setText(i18n("Refresh Status"));
     refreshStatusAction->setIcon(QIcon::fromTheme(QStringLiteral("view-refresh")));
@@ -417,6 +426,7 @@ void MainWindow::configureMenus()
 {
     auto *fileMenu = menuBar()->addMenu(i18n("&File"));
     fileMenu->addAction(m_actionCollection->action(QStringLiteral("file_add_repository")));
+    fileMenu->addAction(m_actionCollection->action(QStringLiteral("file_change_repository")));
     fileMenu->addAction(m_actionCollection->action(QStringLiteral("file_refresh_status")));
     fileMenu->addAction(m_settingsAction);
     fileMenu->addSeparator();

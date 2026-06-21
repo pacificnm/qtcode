@@ -13,7 +13,6 @@
 #include <functional>
 
 class QLabel;
-class QListView;
 class QListWidget;
 class QListWidgetItem;
 class QPlainTextEdit;
@@ -37,8 +36,6 @@ template <typename T>
 class QFutureWatcher;
 
 namespace qtcode::ui {
-
-class RepositoryListModel;
 
 struct RepositoryRefreshBundle
 {
@@ -65,6 +62,7 @@ public:
 public slots:
     void refreshStatus(bool showStatusFeedback = true);
     void addRepository();
+    void changeRepository();
 
 signals:
     void issueContextRequested(const qtcode::github::GitHubIssueDetail &detail);
@@ -80,9 +78,7 @@ private slots:
     void onChangedFileClicked(QListWidgetItem *item);
     void onRefreshFinished();
     void onGitOperationFinished();
-    void onRepositorySelected(const QModelIndex &current, const QModelIndex &previous);
     void onActiveProjectChanged();
-    void syncRepositorySelection();
     void onAutoRefreshTimer();
     void onCommitMessageChanged();
     void onCommitClicked();
@@ -116,19 +112,10 @@ private:
     void onPullRequestSelected();
     void refreshCapabilityState();
     void updateAutoRefreshTimer();
-    void showRepositoryContextMenu(const QPoint &position);
     void showIssuesContextMenu(const QPoint &position);
     void showStagedFilesContextMenu(const QPoint &position);
     void showUnstagedFilesContextMenu(const QPoint &position);
     void attachIssueToContext(int issueNumber);
-    void removeRepositoryAtIndex(const QModelIndex &index);
-    void selectBranchForRepository(const QString &projectId, const QString &repositoryPath);
-    void createBranchForRepository(const QString &projectId, const QString &repositoryPath);
-    void checkoutBranchForRepository(
-        const QString &projectId,
-        const QString &repositoryPath,
-        const QString &branchName,
-        bool createBranch = false);
     void stageRelativePaths(const QStringList &relativePaths);
     void unstageRelativePaths(const QStringList &relativePaths);
     [[nodiscard]] QStringList selectedRelativePaths(QListWidget *list) const;
@@ -139,8 +126,6 @@ private:
     qtcode::github::GitHubService *m_gitHubService = nullptr;
     qtcode::core::StatusService *m_statusService = nullptr;
     qtcode::core::WorkspaceInstaller *m_workspaceInstaller = nullptr;
-    RepositoryListModel *m_repositoryModel = nullptr;
-    QListView *m_repositoryList = nullptr;
     QLabel *m_projectLabel = nullptr;
     QLabel *m_capabilityStateLabel = nullptr;
     QWidget *m_workspaceSetupWidget = nullptr;
