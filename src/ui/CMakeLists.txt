@@ -3,6 +3,8 @@ qtcode_add_module_library(qtcode_ui STATIC
     StatusBar.cpp
     models/RepositoryListModel.cpp
     panels/RepositoryPanel.cpp
+    panels/FileTreePanel.cpp
+    panels/ProjectNavigationPanel.cpp
     panels/AgentPanel.cpp
     panels/WorkspaceTabs.cpp
     panels/McpServerPanel.cpp

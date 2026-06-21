@@ -8,6 +8,8 @@
 #include "shared/Logging.h"
 #include "ui/panels/AgentPanel.h"
 #include "ui/panels/McpServerPanel.h"
+#include "ui/panels/FileTreePanel.h"
+#include "ui/panels/ProjectNavigationPanel.h"
 #include "ui/panels/RepositoryPanel.h"
 #include "ui/panels/TerminalPanel.h"
 #include "ui/panels/WorkspaceTabs.h"
@@ -64,7 +66,7 @@ MainWindow::~MainWindow()
 
 void MainWindow::configureLayout()
 {
-    m_repositoryPanel = new RepositoryPanel(
+    m_projectNavigationPanel = new ProjectNavigationPanel(
         m_controller != nullptr ? m_controller->gitService() : nullptr,
         m_controller != nullptr ? m_controller->projectManager() : nullptr,
         m_controller != nullptr ? m_controller->cliCapabilityService() : nullptr,
@@ -91,7 +93,7 @@ void MainWindow::configureLayout()
     m_workspaceTabs = new WorkspaceTabs(this);
     m_workspaceTabs->setPermanentAiChatTab(m_agentPanel->conversationPanel());
 
-    m_repositoryPanel->setMinimumWidth(240);
+    m_projectNavigationPanel->setMinimumWidth(240);
     m_workspaceTabs->setMinimumWidth(320);
     m_terminalPanel->setMinimumHeight(120);
 
@@ -111,7 +113,7 @@ void MainWindow::configureLayout()
     m_mainVerticalSplitter->setCollapsible(1, false);
 
     m_rootHorizontalSplitter = new QSplitter(Qt::Horizontal, this);
-    m_rootHorizontalSplitter->addWidget(m_repositoryPanel);
+    m_rootHorizontalSplitter->addWidget(m_projectNavigationPanel);
     m_rootHorizontalSplitter->addWidget(m_mainVerticalSplitter);
     m_rootHorizontalSplitter->addWidget(m_rightPanelStack);
     m_rootHorizontalSplitter->setStretchFactor(0, 1);
@@ -125,21 +127,29 @@ void MainWindow::configureLayout()
         connect(
             m_controller->agentManager(),
             &qtcode::agents::AgentManager::repositoryRefreshRequested,
-            m_repositoryPanel,
+            m_projectNavigationPanel->repositoryPanel(),
             &RepositoryPanel::refreshStatus);
     }
 
-    if (m_repositoryPanel != nullptr && m_agentPanel != nullptr) {
+    if (m_projectNavigationPanel != nullptr && m_agentPanel != nullptr) {
         connect(
-            m_repositoryPanel,
+            m_projectNavigationPanel->repositoryPanel(),
             &RepositoryPanel::issueContextSelected,
             m_agentPanel,
             &AgentPanel::attachIssueContext);
         connect(
-            m_repositoryPanel,
+            m_projectNavigationPanel->repositoryPanel(),
             &RepositoryPanel::pullRequestContextSelected,
             m_agentPanel,
             &AgentPanel::attachPullRequestContext);
+    }
+
+    if (m_projectNavigationPanel != nullptr && m_workspaceTabs != nullptr) {
+        connect(
+            m_projectNavigationPanel->fileTreePanel(),
+            &FileTreePanel::fileOpenRequested,
+            m_workspaceTabs,
+            &WorkspaceTabs::requestOpenFile);
     }
 
     auto *centralContainer = new QWidget(this);
@@ -175,7 +185,7 @@ void MainWindow::configureActions()
     connect(
         addRepositoryAction,
         &QAction::triggered,
-        m_repositoryPanel,
+        m_projectNavigationPanel->repositoryPanel(),
         &RepositoryPanel::addRepository);
 
     auto *refreshStatusAction = m_actionCollection->addAction(QStringLiteral("file_refresh_status"));
@@ -184,7 +194,7 @@ void MainWindow::configureActions()
     connect(
         refreshStatusAction,
         &QAction::triggered,
-        m_repositoryPanel,
+        m_projectNavigationPanel->repositoryPanel(),
         &RepositoryPanel::refreshStatus);
 
     auto *newTerminalTabAction = m_actionCollection->addAction(QStringLiteral("file_new_terminal_tab"));
@@ -224,6 +234,23 @@ void MainWindow::configureActions()
     m_mcpPanelAction->setCheckable(true);
     connect(m_mcpPanelAction, &QAction::toggled, this, &MainWindow::onMcpPanelActionToggled);
 
+    auto *showRepositoryViewAction =
+        m_actionCollection->addAction(QStringLiteral("view_show_repository"));
+    showRepositoryViewAction->setText(i18n("Show Repository View"));
+    connect(
+        showRepositoryViewAction,
+        &QAction::triggered,
+        m_projectNavigationPanel,
+        &ProjectNavigationPanel::showRepositoryView);
+
+    auto *showFilesViewAction = m_actionCollection->addAction(QStringLiteral("view_show_files"));
+    showFilesViewAction->setText(i18n("Show Files View"));
+    connect(
+        showFilesViewAction,
+        &QAction::triggered,
+        m_projectNavigationPanel,
+        &ProjectNavigationPanel::showFilesView);
+
     auto *resetPanelLayoutAction =
         m_actionCollection->addAction(QStringLiteral("view_reset_panel_layout"));
     resetPanelLayoutAction->setText(i18n("Reset Panel Layout"));
@@ -244,6 +271,9 @@ void MainWindow::configureMenus()
     viewMenu->addAction(m_contextPanelAction);
     viewMenu->addAction(m_changesPanelAction);
     viewMenu->addAction(m_mcpPanelAction);
+    viewMenu->addSeparator();
+    viewMenu->addAction(m_actionCollection->action(QStringLiteral("view_show_repository")));
+    viewMenu->addAction(m_actionCollection->action(QStringLiteral("view_show_files")));
     viewMenu->addSeparator();
     viewMenu->addAction(m_actionCollection->action(QStringLiteral("view_reset_panel_layout")));
 

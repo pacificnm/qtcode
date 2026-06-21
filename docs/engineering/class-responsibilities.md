@@ -12,11 +12,19 @@ Wires services together, initializes storage, loads settings, restores last stat
 
 ### `MainWindow`
 
-Owns top-level layout, `KActionCollection`-backed actions, menus, toolbar, dock/panel arrangement, and major navigation state. Menu and toolbar actions delegate workflow behavior to panels and services. The main column uses `WorkspaceTabs` for the permanent AI chat tab and future editor tabs above the terminal splitter.
+Owns top-level layout, `KActionCollection`-backed actions, menus, toolbar, dock/panel arrangement, and major navigation state. Menu and toolbar actions delegate workflow behavior to panels and services. The left column uses `ProjectNavigationPanel` for repository and file-tree views. The main column uses `WorkspaceTabs` for the permanent AI chat tab and file tabs above the terminal splitter.
+
+### `ProjectNavigationPanel`
+
+Hosts the left-column **Repository** and **Files** views in a compact tab bar. Reuses persisted left-column width from the root horizontal splitter.
+
+### `FileTreePanel`
+
+Displays the active project's filesystem tree and emits `fileOpenRequested` when the user activates an openable text file.
 
 ### `WorkspaceTabs`
 
-Owns the main work-area tab widget. Hosts the permanent, non-closable AI chat tab and will host closable editor tabs in later milestones.
+Owns the main work-area tab widget. Hosts the permanent, non-closable AI chat tab and closable file tabs opened from the folder tree.
 
 ## Project And Repository Classes
 

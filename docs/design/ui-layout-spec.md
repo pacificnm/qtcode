@@ -6,8 +6,8 @@ Primary layout:
 
 ```text
 +----------------------+----------------------+--------------+---+
-| Repository Panel     | Main Work Tabs       | Right Panel  |Act|
-| (left)               | [AI Chat*] [...]     | (one view)   |Bar|
+| Project Navigation   | Main Work Tabs       | Right Panel  |Act|
+| [Repository|Files]   | [AI Chat*] [...]     | (one view)   |Bar|
 |                      +----------------------+              |   |
 |                      | Terminal Panel       |              |   |
 |                      | (main)               |              |   |
@@ -16,7 +16,7 @@ Primary layout:
 +----------------------------------------------------------------------------------------+
 ```
 
-The shell exposes exactly three content columns: repository on the left, workspace tabs plus terminal in the main column, and one shared right column. The activity bar toggles which right-panel view is active. A compact status bar spans the full window width below all columns.
+The shell exposes exactly three content columns: project navigation on the left, workspace tabs plus terminal in the main column, and one shared right column. The activity bar toggles which right-panel view is active. A compact status bar spans the full window width below all columns.
 
 Right-panel views:
 
@@ -27,16 +27,22 @@ Right-panel views:
 
 Only one right-panel view is visible at a time. Workspace tabs and terminal remain in the main column at all times.
 
-## Repository Panel
+## Left Project Space
 
 Purpose:
 
-- Select active project.
-- Show repository state.
+- Switch between repository context and project file tree in one left column.
+- Select active project and show repository state.
 - Provide context for agents.
 - Surface GitHub issues and pull requests.
 
-Expected sections:
+Implementation:
+
+- `ProjectNavigationPanel` hosts a compact tab bar with **Repository** and **Files** views.
+- **Repository** view: existing `RepositoryPanel` (local repositories, changed files, commits, GitHub issues and pull requests, detail attach flows).
+- **Files** view: `FileTreePanel` rooted at the active project path via `QFileSystemModel`. Activating a text file requests a workspace tab through `WorkspaceTabs::requestOpenFile`.
+
+Expected repository sections:
 
 - Local repositories.
 - GitHub repositories.
@@ -55,7 +61,7 @@ Purpose:
 
 Expected surfaces:
 
-- **Workspace tabs** — main work-area tab control owned by `WorkspaceTabs`. The permanent **AI Chat** tab hosts `AgentPanel::conversationPanel()` and cannot be closed. Future editor tabs open beside it.
+- **Workspace tabs** — main work-area tab control owned by `WorkspaceTabs`. The permanent **AI Chat** tab hosts `AgentPanel::conversationPanel()` and cannot be closed. File tabs open beside it when requested from the folder tree (KTextEditor editor content arrives in a later milestone).
 - **Terminal panel** — shell tabs and project-aware command output beneath the workspace tabs.
 
 ### Prompt composer
