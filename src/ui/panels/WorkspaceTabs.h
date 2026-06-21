@@ -17,6 +17,7 @@ namespace qtcode::ui {
 
 class EditorTab;
 class GitHubDetailView;
+class RepoHelpView;
 
 class WorkspaceTabs final : public QWidget
 {
@@ -50,6 +51,7 @@ public slots:
     void requestOpenPullRequest(
         const qtcode::github::GitHubPullRequestDetail &detail,
         const qtcode::github::GitHubCacheMetadata &cacheMetadata);
+    void requestOpenRepoHelp();
     void closeCurrentEditorTab();
     void handleFileRenamed(const QString &oldPath, const QString &newPath);
     void handleFileDeleted(const QString &path);
@@ -72,8 +74,13 @@ private:
     [[nodiscard]] bool closeEditorTabAt(int index, bool promptForDirty);
     [[nodiscard]] bool closeEditorTabForPath(const QString &absolutePath, bool promptForDirty);
     [[nodiscard]] bool closeGitHubTabAt(int index);
+    [[nodiscard]] bool closeRepoHelpTabAt(int index);
     [[nodiscard]] GitHubDetailView *githubDetailViewAt(int index) const;
+    [[nodiscard]] RepoHelpView *repoHelpViewAt(int index) const;
     [[nodiscard]] bool isGitHubTabIndex(int index) const;
+    [[nodiscard]] bool isRepoHelpTabIndex(int index) const;
+    [[nodiscard]] QString repoHelpTabKey() const;
+    [[nodiscard]] QString repoDocRootForActiveProject() const;
     [[nodiscard]] QString githubTabKeyForIssue(int number) const;
     [[nodiscard]] QString githubTabKeyForPullRequest(int number) const;
     [[nodiscard]] QString githubTabTitle(const QString &prefix, int number, const QString &title) const;
@@ -85,6 +92,7 @@ private:
     QTabWidget *m_tabWidget = nullptr;
     QHash<QString, int> m_fileTabIndices;
     QHash<QString, int> m_githubTabIndices;
+    QHash<QString, int> m_repoHelpTabIndices;
     QWidget *m_aiChatPanel = nullptr;
     int m_aiChatTabIndex = -1;
 };

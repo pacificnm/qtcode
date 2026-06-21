@@ -14,6 +14,7 @@ qtcode_add_module_library(qtcode_ui STATIC
     views/ConversationView.cpp
     views/ContextResultsView.cpp
     views/GitHubDetailView.cpp
+    views/RepoHelpView.cpp
 )
 
 target_link_libraries(qtcode_ui

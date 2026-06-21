@@ -6,6 +6,8 @@
 #include "shared/Logging.h"
 #include "ui/panels/EditorTab.h"
 #include "ui/views/GitHubDetailView.h"
+#include "ui/views/RepoHelpView.h"
+#include "settings/ProjectModels.h"
 
 #include <KLocalizedString>
 
@@ -201,6 +203,45 @@ void WorkspaceTabs::requestOpenIssue(
     qCInfo(qtcodeUi) << "Opened issue tab for" << detail.number;
 }
 
+void WorkspaceTabs::requestOpenRepoHelp()
+{
+    if (m_tabWidget == nullptr) {
+        return;
+    }
+
+    const QString docRootPath = repoDocRootForActiveProject();
+    if (docRootPath.isEmpty()) {
+        if (m_statusService != nullptr) {
+            m_statusService->showMessage(
+                i18n("Open a project before viewing repository help."),
+                qtcode::core::StatusSeverity::Warning);
+        }
+        return;
+    }
+
+    const QString tabKey = repoHelpTabKey();
+    const auto existingIndex = m_repoHelpTabIndices.constFind(tabKey);
+    if (existingIndex != m_repoHelpTabIndices.constEnd() && *existingIndex >= 0
+        && *existingIndex < m_tabWidget->count()) {
+        RepoHelpView *helpView = repoHelpViewAt(*existingIndex);
+        if (helpView != nullptr) {
+            helpView->loadDocRoot(docRootPath);
+        }
+        m_tabWidget->setCurrentIndex(*existingIndex);
+        qCInfo(qtcodeUi) << "Focused existing repository help tab";
+        return;
+    }
+
+    auto *helpView = new RepoHelpView(m_statusService, m_tabWidget);
+    helpView->setProperty("repoHelpTabKey", tabKey);
+    helpView->loadDocRoot(docRootPath);
+
+    const int tabIndex = m_tabWidget->addTab(helpView, i18n("Repo Help"));
+    m_repoHelpTabIndices.insert(tabKey, tabIndex);
+    m_tabWidget->setCurrentIndex(tabIndex);
+    qCInfo(qtcodeUi) << "Opened repository help tab";
+}
+
 void WorkspaceTabs::requestOpenPullRequest(
     const qtcode::github::GitHubPullRequestDetail &detail,
     const qtcode::github::GitHubCacheMetadata &cacheMetadata)
@@ -258,6 +299,11 @@ void WorkspaceTabs::onTabCloseRequested(int index)
 
     if (isGitHubTabIndex(index)) {
         (void) closeGitHubTabAt(index);
+        return;
+    }
+
+    if (isRepoHelpTabIndex(index)) {
+        (void) closeRepoHelpTabAt(index);
     }
 }
 
@@ -322,6 +368,13 @@ bool WorkspaceTabs::closeAllEditorTabs(bool promptForDirty)
             if (!closeGitHubTabAt(index)) {
                 return false;
             }
+            continue;
+        }
+
+        if (isRepoHelpTabIndex(index)) {
+            if (!closeRepoHelpTabAt(index)) {
+                return false;
+            }
         }
     }
 
@@ -349,6 +402,39 @@ bool WorkspaceTabs::closeEditorTabAt(int index, bool promptForDirty)
 
     const QString pathKey = normalizedPath(editorTab->filePath());
     m_fileTabIndices.remove(pathKey);
+
+    QWidget *widget = m_tabWidget->widget(index);
+    m_tabWidget->removeTab(index);
+
+    if (m_aiChatTabIndex > index) {
+        m_aiChatTabIndex -= 1;
+    }
+
+    reindexWorkspaceTabs();
+
+    if (widget != nullptr) {
+        delete widget;
+    }
+
+    return true;
+}
+
+bool WorkspaceTabs::closeRepoHelpTabAt(int index)
+{
+    if (m_tabWidget == nullptr || index < 0 || index >= m_tabWidget->count()
+        || index == m_aiChatTabIndex) {
+        return true;
+    }
+
+    RepoHelpView *helpView = repoHelpViewAt(index);
+    if (helpView == nullptr) {
+        return true;
+    }
+
+    const QString tabKey = m_repoHelpTabIndices.key(index);
+    if (!tabKey.isEmpty()) {
+        m_repoHelpTabIndices.remove(tabKey);
+    }
 
     QWidget *widget = m_tabWidget->widget(index);
     m_tabWidget->removeTab(index);
@@ -486,6 +572,20 @@ void WorkspaceTabs::onActiveProjectChanged()
     if (!closeAllEditorTabs(true)) {
         return;
     }
+
+    if (m_tabWidget == nullptr) {
+        return;
+    }
+
+    for (int index = m_tabWidget->count() - 1; index >= 0; --index) {
+        if (index == m_aiChatTabIndex || !isRepoHelpTabIndex(index)) {
+            continue;
+        }
+
+        if (!closeRepoHelpTabAt(index)) {
+            return;
+        }
+    }
 }
 
 void WorkspaceTabs::onCurrentTabChanged(int index)
@@ -551,6 +651,7 @@ void WorkspaceTabs::reindexWorkspaceTabs()
 {
     m_fileTabIndices.clear();
     m_githubTabIndices.clear();
+    m_repoHelpTabIndices.clear();
     if (m_tabWidget == nullptr) {
         m_aiChatTabIndex = -1;
         return;
@@ -576,6 +677,17 @@ void WorkspaceTabs::reindexWorkspaceTabs()
         const QString tabKey = detailView->property("githubTabKey").toString();
         if (!tabKey.isEmpty()) {
             m_githubTabIndices.insert(tabKey, index);
+            continue;
+        }
+
+        RepoHelpView *helpView = repoHelpViewAt(index);
+        if (helpView == nullptr) {
+            continue;
+        }
+
+        const QString helpTabKey = helpView->property("repoHelpTabKey").toString();
+        if (!helpTabKey.isEmpty()) {
+            m_repoHelpTabIndices.insert(helpTabKey, index);
         }
     }
 }
@@ -601,6 +713,39 @@ GitHubDetailView *WorkspaceTabs::githubDetailViewAt(int index) const
 bool WorkspaceTabs::isGitHubTabIndex(int index) const
 {
     return githubDetailViewAt(index) != nullptr;
+}
+
+RepoHelpView *WorkspaceTabs::repoHelpViewAt(int index) const
+{
+    if (m_tabWidget == nullptr || index < 0 || index >= m_tabWidget->count()) {
+        return nullptr;
+    }
+
+    return qobject_cast<RepoHelpView *>(m_tabWidget->widget(index));
+}
+
+bool WorkspaceTabs::isRepoHelpTabIndex(int index) const
+{
+    return repoHelpViewAt(index) != nullptr;
+}
+
+QString WorkspaceTabs::repoHelpTabKey() const
+{
+    return QStringLiteral("repo-help");
+}
+
+QString WorkspaceTabs::repoDocRootForActiveProject() const
+{
+    if (m_projectManager == nullptr) {
+        return {};
+    }
+
+    qtcode::settings::ProjectRecord activeProject;
+    if (!m_projectManager->activeProject(&activeProject) || activeProject.rootPath.isEmpty()) {
+        return {};
+    }
+
+    return QDir(activeProject.rootPath).absoluteFilePath(QStringLiteral("doc"));
 }
 
 QString WorkspaceTabs::githubTabKeyForIssue(int number) const

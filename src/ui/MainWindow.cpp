@@ -29,6 +29,7 @@
 #include <QCloseEvent>
 #include <QFileInfo>
 #include <QIcon>
+#include <QMenu>
 #include <QMenuBar>
 #include <QShowEvent>
 #include <QSignalBlocker>
@@ -405,6 +406,11 @@ void MainWindow::configureActions()
         m_actionCollection->addAction(QStringLiteral("view_reset_panel_layout"));
     resetPanelLayoutAction->setText(i18n("Reset Panel Layout"));
     connect(resetPanelLayoutAction, &QAction::triggered, this, &MainWindow::resetPanelLayout);
+
+    auto *repoHelpAction = m_actionCollection->addAction(QStringLiteral("help_repo_help"));
+    repoHelpAction->setText(i18n("Repo Help"));
+    repoHelpAction->setIcon(QIcon::fromTheme(QStringLiteral("help-contents")));
+    connect(repoHelpAction, &QAction::triggered, m_workspaceTabs, &WorkspaceTabs::requestOpenRepoHelp);
 }
 
 void MainWindow::configureMenus()
@@ -437,7 +443,19 @@ void MainWindow::configureMenus()
     viewMenu->addAction(m_actionCollection->action(QStringLiteral("view_reset_panel_layout")));
 
     m_helpMenu = new KHelpMenu(this);
-    menuBar()->addMenu(m_helpMenu->menu());
+    QMenu *helpMenu = m_helpMenu->menu();
+    QAction *repoHelpAction = m_actionCollection->action(QStringLiteral("help_repo_help"));
+    if (repoHelpAction != nullptr) {
+        const QList<QAction *> existingActions = helpMenu->actions();
+        if (!existingActions.isEmpty()) {
+            QAction *firstStandardAction = existingActions.constFirst();
+            helpMenu->insertAction(firstStandardAction, repoHelpAction);
+            helpMenu->insertSeparator(firstStandardAction);
+        } else {
+            helpMenu->addAction(repoHelpAction);
+        }
+    }
+    menuBar()->addMenu(helpMenu);
 }
 
 void MainWindow::configureActivityBar()

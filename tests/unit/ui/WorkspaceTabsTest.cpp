@@ -3,6 +3,7 @@
 
 #include "github/GitHubModels.h"
 #include "ui/views/GitHubDetailView.h"
+#include "ui/views/RepoHelpView.h"
 
 #include <KAboutData>
 #include <KLocalizedString>
@@ -58,6 +59,7 @@ private slots:
     void unmodifiedEditorTabPromptCloseReturnsDiscard();
     void openIssueAddsGitHubTab();
     void reopeningSameIssueDoesNotDuplicateTab();
+    void requestOpenRepoHelpWithoutProjectDoesNotAddTab();
 };
 
 void WorkspaceTabsTest::permanentAiChatTabHasNoCloseButton()
@@ -230,6 +232,16 @@ void WorkspaceTabsTest::reopeningSameIssueDoesNotDuplicateTab()
     tabs.requestOpenIssue(detail, {});
     tabs.requestOpenIssue(detail, {});
     QCOMPARE(tabs.tabCount(), 2);
+}
+
+void WorkspaceTabsTest::requestOpenRepoHelpWithoutProjectDoesNotAddTab()
+{
+    qtcode::ui::WorkspaceTabs tabs(nullptr, nullptr);
+    auto *chatLabel = new QLabel(QStringLiteral("AI Chat"), &tabs);
+    tabs.setPermanentAiChatTab(chatLabel);
+
+    tabs.requestOpenRepoHelp();
+    QCOMPARE(tabs.tabCount(), 1);
 }
 
 QObject *buildWorkspaceTabsTest()
