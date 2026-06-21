@@ -1,6 +1,9 @@
 #pragma once
 
+#include "settings/ProjectModels.h"
+
 #include <QAbstractListModel>
+#include <QList>
 
 namespace qtcode::core {
 class ProjectManager;
@@ -30,8 +33,13 @@ public:
 public slots:
     void reload();
 
+private slots:
+    void onProjectsChanged();
+    void updateActiveState();
+
 private:
     qtcode::core::ProjectManager *m_projectManager = nullptr;
+    QList<qtcode::settings::ProjectRecord> m_cachedProjects;
 };
 
 } // namespace qtcode::ui

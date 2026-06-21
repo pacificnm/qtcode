@@ -5,6 +5,7 @@
 
 #include <QSqlError>
 #include <QSqlQuery>
+#include <QVariantMap>
 
 namespace qtcode::storage {
 
@@ -218,10 +219,7 @@ bool ProjectRepository::listProjects(
     if (!query.exec(QStringLiteral(
             "SELECT id, name, root_path, created_at, updated_at, last_opened_at "
             "FROM projects "
-            "ORDER BY "
-            "CASE WHEN last_opened_at IS NULL THEN 1 ELSE 0 END, "
-            "last_opened_at DESC, "
-            "updated_at DESC"))) {
+            "ORDER BY created_at ASC, name ASC"))) {
         const QString message = query.lastError().text();
         if (errorMessage != nullptr) {
             *errorMessage = QStringLiteral("Failed to list projects: %1").arg(message);
@@ -340,6 +338,88 @@ bool ProjectRepository::findPrimaryRepository(
     }
     if (found != nullptr) {
         *found = true;
+    }
+
+    return true;
+}
+
+bool ProjectRepository::deleteProject(const QString &projectId, QString *errorMessage)
+{
+    if (projectId.isEmpty()) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("Project id must not be empty.");
+        }
+        return false;
+    }
+
+    const auto execDelete = [&](const QString &sql, const QVariantMap &bindings) -> bool {
+        QSqlQuery query(m_storageService.database());
+        query.prepare(sql);
+        for (auto it = bindings.cbegin(); it != bindings.cend(); ++it) {
+            query.bindValue(it.key(), it.value());
+        }
+
+        if (!query.exec()) {
+            const QString message = query.lastError().text();
+            if (errorMessage != nullptr) {
+                *errorMessage = QStringLiteral("Failed to delete project data: %1").arg(message);
+            }
+            qCWarning(qtcodeStorage) << "Failed to delete project" << projectId << message;
+            return false;
+        }
+
+        return true;
+    };
+
+    const QVariantMap projectBinding {{QStringLiteral(":project_id"), projectId}};
+
+    if (!execDelete(
+            QStringLiteral(
+                "DELETE FROM context_results "
+                "WHERE retrieval_id IN ("
+                "SELECT id FROM context_retrievals "
+                "WHERE project_id = :project_id "
+                "OR session_id IN ("
+                "SELECT id FROM agent_sessions WHERE project_id = :project_id"
+                ")"
+                ")"),
+            projectBinding)
+        || !execDelete(
+            QStringLiteral(
+                "DELETE FROM context_retrievals "
+                "WHERE project_id = :project_id "
+                "OR session_id IN ("
+                "SELECT id FROM agent_sessions WHERE project_id = :project_id"
+                ")"),
+            projectBinding)
+        || !execDelete(
+            QStringLiteral(
+                "DELETE FROM agent_messages "
+                "WHERE session_id IN ("
+                "SELECT id FROM agent_sessions WHERE project_id = :project_id"
+                ")"),
+            projectBinding)
+        || !execDelete(
+            QStringLiteral("DELETE FROM agent_sessions WHERE project_id = :project_id"),
+            projectBinding)
+        || !execDelete(
+            QStringLiteral("DELETE FROM project_agent_preferences WHERE project_id = :project_id"),
+            projectBinding)
+        || !execDelete(
+            QStringLiteral("DELETE FROM terminal_sessions WHERE project_id = :project_id"),
+            projectBinding)
+        || !execDelete(
+            QStringLiteral(
+                "DELETE FROM github_cache "
+                "WHERE repository_id IN ("
+                "SELECT id FROM repositories WHERE project_id = :project_id"
+                ")"),
+            projectBinding)
+        || !execDelete(
+            QStringLiteral("DELETE FROM repositories WHERE project_id = :project_id"),
+            projectBinding)
+        || !execDelete(QStringLiteral("DELETE FROM projects WHERE id = :project_id"), projectBinding)) {
+        return false;
     }
 
     return true;

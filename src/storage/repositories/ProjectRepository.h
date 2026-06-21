@@ -54,6 +54,9 @@ public:
         settings::RepositoryRecord *repository,
         bool *found,
         QString *errorMessage = nullptr) const;
+    [[nodiscard]] bool deleteProject(
+        const QString &projectId,
+        QString *errorMessage = nullptr);
 
 private:
     StorageService &m_storageService;

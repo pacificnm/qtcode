@@ -19,7 +19,7 @@ GitHubDetailView::GitHubDetailView(QWidget *parent)
 void GitHubDetailView::configureLayout()
 {
     auto *layout = new QVBoxLayout(this);
-    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setContentsMargins(12, 12, 12, 12);
     layout->setSpacing(6);
 
     m_titleLabel = new QLabel(this);

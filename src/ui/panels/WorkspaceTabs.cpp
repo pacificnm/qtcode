@@ -5,6 +5,7 @@
 #include "core/StatusService.h"
 #include "shared/Logging.h"
 #include "ui/panels/EditorTab.h"
+#include "ui/views/GitHubDetailView.h"
 
 #include <KLocalizedString>
 
@@ -158,6 +159,91 @@ void WorkspaceTabs::requestOpenFile(const QString &absolutePath)
     qCInfo(qtcodeUi) << "Opened editor tab for" << pathKey;
 }
 
+void WorkspaceTabs::requestOpenIssue(
+    const qtcode::github::GitHubIssueDetail &detail,
+    const qtcode::github::GitHubCacheMetadata &cacheMetadata)
+{
+    if (m_tabWidget == nullptr || detail.number <= 0) {
+        return;
+    }
+
+    const QString tabKey = githubTabKeyForIssue(detail.number);
+    const auto existingIndex = m_githubTabIndices.constFind(tabKey);
+    if (existingIndex != m_githubTabIndices.constEnd() && *existingIndex >= 0
+        && *existingIndex < m_tabWidget->count()) {
+        GitHubDetailView *detailView = githubDetailViewAt(*existingIndex);
+        if (detailView != nullptr) {
+            detailView->showIssue(detail, cacheMetadata);
+        }
+        m_tabWidget->setCurrentIndex(*existingIndex);
+        qCInfo(qtcodeUi) << "Focused existing issue tab for" << detail.number;
+        return;
+    }
+
+    auto *detailView = new GitHubDetailView(m_tabWidget);
+    detailView->setProperty("githubTabKey", tabKey);
+    detailView->showIssue(detail, cacheMetadata);
+    connect(
+        detailView,
+        &GitHubDetailView::attachIssueRequested,
+        this,
+        &WorkspaceTabs::issueContextSelected);
+    connect(
+        detailView,
+        &GitHubDetailView::attachPullRequestRequested,
+        this,
+        &WorkspaceTabs::pullRequestContextSelected);
+
+    const int tabIndex =
+        m_tabWidget->addTab(detailView, githubTabTitle(i18n("Issue"), detail.number, detail.title));
+    m_githubTabIndices.insert(tabKey, tabIndex);
+    m_tabWidget->setCurrentIndex(tabIndex);
+    qCInfo(qtcodeUi) << "Opened issue tab for" << detail.number;
+}
+
+void WorkspaceTabs::requestOpenPullRequest(
+    const qtcode::github::GitHubPullRequestDetail &detail,
+    const qtcode::github::GitHubCacheMetadata &cacheMetadata)
+{
+    if (m_tabWidget == nullptr || detail.number <= 0) {
+        return;
+    }
+
+    const QString tabKey = githubTabKeyForPullRequest(detail.number);
+    const auto existingIndex = m_githubTabIndices.constFind(tabKey);
+    if (existingIndex != m_githubTabIndices.constEnd() && *existingIndex >= 0
+        && *existingIndex < m_tabWidget->count()) {
+        GitHubDetailView *detailView = githubDetailViewAt(*existingIndex);
+        if (detailView != nullptr) {
+            detailView->showPullRequest(detail, cacheMetadata);
+        }
+        m_tabWidget->setCurrentIndex(*existingIndex);
+        qCInfo(qtcodeUi) << "Focused existing pull request tab for" << detail.number;
+        return;
+    }
+
+    auto *detailView = new GitHubDetailView(m_tabWidget);
+    detailView->setProperty("githubTabKey", tabKey);
+    detailView->showPullRequest(detail, cacheMetadata);
+    connect(
+        detailView,
+        &GitHubDetailView::attachIssueRequested,
+        this,
+        &WorkspaceTabs::issueContextSelected);
+    connect(
+        detailView,
+        &GitHubDetailView::attachPullRequestRequested,
+        this,
+        &WorkspaceTabs::pullRequestContextSelected);
+
+    const int tabIndex = m_tabWidget->addTab(
+        detailView,
+        githubTabTitle(i18n("PR"), detail.number, detail.title));
+    m_githubTabIndices.insert(tabKey, tabIndex);
+    m_tabWidget->setCurrentIndex(tabIndex);
+    qCInfo(qtcodeUi) << "Opened pull request tab for" << detail.number;
+}
+
 QString WorkspaceTabs::normalizedPath(const QString &absolutePath) const
 {
     return QFileInfo(absolutePath).absoluteFilePath();
@@ -165,7 +251,14 @@ QString WorkspaceTabs::normalizedPath(const QString &absolutePath) const
 
 void WorkspaceTabs::onTabCloseRequested(int index)
 {
-    (void) closeEditorTabAt(index, true);
+    if (isEditorTabIndex(index)) {
+        (void) closeEditorTabAt(index, true);
+        return;
+    }
+
+    if (isGitHubTabIndex(index)) {
+        (void) closeGitHubTabAt(index);
+    }
 }
 
 void WorkspaceTabs::closeCurrentEditorTab()
@@ -214,12 +307,21 @@ bool WorkspaceTabs::closeAllEditorTabs(bool promptForDirty)
     }
 
     for (int index = m_tabWidget->count() - 1; index >= 0; --index) {
-        if (!isEditorTabIndex(index)) {
+        if (index == m_aiChatTabIndex) {
             continue;
         }
 
-        if (!closeEditorTabAt(index, promptForDirty)) {
-            return false;
+        if (isEditorTabIndex(index)) {
+            if (!closeEditorTabAt(index, promptForDirty)) {
+                return false;
+            }
+            continue;
+        }
+
+        if (isGitHubTabIndex(index)) {
+            if (!closeGitHubTabAt(index)) {
+                return false;
+            }
         }
     }
 
@@ -255,7 +357,40 @@ bool WorkspaceTabs::closeEditorTabAt(int index, bool promptForDirty)
         m_aiChatTabIndex -= 1;
     }
 
-    reindexFileTabs();
+    reindexWorkspaceTabs();
+
+    if (widget != nullptr) {
+        delete widget;
+    }
+
+    return true;
+}
+
+bool WorkspaceTabs::closeGitHubTabAt(int index)
+{
+    if (m_tabWidget == nullptr || index < 0 || index >= m_tabWidget->count()
+        || index == m_aiChatTabIndex) {
+        return true;
+    }
+
+    GitHubDetailView *detailView = githubDetailViewAt(index);
+    if (detailView == nullptr) {
+        return true;
+    }
+
+    const QString tabKey = m_githubTabIndices.key(index);
+    if (!tabKey.isEmpty()) {
+        m_githubTabIndices.remove(tabKey);
+    }
+
+    QWidget *widget = m_tabWidget->widget(index);
+    m_tabWidget->removeTab(index);
+
+    if (m_aiChatTabIndex > index) {
+        m_aiChatTabIndex -= 1;
+    }
+
+    reindexWorkspaceTabs();
 
     if (widget != nullptr) {
         delete widget;
@@ -412,9 +547,10 @@ void WorkspaceTabs::updateEditorTabTitle(EditorTab *editorTab)
     emit activeEditorStateChanged(hasActiveEditorTab(), currentEditorTabIsModified());
 }
 
-void WorkspaceTabs::reindexFileTabs()
+void WorkspaceTabs::reindexWorkspaceTabs()
 {
     m_fileTabIndices.clear();
+    m_githubTabIndices.clear();
     if (m_tabWidget == nullptr) {
         m_aiChatTabIndex = -1;
         return;
@@ -427,11 +563,20 @@ void WorkspaceTabs::reindexFileTabs()
         }
 
         EditorTab *editorTab = editorTabAt(index);
-        if (editorTab == nullptr) {
+        if (editorTab != nullptr) {
+            m_fileTabIndices.insert(normalizedPath(editorTab->filePath()), index);
             continue;
         }
 
-        m_fileTabIndices.insert(normalizedPath(editorTab->filePath()), index);
+        GitHubDetailView *detailView = githubDetailViewAt(index);
+        if (detailView == nullptr) {
+            continue;
+        }
+
+        const QString tabKey = detailView->property("githubTabKey").toString();
+        if (!tabKey.isEmpty()) {
+            m_githubTabIndices.insert(tabKey, index);
+        }
     }
 }
 
@@ -442,6 +587,40 @@ void WorkspaceTabs::refreshPermanentTabCloseButton()
     }
 
     m_tabWidget->tabBar()->setTabButton(m_aiChatTabIndex, QTabBar::RightSide, nullptr);
+}
+
+GitHubDetailView *WorkspaceTabs::githubDetailViewAt(int index) const
+{
+    if (m_tabWidget == nullptr || index < 0 || index >= m_tabWidget->count()) {
+        return nullptr;
+    }
+
+    return qobject_cast<GitHubDetailView *>(m_tabWidget->widget(index));
+}
+
+bool WorkspaceTabs::isGitHubTabIndex(int index) const
+{
+    return githubDetailViewAt(index) != nullptr;
+}
+
+QString WorkspaceTabs::githubTabKeyForIssue(int number) const
+{
+    return QStringLiteral("issue:%1").arg(number);
+}
+
+QString WorkspaceTabs::githubTabKeyForPullRequest(int number) const
+{
+    return QStringLiteral("pr:%1").arg(number);
+}
+
+QString WorkspaceTabs::githubTabTitle(const QString &prefix, int number, const QString &title) const
+{
+    QString elidedTitle = title;
+    if (elidedTitle.length() > 48) {
+        elidedTitle = elidedTitle.left(45).trimmed() + QStringLiteral("…");
+    }
+
+    return i18n("%1 #%2 — %3", prefix, number, elidedTitle);
 }
 
 } // namespace qtcode::ui

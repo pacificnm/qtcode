@@ -44,10 +44,9 @@ bool ProjectManager::restoreState(QString *errorMessage)
 
     const QString projectId = json.value(QStringLiteral("projectId")).toString();
     if (projectId.isEmpty()) {
-        if (errorMessage != nullptr) {
-            *errorMessage = QStringLiteral("Active project setting is missing projectId.");
-        }
-        return false;
+        qCInfo(qtcodeCore) << "No active project saved yet";
+        emit projectsChanged();
+        return true;
     }
 
     settings::ProjectRecord project;
@@ -230,6 +229,76 @@ bool ProjectManager::setActiveProject(const QString &projectId, QString *errorMe
     return true;
 }
 
+bool ProjectManager::removeLocalRepository(const QString &projectId, QString *errorMessage)
+{
+    if (projectId.isEmpty()) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("Project id must not be empty.");
+        }
+        return false;
+    }
+
+    storage::ProjectRepository repository(m_storageService);
+    settings::ProjectRecord project;
+    bool found = false;
+    if (!repository.findProjectById(projectId, &project, &found, errorMessage)) {
+        return false;
+    }
+
+    if (!found) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("Project '%1' was not found.").arg(projectId);
+        }
+        return false;
+    }
+
+    const bool wasActive = projectId == m_activeProjectId;
+    QString nextActiveProjectId;
+    if (wasActive) {
+        for (const settings::ProjectRecord &record : m_projects) {
+            if (record.id != projectId) {
+                nextActiveProjectId = record.id;
+                break;
+            }
+        }
+    }
+
+    if (!m_storageService.beginTransaction(errorMessage)) {
+        return false;
+    }
+
+    if (!repository.deleteProject(projectId, errorMessage)) {
+        if (!m_storageService.rollbackTransaction()) {
+            // Best-effort rollback after a failed project delete.
+        }
+        return false;
+    }
+
+    if (!m_storageService.commitTransaction(errorMessage)) {
+        if (!m_storageService.rollbackTransaction()) {
+            // Best-effort rollback after a failed project delete commit.
+        }
+        return false;
+    }
+
+    if (wasActive) {
+        if (nextActiveProjectId.isEmpty()) {
+            if (!clearActiveProject(errorMessage)) {
+                return false;
+            }
+        } else if (!setActiveProject(nextActiveProjectId, errorMessage)) {
+            return false;
+        }
+    }
+
+    if (!refreshProjects(errorMessage)) {
+        return false;
+    }
+
+    qCInfo(qtcodeCore) << "Removed local repository project" << project.name;
+    return true;
+}
+
 QList<settings::ProjectRecord> ProjectManager::projects() const
 {
     return m_projects;
@@ -279,6 +348,26 @@ bool ProjectManager::persistActiveProjectId(QString *errorMessage)
     QJsonObject json;
     json.insert(QStringLiteral("projectId"), m_activeProjectId);
     return settingsRepository.upsertJson(settings::kActiveProjectSettingKey, json, errorMessage);
+}
+
+bool ProjectManager::clearActiveProject(QString *errorMessage)
+{
+    const QString previousActiveId = m_activeProjectId;
+    m_activeProjectId.clear();
+
+    storage::SettingsRepository settingsRepository(m_storageService);
+    QJsonObject json;
+    json.insert(QStringLiteral("projectId"), QString {});
+    if (!settingsRepository.upsertJson(settings::kActiveProjectSettingKey, json, errorMessage)) {
+        return false;
+    }
+
+    if (!previousActiveId.isEmpty()) {
+        emit activeProjectChanged(m_activeProjectId);
+    }
+
+    qCInfo(qtcodeCore) << "Cleared active project";
+    return true;
 }
 
 bool ProjectManager::touchProject(const QString &projectId, QString *errorMessage)

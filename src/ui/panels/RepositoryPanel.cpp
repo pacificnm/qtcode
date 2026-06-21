@@ -11,7 +11,6 @@
 #include "settings/ProjectModels.h"
 #include "shared/Logging.h"
 #include "ui/models/RepositoryListModel.h"
-#include "ui/views/GitHubDetailView.h"
 
 #include <KLocalizedString>
 
@@ -19,9 +18,12 @@
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QGuiApplication>
+#include <QClipboard>
 #include <QLabel>
 #include <QListView>
 #include <QListWidget>
+#include <QMenu>
+#include <QMessageBox>
 #include <QSignalBlocker>
 #include <QTimer>
 #include <QVBoxLayout>
@@ -50,6 +52,13 @@ struct NumberedListEntry
 {
     int number = 0;
     QString text;
+    QString url;
+};
+
+enum
+{
+    NumberRole = Qt::UserRole,
+    UrlRole = Qt::UserRole + 1,
 };
 
 struct PathListEntry
@@ -65,7 +74,7 @@ bool numberedListWidgetMatches(QListWidget *list, const QList<NumberedListEntry>
     }
 
     for (int i = 0; i < entries.size(); ++i) {
-        if (list->item(i)->data(Qt::UserRole).toInt() != entries.at(i).number
+        if (list->item(i)->data(NumberRole).toInt() != entries.at(i).number
             || list->item(i)->text() != entries.at(i).text) {
             return false;
         }
@@ -116,7 +125,7 @@ void syncNumberedListWidget(QListWidget *list, const QList<NumberedListEntry> &e
 
     const int selectedNumber = list->selectedItems().isEmpty()
         ? -1
-        : list->selectedItems().first()->data(Qt::UserRole).toInt();
+        : list->selectedItems().first()->data(NumberRole).toInt();
 
     if (numberedListWidgetMatches(list, entries)) {
         return;
@@ -125,7 +134,8 @@ void syncNumberedListWidget(QListWidget *list, const QList<NumberedListEntry> &e
     list->clear();
     for (const NumberedListEntry &entry : entries) {
         auto *item = new QListWidgetItem(entry.text);
-        item->setData(Qt::UserRole, entry.number);
+        item->setData(NumberRole, entry.number);
+        item->setData(UrlRole, entry.url);
         list->addItem(item);
     }
 
@@ -134,7 +144,7 @@ void syncNumberedListWidget(QListWidget *list, const QList<NumberedListEntry> &e
     }
 
     for (int i = 0; i < list->count(); ++i) {
-        if (list->item(i)->data(Qt::UserRole).toInt() == selectedNumber) {
+        if (list->item(i)->data(NumberRole).toInt() == selectedNumber) {
             list->setCurrentRow(i);
             return;
         }
@@ -263,6 +273,12 @@ void RepositoryPanel::configureLayout()
     m_repositoryList = new QListView(this);
     m_repositoryList->setSelectionMode(QAbstractItemView::SingleSelection);
     m_repositoryList->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    m_repositoryList->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(
+        m_repositoryList,
+        &QListView::customContextMenuRequested,
+        this,
+        &RepositoryPanel::showRepositoryContextMenu);
 
     auto *changedFilesTitle = new QLabel(i18n("Changed files"), this);
     changedFilesTitle->setFont(sectionFont);
@@ -284,7 +300,13 @@ void RepositoryPanel::configureLayout()
 
     m_issuesList = new QListWidget(this);
     m_issuesList->setSelectionMode(QAbstractItemView::SingleSelection);
+    m_issuesList->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(m_issuesList, &QListWidget::itemSelectionChanged, this, &RepositoryPanel::onIssueSelected);
+    connect(
+        m_issuesList,
+        &QListWidget::customContextMenuRequested,
+        this,
+        &RepositoryPanel::showIssuesContextMenu);
 
     auto *pullRequestsTitle = new QLabel(i18n("GitHub pull requests"), this);
     pullRequestsTitle->setFont(sectionFont);
@@ -301,22 +323,6 @@ void RepositoryPanel::configureLayout()
         this,
         &RepositoryPanel::onPullRequestSelected);
 
-    m_detailView = new GitHubDetailView(this);
-    connect(
-        m_detailView,
-        &GitHubDetailView::attachIssueRequested,
-        this,
-        [this](const qtcode::github::GitHubIssueDetail &detail) {
-            emit issueContextSelected(detail);
-        });
-    connect(
-        m_detailView,
-        &GitHubDetailView::attachPullRequestRequested,
-        this,
-        [this](const qtcode::github::GitHubPullRequestDetail &detail) {
-            emit pullRequestContextSelected(detail);
-        });
-
     layout->addWidget(titleLabel);
     layout->addWidget(m_capabilityStateLabel);
     layout->addWidget(m_projectLabel);
@@ -331,7 +337,6 @@ void RepositoryPanel::configureLayout()
     layout->addWidget(pullRequestsTitle);
     layout->addWidget(m_pullRequestsStateLabel);
     layout->addWidget(m_pullRequestsList);
-    layout->addWidget(m_detailView, 1);
 }
 
 void RepositoryPanel::refreshStatus(bool showStatusFeedback)
@@ -415,9 +420,6 @@ void RepositoryPanel::onRefreshFinished()
     showGitHubPullRequests(bundle.pullRequests);
     m_hasLoadedSnapshot = true;
     m_activeProjectId = activeProject.id;
-    if (m_showStatusFeedback && m_detailView != nullptr) {
-        m_detailView->clearDetail();
-    }
 
     qCInfo(qtcodeUi) << "Repository snapshot refreshed with"
                      << bundle.git.status.changedFiles.size() << "changed file(s),"
@@ -604,7 +606,8 @@ void RepositoryPanel::showGitHubIssues(const qtcode::github::GitHubIssueListResu
                  issue.number,
                  issue.title,
                  issue.state,
-                 issue.author)});
+                 issue.author),
+            issue.url});
     }
 
     syncNumberedListWidget(m_issuesList, entries);
@@ -657,7 +660,8 @@ void RepositoryPanel::showGitHubPullRequests(const qtcode::github::GitHubPullReq
                  pullRequest.number,
                  pullRequest.title,
                  pullRequest.state,
-                 pullRequest.author)});
+                 pullRequest.author),
+            {}});
     }
 
     syncNumberedListWidget(m_pullRequestsList, entries);
@@ -680,17 +684,25 @@ void RepositoryPanel::onPullRequestSelected()
         return;
     }
 
-    m_detailView->showLoadingMessage(i18n("Loading pull request #%1…", pullRequestNumber));
+    if (m_statusService != nullptr) {
+        m_statusService->showMessage(
+            i18n("Loading pull request #%1…", pullRequestNumber),
+            qtcode::core::StatusSeverity::Info);
+    }
 
     const qtcode::github::GitHubPullRequestDetailResult detailResult =
         m_gitHubService->viewPullRequestForProject(m_activeProjectId, pullRequestNumber);
     if (!detailResult.success) {
         qCWarning(qtcodeUi) << "Failed to load pull request detail:" << detailResult.errorMessage;
-        m_detailView->showErrorMessage(detailResult.errorMessage);
+        if (m_statusService != nullptr) {
+            m_statusService->showMessage(
+                detailResult.errorMessage,
+                qtcode::core::StatusSeverity::Error);
+        }
         return;
     }
 
-    m_detailView->showPullRequest(
+    emit pullRequestOpenRequested(
         detailResult.detail,
         cacheMetadataFromListResult(
             detailResult.fromCache,
@@ -700,8 +712,7 @@ void RepositoryPanel::onPullRequestSelected()
 
 void RepositoryPanel::onIssueSelected()
 {
-    if (m_gitHubService == nullptr || m_issuesList == nullptr || m_activeProjectId.isEmpty()
-        || m_detailView == nullptr) {
+    if (m_gitHubService == nullptr || m_issuesList == nullptr || m_activeProjectId.isEmpty()) {
         return;
     }
 
@@ -715,17 +726,25 @@ void RepositoryPanel::onIssueSelected()
         return;
     }
 
-    m_detailView->showLoadingMessage(i18n("Loading issue #%1…", issueNumber));
+    if (m_statusService != nullptr) {
+        m_statusService->showMessage(
+            i18n("Loading issue #%1…", issueNumber),
+            qtcode::core::StatusSeverity::Info);
+    }
 
     const qtcode::github::GitHubIssueDetailResult detailResult =
         m_gitHubService->viewIssueForProject(m_activeProjectId, issueNumber);
     if (!detailResult.success) {
         qCWarning(qtcodeUi) << "Failed to load issue detail:" << detailResult.errorMessage;
-        m_detailView->showErrorMessage(detailResult.errorMessage);
+        if (m_statusService != nullptr) {
+            m_statusService->showMessage(
+                detailResult.errorMessage,
+                qtcode::core::StatusSeverity::Error);
+        }
         return;
     }
 
-    m_detailView->showIssue(
+    emit issueOpenRequested(
         detailResult.detail,
         cacheMetadataFromListResult(
             detailResult.fromCache,
@@ -758,9 +777,6 @@ void RepositoryPanel::addRepository()
 void RepositoryPanel::onActiveProjectChanged()
 {
     m_hasLoadedSnapshot = false;
-    if (m_detailView != nullptr) {
-        m_detailView->clearDetail();
-    }
 
     syncRepositorySelection();
     updateAutoRefreshTimer();
@@ -873,6 +889,128 @@ void RepositoryPanel::refreshCapabilityState()
 
     m_capabilityStateLabel->setText(messages.join(QStringLiteral("\n\n")));
     m_capabilityStateLabel->show();
+}
+
+void RepositoryPanel::showIssuesContextMenu(const QPoint &position)
+{
+    if (m_issuesList == nullptr) {
+        return;
+    }
+
+    QListWidgetItem *item = m_issuesList->itemAt(position);
+    if (item == nullptr) {
+        return;
+    }
+
+    const int issueNumber = item->data(NumberRole).toInt();
+    if (issueNumber <= 0) {
+        return;
+    }
+
+    const QString issueUrl = item->data(UrlRole).toString();
+
+    QMenu menu(this);
+    menu.addAction(i18n("Add to Context"), this, [this, issueNumber]() {
+        attachIssueToContext(issueNumber);
+    });
+
+    QAction *copyLinkAction = menu.addAction(i18n("Copy Link"));
+    copyLinkAction->setEnabled(!issueUrl.isEmpty());
+    connect(copyLinkAction, &QAction::triggered, this, [issueUrl]() {
+        if (issueUrl.isEmpty()) {
+            return;
+        }
+
+        QGuiApplication::clipboard()->setText(issueUrl);
+    });
+
+    menu.exec(m_issuesList->viewport()->mapToGlobal(position));
+}
+
+void RepositoryPanel::attachIssueToContext(int issueNumber)
+{
+    if (m_gitHubService == nullptr || m_activeProjectId.isEmpty() || issueNumber <= 0) {
+        return;
+    }
+
+    if (m_statusService != nullptr) {
+        m_statusService->showMessage(
+            i18n("Loading issue #%1…", issueNumber),
+            qtcode::core::StatusSeverity::Info);
+    }
+
+    const qtcode::github::GitHubIssueDetailResult detailResult =
+        m_gitHubService->viewIssueForProject(m_activeProjectId, issueNumber);
+    if (!detailResult.success) {
+        qCWarning(qtcodeUi) << "Failed to load issue detail for context:" << detailResult.errorMessage;
+        if (m_statusService != nullptr) {
+            m_statusService->showMessage(
+                detailResult.errorMessage,
+                qtcode::core::StatusSeverity::Error);
+        }
+        return;
+    }
+
+    emit issueContextRequested(detailResult.detail);
+}
+
+void RepositoryPanel::showRepositoryContextMenu(const QPoint &position)
+{
+    if (m_repositoryList == nullptr || m_repositoryModel == nullptr || m_projectManager == nullptr) {
+        return;
+    }
+
+    const QModelIndex index = m_repositoryList->indexAt(position);
+    if (!index.isValid()) {
+        return;
+    }
+
+    QMenu menu(this);
+    menu.addAction(i18n("Remove from list"), this, [this, index]() {
+        removeRepositoryAtIndex(index);
+    });
+
+    menu.exec(m_repositoryList->viewport()->mapToGlobal(position));
+}
+
+void RepositoryPanel::removeRepositoryAtIndex(const QModelIndex &index)
+{
+    if (!index.isValid() || m_projectManager == nullptr) {
+        return;
+    }
+
+    const QString projectId = index.data(RepositoryListModel::ProjectIdRole).toString();
+    const QString projectName = index.data(RepositoryListModel::NameRole).toString();
+    if (projectId.isEmpty()) {
+        return;
+    }
+
+    const QMessageBox::StandardButton choice = QMessageBox::question(
+        this,
+        i18n("Remove repository"),
+        i18n(
+            "Remove %1 from the local repository list?\n\n"
+            "This only removes it from QTCode. Files on disk are not deleted.",
+            projectName),
+        QMessageBox::Yes | QMessageBox::No,
+        QMessageBox::No);
+    if (choice != QMessageBox::Yes) {
+        return;
+    }
+
+    QString errorMessage;
+    if (!m_projectManager->removeLocalRepository(projectId, &errorMessage)) {
+        qCWarning(qtcodeUi) << "Failed to remove repository:" << errorMessage;
+        showErrorState(i18n("Could not remove repository: %1", errorMessage));
+        return;
+    }
+
+    if (m_projectManager->hasActiveProject()) {
+        refreshStatus(true);
+    } else {
+        showEmptyState(i18n("Add a local repository to browse branches, changes, and GitHub context."));
+        updateAutoRefreshTimer();
+    }
 }
 
 } // namespace qtcode::ui

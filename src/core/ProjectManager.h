@@ -39,6 +39,9 @@ public:
     [[nodiscard]] bool setActiveProject(
         const QString &projectId,
         QString *errorMessage = nullptr);
+    [[nodiscard]] bool removeLocalRepository(
+        const QString &projectId,
+        QString *errorMessage = nullptr);
 
     [[nodiscard]] QList<settings::ProjectRecord> projects() const;
     [[nodiscard]] bool hasActiveProject() const;
@@ -52,6 +55,7 @@ signals:
 private:
     [[nodiscard]] bool refreshProjects(QString *errorMessage);
     [[nodiscard]] bool persistActiveProjectId(QString *errorMessage);
+    [[nodiscard]] bool clearActiveProject(QString *errorMessage);
     [[nodiscard]] bool touchProject(
         const QString &projectId,
         QString *errorMessage);

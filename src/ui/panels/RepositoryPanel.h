@@ -6,6 +6,7 @@
 
 #include "git/GitCommitSummary.h"
 #include "git/GitStatus.h"
+#include "github/GitHubCachePolicy.h"
 #include "github/GitHubModels.h"
 
 class QLabel;
@@ -32,7 +33,6 @@ class QFutureWatcher;
 namespace qtcode::ui {
 
 class RepositoryListModel;
-class GitHubDetailView;
 
 struct RepositoryRefreshBundle
 {
@@ -60,8 +60,13 @@ public slots:
     void addRepository();
 
 signals:
-    void issueContextSelected(const qtcode::github::GitHubIssueDetail &detail);
-    void pullRequestContextSelected(const qtcode::github::GitHubPullRequestDetail &detail);
+    void issueContextRequested(const qtcode::github::GitHubIssueDetail &detail);
+    void issueOpenRequested(
+        const qtcode::github::GitHubIssueDetail &detail,
+        const qtcode::github::GitHubCacheMetadata &cacheMetadata);
+    void pullRequestOpenRequested(
+        const qtcode::github::GitHubPullRequestDetail &detail,
+        const qtcode::github::GitHubCacheMetadata &cacheMetadata);
     void fileOpenRequested(const QString &absolutePath);
 
 private slots:
@@ -87,6 +92,10 @@ private:
     void onPullRequestSelected();
     void refreshCapabilityState();
     void updateAutoRefreshTimer();
+    void showRepositoryContextMenu(const QPoint &position);
+    void showIssuesContextMenu(const QPoint &position);
+    void attachIssueToContext(int issueNumber);
+    void removeRepositoryAtIndex(const QModelIndex &index);
 
     qtcode::git::GitService *m_gitService = nullptr;
     qtcode::core::ProjectManager *m_projectManager = nullptr;
@@ -106,7 +115,6 @@ private:
     QFutureWatcher<RepositoryRefreshBundle> *m_refreshWatcher = nullptr;
     QTimer *m_autoRefreshTimer = nullptr;
     QElapsedTimer m_refreshTimer;
-    GitHubDetailView *m_detailView = nullptr;
     QString m_activeProjectId;
     bool m_showStatusFeedback = true;
     bool m_hasLoadedSnapshot = false;

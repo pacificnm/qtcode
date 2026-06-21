@@ -6,6 +6,31 @@
 
 namespace qtcode::ui {
 
+namespace {
+
+bool projectListsMatch(
+    const QList<qtcode::settings::ProjectRecord> &left,
+    const QList<qtcode::settings::ProjectRecord> &right)
+{
+    if (left.size() != right.size()) {
+        return false;
+    }
+
+    for (int i = 0; i < left.size(); ++i) {
+        const qtcode::settings::ProjectRecord &leftProject = left.at(i);
+        const qtcode::settings::ProjectRecord &rightProject = right.at(i);
+        if (leftProject.id != rightProject.id
+            || leftProject.name != rightProject.name
+            || leftProject.rootPath != rightProject.rootPath) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+} // namespace
+
 RepositoryListModel::RepositoryListModel(
     qtcode::core::ProjectManager *projectManager,
     QObject *parent)
@@ -13,11 +38,19 @@ RepositoryListModel::RepositoryListModel(
     , m_projectManager(projectManager)
 {
     if (m_projectManager != nullptr) {
-        connect(m_projectManager, &qtcode::core::ProjectManager::projectsChanged, this, &RepositoryListModel::reload);
-        connect(m_projectManager, &qtcode::core::ProjectManager::activeProjectChanged, this, &RepositoryListModel::reload);
+        connect(
+            m_projectManager,
+            &qtcode::core::ProjectManager::projectsChanged,
+            this,
+            &RepositoryListModel::onProjectsChanged);
+        connect(
+            m_projectManager,
+            &qtcode::core::ProjectManager::activeProjectChanged,
+            this,
+            &RepositoryListModel::updateActiveState);
     }
 
-    reload();
+    onProjectsChanged();
 }
 
 int RepositoryListModel::rowCount(const QModelIndex &parent) const
@@ -74,6 +107,32 @@ void RepositoryListModel::reload()
     endResetModel();
 
     qCDebug(qtcodeUi) << "Repository list model refreshed with" << rowCount() << "project(s)";
+}
+
+void RepositoryListModel::onProjectsChanged()
+{
+    if (m_projectManager == nullptr) {
+        return;
+    }
+
+    const QList<qtcode::settings::ProjectRecord> projects = m_projectManager->projects();
+    if (projectListsMatch(projects, m_cachedProjects)) {
+        return;
+    }
+
+    m_cachedProjects = projects;
+    reload();
+}
+
+void RepositoryListModel::updateActiveState()
+{
+    if (rowCount() == 0) {
+        return;
+    }
+
+    const QModelIndex topLeft = index(0);
+    const QModelIndex bottomRight = index(rowCount() - 1);
+    emit dataChanged(topLeft, bottomRight, {IsActiveRole});
 }
 
 } // namespace qtcode::ui

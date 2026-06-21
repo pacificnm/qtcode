@@ -177,20 +177,35 @@ void MainWindow::configureLayout()
             });
     }
 
-    if (m_projectNavigationPanel != nullptr && m_agentPanel != nullptr) {
+    if (m_projectNavigationPanel != nullptr && m_agentPanel != nullptr && m_workspaceTabs != nullptr) {
         connect(
-            m_projectNavigationPanel->repositoryPanel(),
-            &RepositoryPanel::issueContextSelected,
+            m_workspaceTabs,
+            &WorkspaceTabs::issueContextSelected,
             m_agentPanel,
             &AgentPanel::attachIssueContext);
         connect(
             m_projectNavigationPanel->repositoryPanel(),
-            &RepositoryPanel::pullRequestContextSelected,
+            &RepositoryPanel::issueContextRequested,
+            m_agentPanel,
+            &AgentPanel::attachIssueContext);
+        connect(
+            m_workspaceTabs,
+            &WorkspaceTabs::pullRequestContextSelected,
             m_agentPanel,
             &AgentPanel::attachPullRequestContext);
     }
 
     if (m_projectNavigationPanel != nullptr && m_workspaceTabs != nullptr) {
+        connect(
+            m_projectNavigationPanel->repositoryPanel(),
+            &RepositoryPanel::issueOpenRequested,
+            m_workspaceTabs,
+            &WorkspaceTabs::requestOpenIssue);
+        connect(
+            m_projectNavigationPanel->repositoryPanel(),
+            &RepositoryPanel::pullRequestOpenRequested,
+            m_workspaceTabs,
+            &WorkspaceTabs::requestOpenPullRequest);
         connect(
             m_projectNavigationPanel->repositoryPanel(),
             &RepositoryPanel::fileOpenRequested,

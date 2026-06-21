@@ -1,6 +1,9 @@
 #include "ui/panels/EditorTab.h"
 #include "ui/panels/WorkspaceTabs.h"
 
+#include "github/GitHubModels.h"
+#include "ui/views/GitHubDetailView.h"
+
 #include <KAboutData>
 #include <KLocalizedString>
 #include <KTextEditor/Application>
@@ -53,6 +56,8 @@ private slots:
     void modifiedEditorTabReportsDirtyState();
     void saveCurrentEditorTabWritesToDisk();
     void unmodifiedEditorTabPromptCloseReturnsDiscard();
+    void openIssueAddsGitHubTab();
+    void reopeningSameIssueDoesNotDuplicateTab();
 };
 
 void WorkspaceTabsTest::permanentAiChatTabHasNoCloseButton()
@@ -190,6 +195,41 @@ void WorkspaceTabsTest::unmodifiedEditorTabPromptCloseReturnsDiscard()
     QVERIFY(editorTab.isLoadSuccessful());
     QVERIFY(!editorTab.isModified());
     QCOMPARE(editorTab.promptClose(nullptr), qtcode::ui::EditorCloseChoice::Discard);
+}
+
+void WorkspaceTabsTest::openIssueAddsGitHubTab()
+{
+    qtcode::ui::WorkspaceTabs tabs(nullptr, nullptr);
+    auto *chatLabel = new QLabel(QStringLiteral("AI Chat"), &tabs);
+    tabs.setPermanentAiChatTab(chatLabel);
+
+    qtcode::github::GitHubIssueDetail detail;
+    detail.number = 42;
+    detail.title = QStringLiteral("Sample issue");
+    detail.body = QStringLiteral("Issue body");
+    detail.state = QStringLiteral("open");
+
+    tabs.requestOpenIssue(detail, {});
+
+    QCOMPARE(tabs.tabCount(), 2);
+    const auto *detailView = tabs.findChild<qtcode::ui::GitHubDetailView *>();
+    QVERIFY(detailView != nullptr);
+}
+
+void WorkspaceTabsTest::reopeningSameIssueDoesNotDuplicateTab()
+{
+    qtcode::ui::WorkspaceTabs tabs(nullptr, nullptr);
+    auto *chatLabel = new QLabel(QStringLiteral("AI Chat"), &tabs);
+    tabs.setPermanentAiChatTab(chatLabel);
+
+    qtcode::github::GitHubIssueDetail detail;
+    detail.number = 7;
+    detail.title = QStringLiteral("Duplicate check");
+    detail.body = QStringLiteral("Body");
+
+    tabs.requestOpenIssue(detail, {});
+    tabs.requestOpenIssue(detail, {});
+    QCOMPARE(tabs.tabCount(), 2);
 }
 
 QObject *buildWorkspaceTabsTest()
