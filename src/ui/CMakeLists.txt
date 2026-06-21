@@ -9,6 +9,7 @@ qtcode_add_module_library(qtcode_ui STATIC
     panels/EditorTab.cpp
     panels/WorkspaceTabs.cpp
     panels/McpServerPanel.cpp
+    dialogs/McpServerDialog.cpp
     panels/TerminalPanel.cpp
     views/ConversationView.cpp
     views/ContextResultsView.cpp

@@ -1,19 +1,14 @@
 #pragma once
 
-#include <QHash>
 #include <QWidget>
 
 #include "memory/McpHealthResult.h"
 
-class QFormLayout;
-class QGroupBox;
-class QCheckBox;
-class QComboBox;
 class QLabel;
-class QLineEdit;
 class QListWidget;
-class QPlainTextEdit;
+class QGroupBox;
 class QPushButton;
+class QToolButton;
 
 namespace qtcode::core {
 class McpServerService;
@@ -45,51 +40,27 @@ public:
 
 private slots:
     void refreshServerList();
-    void onServerSelectionChanged();
-    void createNewServer();
-    void saveCurrentServer();
-    void deleteCurrentServer();
-    void testSelectedServerHealth();
+    void openAddServerDialog();
+    void openSelectedServerDialog();
     void onServerHealthUpdated(const QString &serverId, const qtcode::memory::McpHealthResult &result);
     void refreshWorkspaceHealth();
 
 private:
     void configureLayout();
-    void loadSelectedServerIntoForm();
-    void refreshHealthDisplay();
-    [[nodiscard]] QString healthWorkingDirectory() const;
+    void openServerDialog(const QString &serverId);
     [[nodiscard]] QString serverListLabel(const qtcode::settings::McpServerRecord &server) const;
-    [[nodiscard]] qtcode::settings::McpServerRecord currentFormRecord() const;
-    void setStatusMessage(const QString &message);
-    void clearForm();
-    void refreshSecretValueInputs();
-    void storeSecretValuesFromForm(const qtcode::settings::McpServerRecord &server);
-    void clearSecretValuesFromWallet(const qtcode::settings::McpServerRecord &server);
+    void updateCountLabel(int serverCount);
 
     qtcode::core::McpServerService *m_mcpServerService = nullptr;
     qtcode::memory::MemoryService *m_memoryService = nullptr;
     qtcode::core::ProjectManager *m_projectManager = nullptr;
     qtcode::core::WorkspaceInstaller *m_workspaceInstaller = nullptr;
+    QLabel *m_countLabel = nullptr;
+    QToolButton *m_addServerButton = nullptr;
     QListWidget *m_serverList = nullptr;
-    QLineEdit *m_nameInput = nullptr;
-    QLineEdit *m_endpointInput = nullptr;
-    QComboBox *m_transportSelector = nullptr;
-    QPlainTextEdit *m_argsInput = nullptr;
-    QPlainTextEdit *m_secretKeysInput = nullptr;
-    QGroupBox *m_secretValuesGroup = nullptr;
-    QFormLayout *m_secretValuesLayout = nullptr;
-    QHash<QString, QLineEdit *> m_secretValueInputs;
-    QCheckBox *m_enabledCheckbox = nullptr;
-    QPushButton *m_newButton = nullptr;
-    QPushButton *m_saveButton = nullptr;
-    QPushButton *m_deleteButton = nullptr;
-    QPushButton *m_testHealthButton = nullptr;
-    QLabel *m_statusLabel = nullptr;
-    QLabel *m_healthStateLabel = nullptr;
     QGroupBox *m_workspaceHealthGroup = nullptr;
     QLabel *m_workspaceHealthSummaryLabel = nullptr;
     QPushButton *m_refreshWorkspaceHealthButton = nullptr;
-    QString m_editingServerId;
 };
 
 } // namespace qtcode::ui
