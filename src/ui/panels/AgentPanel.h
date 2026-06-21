@@ -48,6 +48,7 @@ public:
     [[nodiscard]] QWidget *sessionPanel() const;
     [[nodiscard]] QWidget *conversationPanel() const;
     [[nodiscard]] QWidget *contextPanel() const;
+    [[nodiscard]] ContextResultsView *contextResultsView() const;
 
 public slots:
     void attachIssueContext(const qtcode::github::GitHubIssueDetail &detail);

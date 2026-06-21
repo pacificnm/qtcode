@@ -13,6 +13,7 @@
 #include "ui/panels/RepositoryPanel.h"
 #include "ui/panels/TerminalPanel.h"
 #include "ui/panels/WorkspaceTabs.h"
+#include "ui/views/ContextResultsView.h"
 #include "ui/StatusBar.h"
 
 #include <KActionCollection>
@@ -189,6 +190,15 @@ void MainWindow::configureLayout()
             &WorkspaceTabs::activeEditorStateChanged,
             this,
             &MainWindow::refreshEditorActions);
+    }
+
+    if (m_agentPanel != nullptr && m_workspaceTabs != nullptr
+        && m_agentPanel->contextResultsView() != nullptr) {
+        connect(
+            m_agentPanel->contextResultsView(),
+            &ContextResultsView::fileOpenRequested,
+            m_workspaceTabs,
+            &WorkspaceTabs::requestOpenFile);
     }
 
     auto *centralContainer = new QWidget(this);

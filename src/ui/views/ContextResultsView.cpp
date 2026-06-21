@@ -1,21 +1,26 @@
 #include "ui/views/ContextResultsView.h"
 
 #include "core/ContextManager.h"
+#include "core/ProjectManager.h"
+#include "settings/ProjectModels.h"
 
 #include <KLocalizedString>
 
+#include <QDir>
+#include <QFileInfo>
 #include <QHBoxLayout>
+#include <QLabel>
 #include <QListWidget>
 #include <QListWidgetItem>
 #include <QPushButton>
 #include <QSignalBlocker>
-#include <QTextEdit>
 #include <QVBoxLayout>
 
 namespace qtcode::ui {
 
-ContextResultsView::ContextResultsView(QWidget *parent)
+ContextResultsView::ContextResultsView(qtcode::core::ProjectManager *projectManager, QWidget *parent)
     : QWidget(parent)
+    , m_projectManager(projectManager)
 {
     configureLayout();
     clearResults();
@@ -27,13 +32,12 @@ void ContextResultsView::configureLayout()
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(6);
 
+    m_statusLabel = new QLabel(this);
+    m_statusLabel->setWordWrap(true);
+    m_statusLabel->setVisible(false);
+
     m_resultList = new QListWidget(this);
     m_resultList->setSelectionMode(QAbstractItemView::SingleSelection);
-
-    m_detailView = new QTextEdit(this);
-    m_detailView->setReadOnly(true);
-    m_detailView->setPlaceholderText(i18n("Select a context result to inspect its excerpt."));
-    m_detailView->setMaximumHeight(120);
 
     m_attachAllButton = new QPushButton(i18n("Attach all"), this);
     m_detachAllButton = new QPushButton(i18n("Detach all"), this);
@@ -47,7 +51,7 @@ void ContextResultsView::configureLayout()
     buttonLayout->addWidget(m_detachSelectedButton);
     buttonLayout->addStretch();
 
-    connect(m_resultList, &QListWidget::currentRowChanged, this, &ContextResultsView::onResultSelectionChanged);
+    connect(m_resultList, &QListWidget::itemClicked, this, &ContextResultsView::onResultItemClicked);
     connect(m_resultList, &QListWidget::itemChanged, this, [this](QListWidgetItem *item) {
         if (m_auditMode || item == nullptr || m_resultList == nullptr) {
             return;
@@ -71,8 +75,8 @@ void ContextResultsView::configureLayout()
     connect(m_attachSelectedButton, &QPushButton::clicked, this, &ContextResultsView::attachSelectedResult);
     connect(m_detachSelectedButton, &QPushButton::clicked, this, &ContextResultsView::detachSelectedResult);
 
-    layout->addWidget(m_resultList);
-    layout->addWidget(m_detailView, 1);
+    layout->addWidget(m_statusLabel);
+    layout->addWidget(m_resultList, 1);
     layout->addLayout(buttonLayout);
 }
 
@@ -90,18 +94,18 @@ void ContextResultsView::setRetrievalOutcome(const qtcode::core::ContextRetrieva
 
     if (m_results.isEmpty()) {
         if (outcome.memoryUnavailable) {
-            m_detailView->setPlainText(
-                i18n("Project memory is unavailable: %1", outcome.statusMessage));
+            setStatusMessage(i18n("Project memory is unavailable: %1", outcome.statusMessage));
         } else if (outcome.memorySearchAttempted) {
-            m_detailView->setPlainText(i18n("No matching project memory found."));
+            setStatusMessage(i18n("No matching project memory found."));
         } else {
-            m_detailView->clear();
+            setStatusMessage({});
         }
         setEnabled(!outcome.results.isEmpty());
         emit attachmentChanged();
         return;
     }
 
+    setStatusMessage({});
     setEnabled(true);
     for (int index = 0; index < m_results.size(); ++index) {
         auto *item = new QListWidgetItem(resultListLabel(m_results.at(index), true), m_resultList);
@@ -112,7 +116,6 @@ void ContextResultsView::setRetrievalOutcome(const qtcode::core::ContextRetrieva
     if (m_resultList->count() > 0) {
         m_resultList->setCurrentRow(0);
     }
-    refreshDetailView();
     emit attachmentChanged();
 }
 
@@ -150,12 +153,13 @@ void ContextResultsView::setPersistedRetrieval(
         detailLines.append(i18n("Query: %1", retrieval.query));
         detailLines.append(i18n("Provider: %1", retrieval.providerKey));
         detailLines.append(i18n("Saved at: %1", retrieval.createdAt));
-        m_detailView->setPlainText(detailLines.join(QStringLiteral("\n")));
+        setStatusMessage(detailLines.join(QStringLiteral("\n")));
         setEnabled(true);
         emit attachmentChanged();
         return;
     }
 
+    setStatusMessage({});
     setEnabled(true);
     for (int index = 0; index < m_results.size(); ++index) {
         auto *item = new QListWidgetItem(resultListLabel(m_results.at(index), true), m_resultList);
@@ -166,7 +170,6 @@ void ContextResultsView::setPersistedRetrieval(
     if (m_resultList->count() > 0) {
         m_resultList->setCurrentRow(0);
     }
-    refreshDetailView();
     emit attachmentChanged();
 }
 
@@ -182,9 +185,7 @@ void ContextResultsView::clearResults()
     if (m_resultList != nullptr) {
         m_resultList->clear();
     }
-    if (m_detailView != nullptr) {
-        m_detailView->clear();
-    }
+    setStatusMessage({});
     setEnabled(false);
     emit attachmentChanged();
 }
@@ -224,9 +225,21 @@ void ContextResultsView::setControlsEnabled(bool enabled)
     }
 }
 
-void ContextResultsView::onResultSelectionChanged()
+void ContextResultsView::onResultItemClicked(QListWidgetItem *item)
 {
-    refreshDetailView();
+    if (item == nullptr || m_resultList == nullptr) {
+        return;
+    }
+
+    const int row = m_resultList->row(item);
+    if (row < 0 || row >= m_results.size()) {
+        return;
+    }
+
+    const QString path = resolveSourcePath(m_results.at(row));
+    if (!path.isEmpty()) {
+        emit fileOpenRequested(path);
+    }
 }
 
 void ContextResultsView::attachAllResults()
@@ -265,38 +278,6 @@ void ContextResultsView::detachSelectedResult()
     emit attachmentChanged();
 }
 
-void ContextResultsView::refreshDetailView()
-{
-    if (m_detailView == nullptr || m_resultList == nullptr) {
-        return;
-    }
-
-    const int row = m_resultList->currentRow();
-    if (row < 0 || row >= m_results.size()) {
-        m_detailView->clear();
-        return;
-    }
-
-    const memory::ContextResult &result = m_results.at(row);
-    QStringList lines;
-    lines.append(
-        QStringLiteral("%1: %2")
-            .arg(i18n("Source type"), memory::contextSourceTypeLabel(result.sourceType)));
-    lines.append(QStringLiteral("%1: %2").arg(i18n("Title"), result.title));
-    if (!result.sourceUri.isEmpty() && result.sourceUri != result.title) {
-        lines.append(QStringLiteral("%1: %2").arg(i18n("Source URI"), result.sourceUri));
-    }
-    if (result.score > 0.0) {
-        lines.append(QStringLiteral("%1: %2").arg(i18n("Score"), QString::number(result.score, 'f', 3)));
-    }
-    if (!result.retrievedAt.isEmpty()) {
-        lines.append(QStringLiteral("%1: %2").arg(i18n("Retrieved at"), result.retrievedAt));
-    }
-    lines.append(QString());
-    lines.append(result.excerpt);
-    m_detailView->setPlainText(lines.join(QStringLiteral("\n")));
-}
-
 void ContextResultsView::setResultAttached(int row, bool attached)
 {
     if (m_resultList == nullptr || row < 0 || row >= m_resultList->count() || row >= m_results.size()) {
@@ -312,6 +293,47 @@ void ContextResultsView::setResultAttached(int row, bool attached)
         item->setCheckState(attached ? Qt::Checked : Qt::Unchecked);
         item->setText(resultListLabel(m_results.at(row), attached));
     }
+}
+
+QString ContextResultsView::resolveSourcePath(const memory::ContextResult &result) const
+{
+    const QString source = result.sourceUri.trimmed().isEmpty() ? result.title.trimmed() : result.sourceUri.trimmed();
+    if (source.isEmpty()) {
+        return {};
+    }
+
+    const QFileInfo directInfo(source);
+    if (directInfo.isAbsolute() && directInfo.isFile()) {
+        return directInfo.absoluteFilePath();
+    }
+
+    if (m_projectManager == nullptr) {
+        return {};
+    }
+
+    qtcode::settings::ProjectRecord project;
+    if (!m_projectManager->activeProject(&project) || project.rootPath.isEmpty()) {
+        return {};
+    }
+
+    const QString candidatePath = QDir(project.rootPath).absoluteFilePath(source);
+    const QFileInfo candidateInfo(candidatePath);
+    if (candidateInfo.isFile()) {
+        return candidateInfo.absoluteFilePath();
+    }
+
+    return {};
+}
+
+void ContextResultsView::setStatusMessage(const QString &message)
+{
+    if (m_statusLabel == nullptr) {
+        return;
+    }
+
+    const QString trimmed = message.trimmed();
+    m_statusLabel->setText(trimmed);
+    m_statusLabel->setVisible(!trimmed.isEmpty());
 }
 
 QString ContextResultsView::resultListLabel(const memory::ContextResult &result, bool attached)

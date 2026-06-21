@@ -115,6 +115,11 @@ QWidget *AgentPanel::contextPanel() const
     return m_contextPanel;
 }
 
+ContextResultsView *AgentPanel::contextResultsView() const
+{
+    return m_contextResultsView;
+}
+
 void AgentPanel::configureLayout()
 {
     m_sessionPanel = new QWidget(this);
@@ -220,7 +225,7 @@ void AgentPanel::configureLayout()
     contextTitleFont.setBold(true);
     contextTitleLabel->setFont(contextTitleFont);
 
-    m_contextResultsView = new ContextResultsView(m_contextPanel);
+    m_contextResultsView = new ContextResultsView(m_projectManager, m_contextPanel);
     contextLayout->addWidget(contextTitleLabel);
     contextLayout->addWidget(m_contextResultsView, 1);
 
