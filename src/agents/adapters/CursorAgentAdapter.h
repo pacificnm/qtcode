@@ -36,6 +36,8 @@ private slots:
 
 private:
     void emitNormalizedEvent(const QJsonObject &eventObject);
+    void emitOutputText(const QString &text);
+    void emitAssistantMessageObject(const QJsonObject &messageObject);
     void finishRequest(AgentRequestStatus status, const QString &errorMessage);
     [[nodiscard]] static AgentError errorFromProcess(
         QProcess::ProcessError processError,
@@ -44,6 +46,7 @@ private:
     QString m_executablePath;
     QProcess *m_process = nullptr;
     bool m_requestInFlight = false;
+    bool m_receivedAssistantOutput = false;
     QString m_pendingOutput;
 };
 

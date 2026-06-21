@@ -37,6 +37,33 @@ namespace {
     return scriptPath;
 }
 
+[[nodiscard]] QString createFakeCodexJsonScript(const QString &directoryPath)
+{
+    const QString scriptPath = QDir(directoryPath).filePath(QStringLiteral("fake_codex_json"));
+    QFile script(scriptPath);
+    if (!script.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        return {};
+    }
+
+    QTextStream stream(&script);
+    stream << "#!/bin/sh\n";
+    stream << "printf '%s\\n' "
+              << "'{\"type\":\"thread.started\",\"thread_id\":\"test-thread\"}' "
+              << "'{\"type\":\"turn.started\"}' "
+              << "'{\"type\":\"item.completed\",\"item\":{\"id\":\"item_0\",\"type\":\"agent_message\",\"text\":\"Codex stub reply.\"}}' "
+              << "'{\"type\":\"turn.completed\",\"usage\":{\"input_tokens\":1,\"output_tokens\":1}}'\n";
+    stream << "exit 0\n";
+    script.close();
+
+    if (!QFile::setPermissions(
+            scriptPath,
+            QFile::ExeUser | QFile::ReadUser | QFile::ReadGroup | QFile::ReadOther)) {
+        return {};
+    }
+
+    return scriptPath;
+}
+
 [[nodiscard]] bool findErrorEvent(
     const QSignalSpy &eventSpy,
     qtcode::agents::AgentErrorKind expectedKind,
@@ -75,6 +102,7 @@ private slots:
     void missingExecutableStartRequestMapsError();
     void failedToStartExecutableMapsMissingExecutableError();
     void processFailureMapsToProcessFailedError();
+    void jsonOutputEmitsAssistantReply();
 };
 
 void CodexAgentAdapterTest::initTestCase()
@@ -199,6 +227,45 @@ void CodexAgentAdapterTest::processFailureMapsToProcessFailedError()
 
     bool sawProcessFailed = findErrorEvent(eventSpy, qtcode::agents::AgentErrorKind::ProcessFailed);
     QVERIFY(sawProcessFailed);
+}
+
+void CodexAgentAdapterTest::jsonOutputEmitsAssistantReply()
+{
+    QTemporaryDir tempDir;
+    QVERIFY(tempDir.isValid());
+
+    const QString scriptPath = createFakeCodexJsonScript(tempDir.path());
+    QVERIFY(!scriptPath.isEmpty());
+
+    qtcode::agents::CodexAgentAdapter adapter;
+    adapter.setExecutablePath(scriptPath);
+
+    QSignalSpy eventSpy(&adapter, &qtcode::agents::AgentAdapter::eventEmitted);
+    QSignalSpy finishedSpy(&adapter, &qtcode::agents::AgentAdapter::requestFinished);
+
+    qtcode::agents::AgentRequest request;
+    request.prompt = QStringLiteral("Summarize repository status.");
+    request.workingDirectory = tempDir.path();
+
+    QString errorMessage;
+    QVERIFY(adapter.startRequest(request, &errorMessage));
+
+    QTRY_COMPARE_WITH_TIMEOUT(finishedSpy.count(), 1, 5000);
+    QCOMPARE(
+        finishedSpy.at(0).at(0).value<qtcode::agents::AgentRequestStatus>(),
+        qtcode::agents::AgentRequestStatus::Succeeded);
+
+    bool sawOutputText = false;
+    for (int index = 0; index < eventSpy.count(); ++index) {
+        const auto event = eventSpy.at(index).at(0).value<qtcode::agents::AgentEvent>();
+        if (event.type == qtcode::agents::AgentEventType::OutputText
+            && event.text == QStringLiteral("Codex stub reply.")) {
+            sawOutputText = true;
+            break;
+        }
+    }
+
+    QVERIFY(sawOutputText);
 }
 
 QTEST_MAIN(CodexAgentAdapterTest)

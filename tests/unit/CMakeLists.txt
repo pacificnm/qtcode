@@ -62,6 +62,28 @@ set_tests_properties(cursor_agent_adapter PROPERTIES
     TIMEOUT 30
 )
 
+qtcode_add_executable(qtcode_agent_manager_conversation_test
+    agents/AgentManagerConversationTest.cpp
+)
+
+target_link_libraries(qtcode_agent_manager_conversation_test
+    PRIVATE
+        qtcode_agents
+        qtcode_memory
+        qtcode_storage
+        Qt6::Test
+)
+
+add_test(
+    NAME agent_manager_conversation
+    COMMAND qtcode_agent_manager_conversation_test
+)
+
+set_tests_properties(agent_manager_conversation PROPERTIES
+    LABELS "unit;agents"
+    TIMEOUT 30
+)
+
 qtcode_add_executable(qtcode_settings_persistence_test
     storage/SettingsPersistenceTest.cpp
 )
