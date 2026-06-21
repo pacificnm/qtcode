@@ -5,7 +5,6 @@
 #include <KLocalizedString>
 
 #include <QHBoxLayout>
-#include <QLabel>
 #include <QListWidget>
 #include <QPushButton>
 #include <QTextEdit>
@@ -25,11 +24,6 @@ void DiffReviewView::configureLayout()
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(6);
-
-    auto *titleLabel = new QLabel(i18n("Generated changes"), this);
-    QFont titleFont = titleLabel->font();
-    titleFont.setBold(true);
-    titleLabel->setFont(titleFont);
 
     m_artifactList = new QListWidget(this);
     m_artifactList->setSelectionMode(QAbstractItemView::SingleSelection);
@@ -59,7 +53,6 @@ void DiffReviewView::configureLayout()
         }
     });
 
-    layout->addWidget(titleLabel);
     layout->addWidget(m_artifactList);
     layout->addWidget(m_diffView, 1);
     layout->addLayout(buttonLayout);

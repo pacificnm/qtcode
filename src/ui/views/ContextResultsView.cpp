@@ -5,7 +5,6 @@
 #include <KLocalizedString>
 
 #include <QHBoxLayout>
-#include <QLabel>
 #include <QListWidget>
 #include <QListWidgetItem>
 #include <QPushButton>
@@ -27,11 +26,6 @@ void ContextResultsView::configureLayout()
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(6);
-
-    auto *titleLabel = new QLabel(i18n("Retrieved context"), this);
-    QFont titleFont = titleLabel->font();
-    titleFont.setBold(true);
-    titleLabel->setFont(titleFont);
 
     m_resultList = new QListWidget(this);
     m_resultList->setSelectionMode(QAbstractItemView::SingleSelection);
@@ -77,7 +71,6 @@ void ContextResultsView::configureLayout()
     connect(m_attachSelectedButton, &QPushButton::clicked, this, &ContextResultsView::attachSelectedResult);
     connect(m_detachSelectedButton, &QPushButton::clicked, this, &ContextResultsView::detachSelectedResult);
 
-    layout->addWidget(titleLabel);
     layout->addWidget(m_resultList);
     layout->addWidget(m_detailView, 1);
     layout->addLayout(buttonLayout);
