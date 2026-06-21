@@ -53,8 +53,15 @@ Purpose:
 
 Expected surfaces:
 
-- **AI Chat panel** — conversation transcript, prompt composer, status indicators, and request controls.
+- **AI Chat panel** — conversation transcript, multi-line prompt composer with inline send control, status indicators, and request controls.
 - **Terminal panel** — shell tabs and project-aware command output beneath the chat panel.
+
+### Prompt composer
+
+- Multi-line input (`QPlainTextEdit`) with a minimum height suitable for longer prompts.
+- Send control on the same row as the input, aligned to the bottom-right of the composer.
+- **Enter** sends when the prompt is non-empty and sending is allowed; **Shift+Enter** inserts a newline.
+- After project memory retrieval completes, the prompt dispatches automatically with all retrieved results attached by default. Users can attach or detach excerpts in **Retrieved Context** to control what is included in later prompts.
 
 ## Right Panel
 

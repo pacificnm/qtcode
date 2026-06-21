@@ -21,11 +21,14 @@
 
 #include <QComboBox>
 #include <QHBoxLayout>
+#include <QIcon>
+#include <QKeyEvent>
 #include <QLabel>
-#include <QLineEdit>
 #include <QListWidget>
+#include <QPlainTextEdit>
 #include <QPushButton>
 #include <QSignalBlocker>
+#include <QSizePolicy>
 #include <QVBoxLayout>
 
 #include <QFutureWatcher>
@@ -167,12 +170,28 @@ void AgentPanel::configureLayout()
 
     m_conversationView = new ConversationView(m_conversationPanel);
 
-    m_promptInput = new QLineEdit(m_conversationPanel);
+    m_promptInput = new QPlainTextEdit(m_conversationPanel);
     m_promptInput->setPlaceholderText(i18n("Ask the agent about the active repository…"));
-    connect(m_promptInput, &QLineEdit::returnPressed, this, &AgentPanel::sendPrompt);
+    m_promptInput->setMinimumHeight(80);
+    m_promptInput->setMaximumHeight(160);
+    m_promptInput->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+    m_promptInput->setTabChangesFocus(true);
+    m_promptInput->installEventFilter(this);
+    connect(m_promptInput, &QPlainTextEdit::textChanged, this, &AgentPanel::refreshComposerControls);
 
-    m_sendButton = new QPushButton(i18n("Send prompt"), m_conversationPanel);
+    m_sendButton = new QPushButton(i18n("Send"), m_conversationPanel);
+    m_sendButton->setToolTip(i18n("Send prompt"));
+    const QIcon sendIcon = QIcon::fromTheme(QStringLiteral("document-send"));
+    if (!sendIcon.isNull()) {
+        m_sendButton->setIcon(sendIcon);
+    }
+    m_sendButton->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
     connect(m_sendButton, &QPushButton::clicked, this, &AgentPanel::sendPrompt);
+
+    auto *composerRowLayout = new QHBoxLayout();
+    composerRowLayout->setSpacing(8);
+    composerRowLayout->addWidget(m_promptInput, 1);
+    composerRowLayout->addWidget(m_sendButton, 0, Qt::AlignBottom);
 
     m_cancelButton = new QPushButton(i18n("Cancel request"), m_conversationPanel);
     m_cancelButton->setVisible(false);
@@ -181,8 +200,7 @@ void AgentPanel::configureLayout()
     conversationLayout->addWidget(titleLabel);
     conversationLayout->addWidget(m_stateLabel);
     conversationLayout->addWidget(m_conversationView, 1);
-    conversationLayout->addWidget(m_promptInput);
-    conversationLayout->addWidget(m_sendButton);
+    conversationLayout->addLayout(composerRowLayout);
     conversationLayout->addWidget(m_cancelButton);
 
     m_contextPanel = new QWidget(this);
@@ -348,7 +366,7 @@ void AgentPanel::sendPrompt()
         return;
     }
 
-    const QString prompt = m_promptInput->text().trimmed();
+    const QString prompt = m_promptInput->toPlainText().trimmed();
     if (prompt.isEmpty()) {
         return;
     }
@@ -370,21 +388,9 @@ void AgentPanel::sendPrompt()
         return;
     }
 
-    if (m_hasReviewableContext
-        && m_reviewablePrompt == prompt
-        && m_contextResultsView != nullptr) {
-        dispatchPromptWithContext(
-            prompt,
-            activeProject,
-            m_contextResultsView->attachedContextExcerpts());
-        m_hasReviewableContext = false;
-        m_reviewablePrompt.clear();
-        return;
-    }
-
     m_pendingPrompt = prompt;
     m_contextRetrievalInFlight = true;
-    setPromptEnabled(false);
+    refreshComposerControls();
     m_stateLabel->setText(i18n("Retrieving project memory…"));
 
     auto *watcher = new QFutureWatcher<qtcode::core::ContextRetrievalOutcome>(this);
@@ -403,20 +409,15 @@ void AgentPanel::sendPrompt()
         m_pendingPrompt.clear();
         m_contextRetrievalInFlight = false;
 
-        if (contextOutcome.results.isEmpty()) {
-            dispatchPromptWithContext(
-                prompt,
-                activeProject,
-                {},
-                contextOutcome.statusMessage,
-                contextOutcome.memoryUnavailable);
-        } else {
-            m_hasReviewableContext = true;
-            m_reviewablePrompt = prompt;
-            m_stateLabel->setText(
-                i18n("Review retrieved context, attach or detach results, then send again."));
-            setPromptEnabled(true);
-        }
+        const QStringList attachedExcerpts = m_contextResultsView != nullptr
+            ? m_contextResultsView->attachedContextExcerpts()
+            : QStringList {};
+        dispatchPromptWithContext(
+            prompt,
+            activeProject,
+            attachedExcerpts,
+            contextOutcome.statusMessage,
+            contextOutcome.memoryUnavailable);
 
         watcher->deleteLater();
     });
@@ -782,12 +783,39 @@ void AgentPanel::updateRequestControls(const qtcode::agents::AgentSession *sessi
 
 void AgentPanel::setPromptEnabled(bool enabled)
 {
+    m_promptComposerEnabled = enabled;
+    refreshComposerControls();
+}
+
+void AgentPanel::refreshComposerControls()
+{
+    const bool hasText = m_promptInput != nullptr
+        && !m_promptInput->toPlainText().trimmed().isEmpty();
+    const bool inputEnabled = m_promptComposerEnabled && !m_contextRetrievalInFlight;
+    const bool sendEnabled = inputEnabled && hasText;
+
     if (m_promptInput != nullptr) {
-        m_promptInput->setEnabled(enabled);
+        m_promptInput->setEnabled(inputEnabled);
     }
     if (m_sendButton != nullptr) {
-        m_sendButton->setEnabled(enabled);
+        m_sendButton->setEnabled(sendEnabled);
     }
+}
+
+bool AgentPanel::eventFilter(QObject *watched, QEvent *event)
+{
+    if (watched == m_promptInput && event->type() == QEvent::KeyPress) {
+        auto *keyEvent = static_cast<QKeyEvent *>(event);
+        if ((keyEvent->key() == Qt::Key_Return || keyEvent->key() == Qt::Key_Enter)
+            && !(keyEvent->modifiers() & Qt::ShiftModifier)) {
+            if (m_sendButton != nullptr && m_sendButton->isEnabled()) {
+                sendPrompt();
+            }
+            return true;
+        }
+    }
+
+    return QWidget::eventFilter(watched, event);
 }
 
 void AgentPanel::selectSession(const QString &sessionId)

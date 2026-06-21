@@ -4,8 +4,8 @@
 
 class QComboBox;
 class QLabel;
-class QLineEdit;
 class QListWidget;
+class QPlainTextEdit;
 class QPushButton;
 
 namespace qtcode::agents {
@@ -66,6 +66,9 @@ private slots:
     void onSessionUpdated(qtcode::agents::AgentSession *session);
     void onActiveProjectChanged();
 
+protected:
+    bool eventFilter(QObject *watched, QEvent *event) override;
+
 private:
     void configureLayout();
     void refreshConversation();
@@ -73,6 +76,7 @@ private:
     void updateSessionStatusDisplay(const qtcode::agents::AgentSession *session);
     void updateRequestControls(const qtcode::agents::AgentSession *session);
     void setPromptEnabled(bool enabled);
+    void refreshComposerControls();
     void selectSession(const QString &sessionId);
     [[nodiscard]] QString selectedAgentKey() const;
     [[nodiscard]] static QString sessionListLabel(const qtcode::agents::AgentSession *session);
@@ -99,16 +103,15 @@ private:
     QLabel *m_stateLabel = nullptr;
     ContextResultsView *m_contextResultsView = nullptr;
     ConversationView *m_conversationView = nullptr;
-    QLineEdit *m_promptInput = nullptr;
+    QPlainTextEdit *m_promptInput = nullptr;
     QPushButton *m_sendButton = nullptr;
     QPushButton *m_cancelButton = nullptr;
     DiffReviewView *m_diffReviewView = nullptr;
     QString m_activeSessionId;
     bool m_refreshingSessionList = false;
     bool m_contextRetrievalInFlight = false;
+    bool m_promptComposerEnabled = false;
     QString m_pendingPrompt;
-    QString m_reviewablePrompt;
-    bool m_hasReviewableContext = false;
     QString m_lastRetrievalQuery;
     int m_lastTotalResultCount = 0;
     bool m_lastMemoryUnavailable = false;
