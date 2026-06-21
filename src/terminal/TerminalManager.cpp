@@ -10,10 +10,13 @@
 
 #include <qtermwidget.h>
 
+#include <QAction>
 #include <QDateTime>
 #include <QDir>
 #include <QFileInfo>
+#include <QIcon>
 #include <QJsonDocument>
+#include <QMenu>
 #include <QUuid>
 
 #include <algorithm>
@@ -47,6 +50,57 @@ void applyDefaultColorScheme(QTermWidget *widget)
     }
 
     qCWarning(qtcodeTerminal) << "No bundled terminal color scheme found; using QTermWidget default";
+}
+
+void installTerminalContextMenu(QTermWidget *widget)
+{
+    if (widget == nullptr) {
+        return;
+    }
+
+    widget->setContextMenuPolicy(Qt::CustomContextMenu);
+
+    auto *copyAction =
+        new QAction(QIcon::fromTheme(QStringLiteral("edit-copy")), QStringLiteral("Copy"), widget);
+    copyAction->setEnabled(false);
+    QObject::connect(copyAction, &QAction::triggered, widget, &QTermWidget::copyClipboard);
+    QObject::connect(widget, &QTermWidget::copyAvailable, copyAction, &QAction::setEnabled);
+
+    auto *pasteAction =
+        new QAction(QIcon::fromTheme(QStringLiteral("edit-paste")), QStringLiteral("Paste"), widget);
+    QObject::connect(pasteAction, &QAction::triggered, widget, &QTermWidget::pasteClipboard);
+
+    auto *pasteSelectionAction = new QAction(
+        QIcon::fromTheme(QStringLiteral("edit-paste")), QStringLiteral("Paste Selection"), widget);
+    QObject::connect(
+        pasteSelectionAction, &QAction::triggered, widget, &QTermWidget::pasteSelection);
+
+    auto *clearAction = new QAction(QStringLiteral("Clear"), widget);
+    QObject::connect(clearAction, &QAction::triggered, widget, &QTermWidget::clear);
+
+    QObject::connect(
+        widget,
+        &QWidget::customContextMenuRequested,
+        widget,
+        [widget, copyAction, pasteAction, pasteSelectionAction, clearAction](const QPoint &position) {
+            QMenu menu(widget);
+
+            const QList<QAction *> urlActions = widget->filterActions(position);
+            for (QAction *action : urlActions) {
+                menu.addAction(action);
+            }
+            if (!urlActions.isEmpty()) {
+                menu.addSeparator();
+            }
+
+            menu.addAction(copyAction);
+            menu.addAction(pasteAction);
+            menu.addAction(pasteSelectionAction);
+            menu.addSeparator();
+            menu.addAction(clearAction);
+
+            menu.exec(widget->mapToGlobal(position));
+        });
 }
 
 } // namespace
@@ -513,6 +567,7 @@ bool TerminalManager::configureWidget(QTermWidget *widget, const TerminalSession
     }
 
     applyDefaultColorScheme(widget);
+    installTerminalContextMenu(widget);
     widget->setShellProgram(session.shellPath);
     widget->setWorkingDirectory(session.workingDirectory);
     widget->setTerminalSizeHint(true);
