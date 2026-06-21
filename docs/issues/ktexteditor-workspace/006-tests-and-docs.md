@@ -1,5 +1,7 @@
 # Issue 006: Add Tests, Smoke Coverage, And Documentation Alignment
 
+GitHub: https://github.com/pacificnm/qtcode/issues/116
+
 Labels: `type:task`, `component:tests`, `component:docs`, `priority:p2`
 
 Milestone: M6 Beta Hardening And Packaging, or the next active editor-workspace milestone if created.

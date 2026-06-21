@@ -1,5 +1,7 @@
 # Issue 002: Introduce Main Workspace Tabs With Permanent AI Chat
 
+GitHub: https://github.com/pacificnm/qtcode/issues/112
+
 Labels: `type:task`, `component:ui`, `component:agents`, `priority:p1`
 
 Milestone: M6 Beta Hardening And Packaging, or the next active editor-workspace milestone if created.

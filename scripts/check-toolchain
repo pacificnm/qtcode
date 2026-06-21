@@ -90,6 +90,25 @@ check_kf6_xmlgui() {
   fail "missing KF6XmlGui (install libkf6xmlgui-dev)"
 }
 
+check_kf6_texteditor() {
+  if pkg-config --exists KF6TextEditor 2>/dev/null; then
+    ok "pkg-config module KF6TextEditor"
+    return
+  fi
+
+  local cmake_config
+  for cmake_config in \
+    /usr/lib/x86_64-linux-gnu/cmake/KF6TextEditor/KF6TextEditorConfig.cmake \
+    /usr/lib/cmake/KF6TextEditor/KF6TextEditorConfig.cmake; do
+    if [[ -f "$cmake_config" ]]; then
+      ok "KF6TextEditor (CMake config at $cmake_config)"
+      return
+    fi
+  done
+
+  fail "missing KF6TextEditor (install libkf6texteditor-dev)"
+}
+
 check_python_module() {
   local module="$1"
   if "$VENV_PYTHON" -c "import $module" >/dev/null 2>&1; then
@@ -153,6 +172,7 @@ if command_exists pkg-config; then
   check_pkg_config_module KF6CoreAddons
   check_kf6_i18n
   check_kf6_xmlgui
+  check_kf6_texteditor
   check_pkg_config_module qtermwidget6
   check_pkg_config_module sqlite3
   check_pkg_config_module libgit2

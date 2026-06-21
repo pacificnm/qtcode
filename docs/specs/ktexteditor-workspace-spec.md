@@ -175,9 +175,11 @@ Ubuntu/Debian package naming should be verified during implementation. The likel
 
 ## Issue Plan
 
-- [Issue 001: Add KTextEditor dependency and toolchain documentation](../issues/ktexteditor-workspace/001-ktexteditor-dependency.md)
-- [Issue 002: Introduce main workspace tabs with permanent AI chat](../issues/ktexteditor-workspace/002-workspace-tabs.md)
-- [Issue 003: Add shared repository/files left project space](../issues/ktexteditor-workspace/003-project-navigation-file-tree.md)
-- [Issue 004: Implement KTextEditor file tabs and save lifecycle](../issues/ktexteditor-workspace/004-editor-tabs-save-lifecycle.md)
-- [Issue 005: Implement project-root-scoped file and folder operations](../issues/ktexteditor-workspace/005-file-folder-operations.md)
-- [Issue 006: Add tests, smoke coverage, and documentation alignment](../issues/ktexteditor-workspace/006-tests-and-docs.md)
+GitHub tracking (M6: Beta Hardening And Packaging):
+
+- [#111: Add KTextEditor dependency and toolchain documentation](https://github.com/pacificnm/qtcode/issues/111) — [local task doc](../issues/ktexteditor-workspace/001-ktexteditor-dependency.md)
+- [#112: Introduce main workspace tabs with permanent AI Chat](https://github.com/pacificnm/qtcode/issues/112) — [local task doc](../issues/ktexteditor-workspace/002-workspace-tabs.md)
+- [#113: Add shared Repository/Files left project space](https://github.com/pacificnm/qtcode/issues/113) — [local task doc](../issues/ktexteditor-workspace/003-project-navigation-file-tree.md)
+- [#114: Implement KTextEditor file tabs and save lifecycle](https://github.com/pacificnm/qtcode/issues/114) — [local task doc](../issues/ktexteditor-workspace/004-editor-tabs-save-lifecycle.md)
+- [#115: Implement project-root-scoped file and folder operations](https://github.com/pacificnm/qtcode/issues/115) — [local task doc](../issues/ktexteditor-workspace/005-file-folder-operations.md)
+- [#116: Add KTextEditor workspace tests, smoke coverage, and documentation alignment](https://github.com/pacificnm/qtcode/issues/116) — [local task doc](../issues/ktexteditor-workspace/006-tests-and-docs.md)

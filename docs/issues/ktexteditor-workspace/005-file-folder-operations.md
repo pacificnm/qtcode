@@ -1,5 +1,7 @@
 # Issue 005: Implement Project-Root-Scoped File And Folder Operations
 
+GitHub: https://github.com/pacificnm/qtcode/issues/115
+
 Labels: `type:task`, `component:ui`, `component:filesystem`, `priority:p1`
 
 Milestone: M6 Beta Hardening And Packaging, or the next active editor-workspace milestone if created.

@@ -21,7 +21,7 @@ They keep long commands out of memory and provide one stable entrypoint per task
 
 - `build-app` and `test-app` will become fully useful once the app CMake project exists.
 - `check-toolchain` validates Qt/KDE/QTermWidget dependencies with pkg-config,
-  and falls back to the installed `KF6I18n` and `KF6XmlGui` CMake configs when no
+  and falls back to the installed `KF6I18n`, `KF6XmlGui`, and `KF6TextEditor` CMake configs when no
   pkg-config file is provided by the distro.
 - The memory scripts require `.venv/bin/python`, PostgreSQL, `pgvector`, and the memory Python packages. Use `psycopg-binary` if the host `libpq` runtime library is not visible inside your Python environment.
 

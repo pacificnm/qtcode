@@ -16,6 +16,7 @@ target_link_libraries(qtcode
         Qt6::Widgets
         KF6::CoreAddons
         KF6::I18n
+        KF6::TextEditor
 )
 
 install(TARGETS qtcode RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})

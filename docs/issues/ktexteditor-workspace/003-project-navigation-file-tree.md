@@ -1,5 +1,7 @@
 # Issue 003: Add Shared Repository/Files Left Project Space
 
+GitHub: https://github.com/pacificnm/qtcode/issues/113
+
 Labels: `type:task`, `component:ui`, `component:repository`, `priority:p1`
 
 Milestone: M6 Beta Hardening And Packaging, or the next active editor-workspace milestone if created.
