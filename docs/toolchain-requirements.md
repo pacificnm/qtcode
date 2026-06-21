@@ -31,6 +31,7 @@ sudo apt install \
   qt6-base-dev \
   libkf6coreaddons-dev \
   libkf6i18n-dev \
+  libkf6xmlgui-dev \
   libqtermwidget6-2-dev \
   libutf8proc-dev \
   libsqlite3-dev \

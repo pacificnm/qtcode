@@ -23,4 +23,5 @@ target_link_libraries(qtcode_ui
         Qt6::Concurrent
         KF6::CoreAddons
         KF6::I18n
+        KF6::XmlGui
 )

@@ -27,12 +27,14 @@ public:
         qtcode::core::ProjectManager *projectManager,
         QWidget *parent = nullptr);
 
+public slots:
+    void addTerminalTab();
+
 protected:
     void showEvent(QShowEvent *event) override;
     void mousePressEvent(QMouseEvent *event) override;
 
 private slots:
-    void addTerminalTab();
     void focusCurrentTerminal();
 
 private:

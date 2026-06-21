@@ -10,9 +10,17 @@
 #include "ui/panels/RepositoryPanel.h"
 #include "ui/panels/TerminalPanel.h"
 
+#include <KActionCollection>
+#include <KHelpMenu>
 #include <KLocalizedString>
+#include <KStandardAction>
 
+#include <QAction>
+#include <QApplication>
+#include <QIcon>
+#include <QMenuBar>
 #include <QSplitter>
+#include <QToolBar>
 
 namespace qtcode::ui {
 
@@ -36,6 +44,9 @@ MainWindow::MainWindow(qtcode::core::ApplicationController *controller, QWidget 
     }
 
     configureLayout();
+    configureActions();
+    configureMenus();
+    configureToolBar();
     applyPanelLayout(layout);
 }
 
@@ -116,6 +127,87 @@ void MainWindow::configureLayout()
     setCentralWidget(m_verticalSplitter);
 
     qCInfo(qtcodeUi) << "Initialized repository, agent, MCP, and terminal panel layout";
+}
+
+void MainWindow::configureActions()
+{
+    m_actionCollection = new KActionCollection(this);
+    m_actionCollection->addAssociatedWidget(this);
+
+    KStandardAction::quit(qApp, &QApplication::quit, m_actionCollection);
+
+    auto *addRepositoryAction = m_actionCollection->addAction(QStringLiteral("file_add_repository"));
+    addRepositoryAction->setText(i18n("Add Repository"));
+    addRepositoryAction->setIcon(QIcon::fromTheme(QStringLiteral("list-add")));
+    connect(
+        addRepositoryAction,
+        &QAction::triggered,
+        m_repositoryPanel,
+        &RepositoryPanel::addRepository);
+
+    auto *refreshStatusAction = m_actionCollection->addAction(QStringLiteral("file_refresh_status"));
+    refreshStatusAction->setText(i18n("Refresh Status"));
+    refreshStatusAction->setIcon(QIcon::fromTheme(QStringLiteral("view-refresh")));
+    connect(
+        refreshStatusAction,
+        &QAction::triggered,
+        m_repositoryPanel,
+        &RepositoryPanel::refreshStatus);
+
+    auto *newTerminalTabAction = m_actionCollection->addAction(QStringLiteral("view_new_terminal_tab"));
+    newTerminalTabAction->setText(i18n("New Terminal Tab"));
+    newTerminalTabAction->setIcon(QIcon::fromTheme(QStringLiteral("tab-new")));
+    connect(
+        newTerminalTabAction,
+        &QAction::triggered,
+        m_terminalPanel,
+        &TerminalPanel::addTerminalTab);
+
+    auto *resetPanelLayoutAction =
+        m_actionCollection->addAction(QStringLiteral("view_reset_panel_layout"));
+    resetPanelLayoutAction->setText(i18n("Reset Panel Layout"));
+    connect(resetPanelLayoutAction, &QAction::triggered, this, &MainWindow::resetPanelLayout);
+
+    m_toggleToolBarAction = m_actionCollection->addAction(QStringLiteral("view_toggle_toolbar"));
+    m_toggleToolBarAction->setText(i18n("Main Toolbar"));
+    m_toggleToolBarAction->setCheckable(true);
+    m_toggleToolBarAction->setChecked(true);
+}
+
+void MainWindow::configureMenus()
+{
+    auto *fileMenu = menuBar()->addMenu(i18n("&File"));
+    fileMenu->addAction(m_actionCollection->action(QStringLiteral("file_add_repository")));
+    fileMenu->addAction(m_actionCollection->action(QStringLiteral("file_refresh_status")));
+    fileMenu->addSeparator();
+    fileMenu->addAction(m_actionCollection->action(KStandardAction::name(KStandardAction::Quit)));
+
+    auto *viewMenu = menuBar()->addMenu(i18n("&View"));
+    viewMenu->addAction(m_actionCollection->action(QStringLiteral("view_reset_panel_layout")));
+    viewMenu->addAction(m_toggleToolBarAction);
+
+    m_helpMenu = new KHelpMenu(this);
+    menuBar()->addMenu(m_helpMenu->menu());
+}
+
+void MainWindow::configureToolBar()
+{
+    m_mainToolBar = addToolBar(i18n("Main Toolbar"));
+    m_mainToolBar->setObjectName(QStringLiteral("MainToolBar"));
+    m_mainToolBar->setMovable(false);
+    m_mainToolBar->addAction(m_actionCollection->action(QStringLiteral("file_add_repository")));
+    m_mainToolBar->addAction(m_actionCollection->action(QStringLiteral("file_refresh_status")));
+    m_mainToolBar->addAction(m_actionCollection->action(QStringLiteral("view_new_terminal_tab")));
+
+    connect(m_toggleToolBarAction, &QAction::toggled, m_mainToolBar, &QWidget::setVisible);
+}
+
+void MainWindow::resetPanelLayout()
+{
+    const qtcode::settings::PanelLayoutSettings layout =
+        m_settingsService != nullptr ? m_settingsService->defaultPanelLayout()
+                                     : qtcode::settings::PanelLayoutSettings::defaults();
+    applyPanelLayout(layout);
 }
 
 void MainWindow::applyPanelLayout(const qtcode::settings::PanelLayoutSettings &layout)
