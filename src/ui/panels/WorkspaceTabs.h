@@ -38,6 +38,10 @@ signals:
 public slots:
     void requestOpenFile(const QString &absolutePath);
     void closeCurrentEditorTab();
+    void handleFileRenamed(const QString &oldPath, const QString &newPath);
+    void handleFileDeleted(const QString &path);
+    void handleDirectoryDeleted(const QString &directoryPath);
+    void handlePathDeleted(const QString &path, bool isDirectory);
 
 private slots:
     void onTabCloseRequested(int index);
@@ -53,6 +57,7 @@ private:
     [[nodiscard]] bool isEditorTabIndex(int index) const;
     [[nodiscard]] bool looksBinaryFile(const QString &absolutePath) const;
     [[nodiscard]] bool closeEditorTabAt(int index, bool promptForDirty);
+    [[nodiscard]] bool closeEditorTabForPath(const QString &absolutePath, bool promptForDirty);
     void updateEditorTabTitle(EditorTab *editorTab);
     void reindexFileTabs();
 

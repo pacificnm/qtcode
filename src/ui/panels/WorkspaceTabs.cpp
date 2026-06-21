@@ -11,6 +11,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QMessageBox>
+#include <QDir>
 #include <QTabBar>
 #include <QTabWidget>
 #include <QVBoxLayout>
@@ -256,6 +257,88 @@ bool WorkspaceTabs::closeEditorTabAt(int index, bool promptForDirty)
     }
 
     return true;
+}
+
+bool WorkspaceTabs::closeEditorTabForPath(const QString &absolutePath, bool promptForDirty)
+{
+    const QString pathKey = normalizedPath(absolutePath);
+    const auto tabIndex = m_fileTabIndices.constFind(pathKey);
+    if (tabIndex == m_fileTabIndices.constEnd()) {
+        return true;
+    }
+
+    return closeEditorTabAt(*tabIndex, promptForDirty);
+}
+
+void WorkspaceTabs::handleFileRenamed(const QString &oldPath, const QString &newPath)
+{
+    const QString oldKey = normalizedPath(oldPath);
+    const QString newKey = normalizedPath(newPath);
+
+    if (m_fileTabIndices.contains(oldKey)) {
+        EditorTab *editorTab = editorTabAt(m_fileTabIndices.value(oldKey));
+        if (editorTab != nullptr) {
+            editorTab->repathTo(newKey);
+            m_fileTabIndices.remove(oldKey);
+            m_fileTabIndices.insert(newKey, m_tabWidget->indexOf(editorTab));
+            updateEditorTabTitle(editorTab);
+        }
+    }
+
+    const QString oldPrefix = oldKey + QDir::separator();
+    const QString newPrefix = newKey + QDir::separator();
+    QStringList nestedPaths;
+    for (auto it = m_fileTabIndices.constBegin(); it != m_fileTabIndices.constEnd(); ++it) {
+        if (it.key().startsWith(oldPrefix)) {
+            nestedPaths.append(it.key());
+        }
+    }
+
+    for (const QString &nestedOldPath : nestedPaths) {
+        const QString nestedNewPath = newPrefix + nestedOldPath.mid(oldPrefix.length());
+        EditorTab *editorTab = editorTabAt(m_fileTabIndices.value(nestedOldPath));
+        if (editorTab == nullptr) {
+            continue;
+        }
+
+        editorTab->repathTo(nestedNewPath);
+        const int tabIndex = m_tabWidget->indexOf(editorTab);
+        m_fileTabIndices.remove(nestedOldPath);
+        m_fileTabIndices.insert(nestedNewPath, tabIndex);
+        updateEditorTabTitle(editorTab);
+    }
+}
+
+void WorkspaceTabs::handleFileDeleted(const QString &path)
+{
+    (void) closeEditorTabForPath(path, true);
+}
+
+void WorkspaceTabs::handleDirectoryDeleted(const QString &directoryPath)
+{
+    const QString dirKey = normalizedPath(directoryPath);
+    const QString dirPrefix = dirKey + QDir::separator();
+    QStringList pathsToClose;
+    for (auto it = m_fileTabIndices.constBegin(); it != m_fileTabIndices.constEnd(); ++it) {
+        if (it.key() == dirKey || it.key().startsWith(dirPrefix)) {
+            pathsToClose.append(it.key());
+        }
+    }
+
+    for (const QString &path : pathsToClose) {
+        if (!closeEditorTabForPath(path, true)) {
+            return;
+        }
+    }
+}
+
+void WorkspaceTabs::handlePathDeleted(const QString &path, bool isDirectory)
+{
+    if (isDirectory) {
+        handleDirectoryDeleted(path);
+    } else {
+        handleFileDeleted(path);
+    }
 }
 
 void WorkspaceTabs::onActiveProjectChanged()

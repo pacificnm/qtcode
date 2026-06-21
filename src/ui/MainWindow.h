@@ -88,6 +88,10 @@ private:
     QAction *m_mcpPanelAction = nullptr;
     QAction *m_saveFileAction = nullptr;
     QAction *m_closeFileTabAction = nullptr;
+    QAction *m_newFileAction = nullptr;
+    QAction *m_newFolderAction = nullptr;
+    QAction *m_renameEntryAction = nullptr;
+    QAction *m_deleteEntryAction = nullptr;
     std::unique_ptr<KTextEditor::Application> m_ktextEditorApplication;
     int m_storedRightColumnWidth = 320;
 };

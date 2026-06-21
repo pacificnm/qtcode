@@ -162,6 +162,16 @@ void MainWindow::configureLayout()
             m_workspaceTabs,
             &WorkspaceTabs::requestOpenFile);
         connect(
+            m_projectNavigationPanel->fileTreePanel(),
+            &FileTreePanel::pathRenamed,
+            m_workspaceTabs,
+            &WorkspaceTabs::handleFileRenamed);
+        connect(
+            m_projectNavigationPanel->fileTreePanel(),
+            &FileTreePanel::pathDeleted,
+            m_workspaceTabs,
+            &WorkspaceTabs::handlePathDeleted);
+        connect(
             m_workspaceTabs,
             &WorkspaceTabs::activeEditorStateChanged,
             this,
@@ -207,6 +217,41 @@ void MainWindow::configureActions()
         &QAction::triggered,
         m_workspaceTabs,
         &WorkspaceTabs::closeCurrentEditorTab);
+
+    m_newFileAction = m_actionCollection->addAction(QStringLiteral("file_new_file"));
+    m_newFileAction->setText(i18n("New File"));
+    m_newFileAction->setIcon(QIcon::fromTheme(QStringLiteral("document-new")));
+    connect(
+        m_newFileAction,
+        &QAction::triggered,
+        m_projectNavigationPanel->fileTreePanel(),
+        &FileTreePanel::createNewFile);
+
+    m_newFolderAction = m_actionCollection->addAction(QStringLiteral("file_new_folder"));
+    m_newFolderAction->setText(i18n("New Folder"));
+    m_newFolderAction->setIcon(QIcon::fromTheme(QStringLiteral("folder-new")));
+    connect(
+        m_newFolderAction,
+        &QAction::triggered,
+        m_projectNavigationPanel->fileTreePanel(),
+        &FileTreePanel::createNewFolder);
+
+    m_renameEntryAction = m_actionCollection->addAction(QStringLiteral("file_rename"));
+    m_renameEntryAction->setText(i18n("Rename"));
+    connect(
+        m_renameEntryAction,
+        &QAction::triggered,
+        m_projectNavigationPanel->fileTreePanel(),
+        &FileTreePanel::renameSelectedEntry);
+
+    m_deleteEntryAction = m_actionCollection->addAction(QStringLiteral("file_delete"));
+    m_deleteEntryAction->setText(i18n("Delete"));
+    m_deleteEntryAction->setIcon(QIcon::fromTheme(QStringLiteral("edit-delete")));
+    connect(
+        m_deleteEntryAction,
+        &QAction::triggered,
+        m_projectNavigationPanel->fileTreePanel(),
+        &FileTreePanel::deleteSelectedEntry);
 
     auto *addRepositoryAction = m_actionCollection->addAction(QStringLiteral("file_add_repository"));
     addRepositoryAction->setText(i18n("Add Repository"));
@@ -292,6 +337,11 @@ void MainWindow::configureMenus()
     fileMenu->addAction(m_actionCollection->action(QStringLiteral("file_add_repository")));
     fileMenu->addAction(m_actionCollection->action(QStringLiteral("file_refresh_status")));
     fileMenu->addAction(m_actionCollection->action(QStringLiteral("file_new_terminal_tab")));
+    fileMenu->addSeparator();
+    fileMenu->addAction(m_newFileAction);
+    fileMenu->addAction(m_newFolderAction);
+    fileMenu->addAction(m_renameEntryAction);
+    fileMenu->addAction(m_deleteEntryAction);
     fileMenu->addSeparator();
     fileMenu->addAction(m_saveFileAction);
     fileMenu->addAction(m_closeFileTabAction);

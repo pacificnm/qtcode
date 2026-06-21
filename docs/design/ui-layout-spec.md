@@ -40,7 +40,7 @@ Implementation:
 
 - `ProjectNavigationPanel` hosts a compact tab bar with **Repository** and **Files** views.
 - **Repository** view: existing `RepositoryPanel` (local repositories, changed files, commits, GitHub issues and pull requests, detail attach flows).
-- **Files** view: `FileTreePanel` rooted at the active project path via `QFileSystemModel`. Activating a text file requests a workspace tab through `WorkspaceTabs::requestOpenFile`.
+- **Files** view: `FileTreePanel` rooted at the active project path via `QFileSystemModel`. Activating a text file requests a workspace tab through `WorkspaceTabs::requestOpenFile`. Context menu and **File** menu actions support project-root-scoped new file, new folder, rename, and delete through `FileOperationService`.
 
 Expected repository sections:
 
