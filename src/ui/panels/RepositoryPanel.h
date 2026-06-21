@@ -88,6 +88,7 @@ private slots:
 
 private:
     void configureLayout();
+    void updateAccordionStretch();
     void startRefresh(const QString &projectId, const QString &repositoryPath);
     void setRefreshing(bool refreshing, bool showLoadingUi);
     void showEmptyState(const QString &message);

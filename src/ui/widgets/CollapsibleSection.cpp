@@ -21,6 +21,7 @@ CollapsibleSection::CollapsibleSection(
     outerLayout->setSpacing(4);
 
     m_headerWidget = new QWidget(this);
+    m_headerWidget->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Maximum);
     m_headerWidget->setCursor(Qt::PointingHandCursor);
     m_headerWidget->installEventFilter(this);
 
@@ -54,8 +55,8 @@ CollapsibleSection::CollapsibleSection(
     contentLayout->setContentsMargins(16, 0, 0, 0);
     contentLayout->setSpacing(4);
 
-    outerLayout->addWidget(m_headerWidget);
-    outerLayout->addWidget(m_contentWidget);
+    outerLayout->addWidget(m_headerWidget, 0);
+    outerLayout->addWidget(m_contentWidget, 1);
 
     setExpanded(expandedByDefault);
 }
@@ -69,20 +70,31 @@ void CollapsibleSection::setTitle(const QString &title)
 
 void CollapsibleSection::setExpanded(bool expanded)
 {
-    if (m_expanded == expanded) {
-        updateToggleIcon();
-        if (m_contentWidget != nullptr) {
-            m_contentWidget->setVisible(expanded);
-        }
-        return;
-    }
+    const bool stateChanged = m_expanded != expanded;
 
     m_expanded = expanded;
     if (m_contentWidget != nullptr) {
         m_contentWidget->setVisible(expanded);
     }
+
+    if (auto *outerLayout = qobject_cast<QVBoxLayout *>(layout())) {
+        const int contentIndex = outerLayout->indexOf(m_contentWidget);
+        if (contentIndex >= 0) {
+            outerLayout->setStretch(contentIndex, expanded ? 1 : 0);
+        }
+    }
+
+    const auto verticalPolicy = expanded ? QSizePolicy::Expanding : QSizePolicy::Maximum;
+    setSizePolicy(QSizePolicy::Preferred, verticalPolicy);
+    if (m_contentWidget != nullptr) {
+        m_contentWidget->setSizePolicy(QSizePolicy::Preferred, verticalPolicy);
+    }
+
     updateToggleIcon();
-    emit expandedChanged(expanded);
+
+    if (stateChanged) {
+        emit expandedChanged(expanded);
+    }
 }
 
 bool CollapsibleSection::isExpanded() const

@@ -310,7 +310,9 @@ void RepositoryPanel::configureLayout()
     m_changesSection = new CollapsibleSection(i18n("Changes"), true, this);
     m_changesSection->headerTrailingLayout()->addWidget(m_stageChangesButton);
     m_changesSection->contentLayout()->addWidget(m_changesStateLabel);
-    m_changesSection->contentLayout()->addWidget(m_unstagedFilesList = new QListWidget(this));
+    m_unstagedFilesList = new QListWidget(this);
+    m_unstagedFilesList->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    m_changesSection->contentLayout()->addWidget(m_unstagedFilesList, 1);
     m_unstagedFilesList->setSelectionMode(QAbstractItemView::ExtendedSelection);
     m_unstagedFilesList->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(m_unstagedFilesList, &QListWidget::itemClicked, this, &RepositoryPanel::onChangedFileClicked);
@@ -334,9 +336,11 @@ void RepositoryPanel::configureLayout()
         this,
         &RepositoryPanel::showIssuesContextMenu);
 
+    m_issuesList->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+
     m_issuesSection = new CollapsibleSection(i18n("GitHub issues"), false, this);
     m_issuesSection->contentLayout()->addWidget(m_issuesStateLabel);
-    m_issuesSection->contentLayout()->addWidget(m_issuesList);
+    m_issuesSection->contentLayout()->addWidget(m_issuesList, 1);
 
     m_pullRequestsStateLabel = new QLabel(this);
     m_pullRequestsStateLabel->setWordWrap(true);
@@ -350,9 +354,11 @@ void RepositoryPanel::configureLayout()
         this,
         &RepositoryPanel::onPullRequestSelected);
 
+    m_pullRequestsList->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+
     m_pullRequestsSection = new CollapsibleSection(i18n("GitHub pull requests"), false, this);
     m_pullRequestsSection->contentLayout()->addWidget(m_pullRequestsStateLabel);
-    m_pullRequestsSection->contentLayout()->addWidget(m_pullRequestsList);
+    m_pullRequestsSection->contentLayout()->addWidget(m_pullRequestsList, 1);
 
     auto *headerWidget = new QWidget(this);
     headerWidget->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Maximum);
@@ -369,12 +375,60 @@ void RepositoryPanel::configureLayout()
     headerSeparator->setFrameShadow(QFrame::Plain);
     headerSeparator->setLineWidth(1);
 
-    layout->addWidget(headerWidget, 0);
-    layout->addWidget(headerSeparator, 0);
+    layout->addWidget(headerWidget, 0, Qt::AlignTop);
+    layout->addWidget(headerSeparator, 0, Qt::AlignTop);
     layout->addWidget(m_changesSection, 0);
     layout->addWidget(m_issuesSection, 0);
     layout->addWidget(m_pullRequestsSection, 0);
     layout->addStretch(1);
+
+    setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Expanding);
+
+    connect(m_changesSection, &CollapsibleSection::expandedChanged, this, [this]() {
+        updateAccordionStretch();
+    });
+    connect(m_issuesSection, &CollapsibleSection::expandedChanged, this, [this]() {
+        updateAccordionStretch();
+    });
+    connect(m_pullRequestsSection, &CollapsibleSection::expandedChanged, this, [this]() {
+        updateAccordionStretch();
+    });
+    updateAccordionStretch();
+}
+
+void RepositoryPanel::updateAccordionStretch()
+{
+    auto *panelLayout = qobject_cast<QVBoxLayout *>(layout());
+    if (panelLayout == nullptr) {
+        return;
+    }
+
+    const QList<CollapsibleSection *> sections = {
+        m_changesSection,
+        m_issuesSection,
+        m_pullRequestsSection,
+    };
+
+    bool anyExpanded = false;
+    for (CollapsibleSection *section : sections) {
+        if (section == nullptr) {
+            continue;
+        }
+
+        const int index = panelLayout->indexOf(section);
+        if (index >= 0) {
+            const int stretch = section->isExpanded() ? 1 : 0;
+            panelLayout->setStretch(index, stretch);
+            if (section->isExpanded()) {
+                anyExpanded = true;
+            }
+        }
+    }
+
+    const int bottomSpacerIndex = panelLayout->count() - 1;
+    if (bottomSpacerIndex >= 0) {
+        panelLayout->setStretch(bottomSpacerIndex, anyExpanded ? 0 : 1);
+    }
 }
 
 void RepositoryPanel::refreshStatus(bool showStatusFeedback)
