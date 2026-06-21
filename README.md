@@ -91,6 +91,7 @@ Start here:
 - [QTCommands specification](docs/specs/qtcommands-spec.md)
 - [Settings specification](docs/specs/settings-spec.md)
 - [KTextEditor workspace specification](docs/specs/ktexteditor-workspace-spec.md)
+- [Cursor-style agent chat specification](docs/specs/cursor-style-chat-spec.md)
 - [QTCommands design](docs/design/qtcommands-design.md)
 
 ### Engineering Specs
@@ -133,6 +134,7 @@ Start here:
 - [ADR 0010: Use KF6 XmlGui for application actions, menus, and toolbars](docs/adrs/0010-kf6-xmlgui-action-collections.md)
 - [ADR 0011: Add KTextEditor workspace tabs for focused file editing](docs/adrs/0011-ktexteditor-workspace-tabs.md)
 - [ADR 0012: Split startup configuration from SQLite-backed settings](docs/adrs/0012-settings-persistence-and-configuration.md)
+- [ADR 0014: Build a Cursor-style native agent chat renderer](docs/adrs/0014-cursor-style-agent-chat-renderer.md)
 
 ## Current Status
 

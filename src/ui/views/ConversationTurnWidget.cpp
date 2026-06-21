@@ -33,6 +33,16 @@ public:
         setAlignment(Qt::AlignTop | Qt::AlignLeft);
         setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Minimum);
     }
+
+    [[nodiscard]] bool hasHeightForWidth() const override
+    {
+        return true;
+    }
+
+    [[nodiscard]] int heightForWidth(int width) const override
+    {
+        return QLabel::heightForWidth(width);
+    }
 };
 
 QString displayActivityDetail(const ParsedActivity &parsed)
@@ -57,7 +67,7 @@ QString displayActivityDetail(const ParsedActivity &parsed)
 ConversationTurnWidget::ConversationTurnWidget(QWidget *parent)
     : QWidget(parent)
 {
-    setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Maximum);
+    setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Minimum);
 
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 8);
@@ -65,7 +75,7 @@ ConversationTurnWidget::ConversationTurnWidget(QWidget *parent)
 
     m_humanBubble = new QFrame(this);
     m_humanBubble->setObjectName(QStringLiteral("conversationHumanBubble"));
-    m_humanBubble->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Maximum);
+    m_humanBubble->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Minimum);
 
     auto *bubbleLayout = new QVBoxLayout(m_humanBubble);
     bubbleLayout->setContentsMargins(10, 8, 10, 8);
@@ -83,7 +93,7 @@ ConversationTurnWidget::ConversationTurnWidget(QWidget *parent)
     connect(m_collapsedSummary, &QPushButton::clicked, this, &ConversationTurnWidget::onCollapsedSummaryClicked);
 
     m_aiContainer = new QWidget(this);
-    m_aiContainer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Maximum);
+    m_aiContainer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Minimum);
     m_aiLayout = new QVBoxLayout(m_aiContainer);
     m_aiLayout->setContentsMargins(0, 0, 0, 0);
     m_aiLayout->setSpacing(6);
@@ -169,36 +179,31 @@ void ConversationTurnWidget::syncBlockWidths()
         return;
     }
 
-    if (m_aiContainer != nullptr) {
-        m_aiContainer->setMinimumWidth(turnWidth);
-    }
-
-    if (m_humanBubble != nullptr) {
-        m_humanBubble->setMinimumWidth(turnWidth);
-    }
-
     for (QLabel *block : m_assistantBlocks) {
-        if (block != nullptr) {
-            block->setMinimumWidth(qMax(120, turnWidth));
-            const int blockHeight = block->heightForWidth(qMax(120, turnWidth));
-            if (blockHeight > 0) {
-                block->setMinimumHeight(blockHeight);
-                block->setMaximumHeight(blockHeight);
-            }
+        if (block == nullptr) {
+            continue;
         }
+
+        const int blockWidth = qMax(120, turnWidth);
+        block->setMaximumWidth(blockWidth);
+        block->setMinimumWidth(0);
+        block->setMinimumHeight(0);
+        block->setMaximumHeight(QWIDGETSIZE_MAX);
+        block->updateGeometry();
     }
 
     if (m_humanContent != nullptr && m_humanBubble != nullptr && m_humanBubble->layout() != nullptr) {
         const QMargins bubbleMargins = m_humanBubble->layout()->contentsMargins();
         const int humanWidth =
             qMax(120, turnWidth - bubbleMargins.left() - bubbleMargins.right());
-        m_humanContent->setMinimumWidth(humanWidth);
-        const int humanHeight = m_humanContent->heightForWidth(humanWidth);
-        if (humanHeight > 0) {
-            m_humanContent->setMinimumHeight(humanHeight);
-            m_humanContent->setMaximumHeight(humanHeight);
-        }
+        m_humanContent->setMaximumWidth(humanWidth);
+        m_humanContent->setMinimumWidth(0);
+        m_humanContent->setMinimumHeight(0);
+        m_humanContent->setMaximumHeight(QWIDGETSIZE_MAX);
+        m_humanContent->updateGeometry();
     }
+
+    updateGeometry();
 }
 
 bool ConversationTurnWidget::eventFilter(QObject *watched, QEvent *event)

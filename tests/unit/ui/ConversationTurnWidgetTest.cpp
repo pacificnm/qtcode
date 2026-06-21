@@ -38,6 +38,7 @@ private slots:
     void pastTurnWithAiContentStartsCollapsed();
     void activityGroupsStartCollapsed();
     void richTextBlocksAvoidNestedScrolling();
+    void longAssistantReplyWithCodeBlockIsNotClipped();
 };
 
 void ConversationTurnWidgetTest::assistantReplyUsesFullViewportWidth()
@@ -282,6 +283,64 @@ void ConversationTurnWidgetTest::richTextBlocksAvoidNestedScrolling()
     QVERIFY2(
         nestedScrollAreas.isEmpty(),
         "Turn widgets should not embed nested scroll areas");
+}
+
+void ConversationTurnWidgetTest::longAssistantReplyWithCodeBlockIsNotClipped()
+{
+    qtcode::ui::ConversationTurnWidget turnWidget;
+    turnWidget.resize(480, 640);
+    turnWidget.show();
+    QCoreApplication::processEvents();
+
+    qtcode::ui::ConversationTurn turn;
+    turn.userMessage = makeMessage(
+        QStringLiteral("u1"),
+        QStringLiteral("user"),
+        QStringLiteral("Explain the fix."));
+    turn.responses = {
+        makeMessage(
+            QStringLiteral("a1"),
+            QStringLiteral("assistant"),
+            QStringLiteral(
+                "The regression came from locking label heights during layout.\n"
+                "\n"
+                "Here is the corrected approach:\n"
+                "```cpp\n"
+                "block->setMaximumWidth(contentWidth);\n"
+                "block->setMaximumHeight(QWIDGETSIZE_MAX);\n"
+                "```\n"
+                "\n"
+                "That lets rich text grow naturally while the outer scroll area handles overflow.")),
+    };
+
+    turnWidget.setTurn(turn);
+    for (int attempt = 0; attempt < 8; ++attempt) {
+        QCoreApplication::processEvents();
+    }
+
+    const QList<QLabel *> blocks = turnWidget.findChildren<QLabel *>(
+        QStringLiteral("conversationRichTextBlock"));
+    QLabel *assistantBlock = nullptr;
+    for (QLabel *block : blocks) {
+        if (block->parentWidget() != nullptr
+            && block->parentWidget()->objectName() == QStringLiteral("conversationHumanBubble")) {
+            continue;
+        }
+
+        assistantBlock = block;
+        break;
+    }
+
+    QVERIFY2(assistantBlock != nullptr, "Assistant reply block should exist");
+    QVERIFY(assistantBlock->text().contains(QStringLiteral("setMaximumHeight")));
+
+    const int contentHeight = assistantBlock->heightForWidth(assistantBlock->width());
+    QVERIFY2(
+        assistantBlock->height() + 2 >= contentHeight,
+        "Long assistant replies with code blocks should not be clipped");
+    QVERIFY2(
+        contentHeight > assistantBlock->fontMetrics().height() * 4,
+        "Assistant reply should occupy multiple lines of height");
 }
 
 QObject *buildConversationTurnWidgetTest()

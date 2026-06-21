@@ -19,14 +19,15 @@ QTCode is a lightweight native KDE/Linux developer cockpit for AI-assisted devel
 11. [specs/qtcommands-spec.md](specs/qtcommands-spec.md)
 12. [specs/settings-spec.md](specs/settings-spec.md)
 13. [specs/ktexteditor-workspace-spec.md](specs/ktexteditor-workspace-spec.md)
-14. [specs/retrieved-context-spec.md](specs/retrieved-context-spec.md)
-15. [design/qtcommands-design.md](design/qtcommands-design.md)
-16. [design/command-library-panel.md](design/command-library-panel.md)
-17. [features/command-library.md](features/command-library.md)
-18. [engineering/beta-setup-guide.md](engineering/beta-setup-guide.md)
-19. [engineering/packaging-notes.md](engineering/packaging-notes.md)
-20. [milestones/](milestones/)
-21. [adrs/](adrs/)
+14. [specs/cursor-style-chat-spec.md](specs/cursor-style-chat-spec.md)
+15. [specs/retrieved-context-spec.md](specs/retrieved-context-spec.md)
+16. [design/qtcommands-design.md](design/qtcommands-design.md)
+17. [design/command-library-panel.md](design/command-library-panel.md)
+18. [features/command-library.md](features/command-library.md)
+19. [engineering/beta-setup-guide.md](engineering/beta-setup-guide.md)
+20. [engineering/packaging-notes.md](engineering/packaging-notes.md)
+21. [milestones/](milestones/)
+22. [adrs/](adrs/)
 
 ## Folder Guide
 
