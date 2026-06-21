@@ -52,6 +52,7 @@ QString normalizeRightPanelId(const QString &panelId, const QString &fallback)
 QJsonObject PanelLayoutSettings::toJson() const
 {
     QJsonObject json;
+    json.insert(QStringLiteral("layoutSchemaVersion"), kPanelLayoutSchemaVersion);
     json.insert(QStringLiteral("columnSizes"), sizesToJsonArray(columnSizes));
     json.insert(QStringLiteral("verticalSizes"), sizesToJsonArray(verticalSizes));
     json.insert(QStringLiteral("activeRightPanel"), activeRightPanel);
@@ -85,13 +86,23 @@ PanelLayoutSettings PanelLayoutSettings::fromJson(const QJsonObject &json)
             defaults.verticalSizes);
     }
 
-    if (layout.columnSizes.size() == 4) {
+    if (layout.columnSizes.size() == 4
+        && json.value(QStringLiteral("layoutSchemaVersion")).toInt(0) < kPanelLayoutSchemaVersion) {
         const int rightWidth = layout.columnSizes.at(2) > 0 ? layout.columnSizes.at(2)
                                                             : layout.columnSizes.at(3);
         layout.columnSizes = {
             layout.columnSizes.at(0),
             layout.columnSizes.at(1),
             rightWidth,
+        };
+    }
+
+    if (layout.columnSizes.size() == 3) {
+        layout.columnSizes = {
+            layout.columnSizes.at(0),
+            240,
+            layout.columnSizes.at(1),
+            layout.columnSizes.at(2),
         };
     } else if (layout.columnSizes.size() == 2 && legacyHorizontalSizes.size() >= 2) {
         layout.columnSizes = {
@@ -101,7 +112,7 @@ PanelLayoutSettings PanelLayoutSettings::fromJson(const QJsonObject &json)
         };
     } else if (layout.columnSizes.size() == 3 && legacyHorizontalSizes.empty()
                && json.contains(QStringLiteral("columnSizes"))) {
-        // Preserve three-column layouts from the prior shell topology.
+        // Handled above by inserting the agent sessions column.
     } else if (!json.contains(QStringLiteral("columnSizes")) && legacyHorizontalSizes.size() >= 3) {
         layout.columnSizes = {
             legacyHorizontalSizes.at(0),

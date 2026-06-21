@@ -36,6 +36,7 @@ public:
 
 private slots:
     void resetPanelLayout();
+    void onAgentSessionsPanelActionToggled(bool visible);
     void onContextPanelActionToggled(bool visible);
     void onChangesPanelActionToggled(bool visible);
     void onMcpPanelActionToggled(bool visible);
@@ -44,10 +45,10 @@ private:
     void configureLayout();
     void configureActions();
     void configureMenus();
-    void configureToolBar();
     void configureActivityBar();
     void applyPanelLayout(const qtcode::settings::PanelLayoutSettings &layout);
     void applyActiveRightPanel(const QString &panelId);
+    void syncAgentSessionsPanelVisibility();
     void syncRightPanelVisibility();
     void setActiveRightPanelAction(const QString &panelId);
     [[nodiscard]] QString currentActiveRightPanel() const;
@@ -65,12 +66,12 @@ private:
     TerminalPanel *m_terminalPanel = nullptr;
     KActionCollection *m_actionCollection = nullptr;
     KHelpMenu *m_helpMenu = nullptr;
-    QToolBar *m_mainToolBar = nullptr;
     QToolBar *m_activityToolBar = nullptr;
-    QAction *m_toggleToolBarAction = nullptr;
+    QAction *m_agentSessionsPanelAction = nullptr;
     QAction *m_contextPanelAction = nullptr;
     QAction *m_changesPanelAction = nullptr;
     QAction *m_mcpPanelAction = nullptr;
+    int m_storedAgentSessionsColumnWidth = 240;
     int m_storedRightColumnWidth = 320;
 };
 
