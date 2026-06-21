@@ -24,6 +24,7 @@
 #include <KTextEditor/Editor>
 
 #include <QAction>
+#include <QActionGroup>
 #include <QApplication>
 #include <QCloseEvent>
 #include <QFileInfo>
@@ -318,23 +319,37 @@ void MainWindow::configureActions()
     m_agentSessionsPanelAction->setText(i18n("Agent Sessions"));
     m_agentSessionsPanelAction->setIcon(QIcon::fromTheme(QStringLiteral("system-users")));
     m_agentSessionsPanelAction->setCheckable(true);
-    connect(
-        m_agentSessionsPanelAction,
-        &QAction::toggled,
-        this,
-        &MainWindow::onAgentSessionsPanelActionToggled);
+    m_agentSessionsPanelAction->setChecked(true);
 
     m_contextPanelAction = m_actionCollection->addAction(QStringLiteral("view_context_panel"));
     m_contextPanelAction->setText(i18n("Retrieved Context"));
     m_contextPanelAction->setIcon(QIcon::fromTheme(QStringLiteral("bookmarks-organize")));
     m_contextPanelAction->setCheckable(true);
-    connect(m_contextPanelAction, &QAction::toggled, this, &MainWindow::onContextPanelActionToggled);
 
     m_mcpPanelAction = m_actionCollection->addAction(QStringLiteral("view_mcp_panel"));
     m_mcpPanelAction->setText(i18n("MCP Servers"));
     m_mcpPanelAction->setIcon(QIcon::fromTheme(QStringLiteral("network-server")));
     m_mcpPanelAction->setCheckable(true);
-    connect(m_mcpPanelAction, &QAction::toggled, this, &MainWindow::onMcpPanelActionToggled);
+
+    auto *rightPanelActionGroup = new QActionGroup(this);
+    rightPanelActionGroup->setExclusive(true);
+    rightPanelActionGroup->addAction(m_agentSessionsPanelAction);
+    rightPanelActionGroup->addAction(m_contextPanelAction);
+    rightPanelActionGroup->addAction(m_mcpPanelAction);
+    connect(
+        rightPanelActionGroup,
+        &QActionGroup::triggered,
+        this,
+        &MainWindow::onRightPanelActionTriggered);
+
+    m_rightPanelToggleAction = m_actionCollection->addAction(QStringLiteral("view_toggle_right_panel"));
+    m_rightPanelToggleAction->setText(i18n("Toggle Right Panel"));
+    connect(
+        m_rightPanelToggleAction,
+        &QAction::triggered,
+        this,
+        &MainWindow::toggleRightColumnCollapsed);
+    updateRightPanelToggleAction();
 
     auto *showRepositoryViewAction =
         m_actionCollection->addAction(QStringLiteral("view_show_repository"));
@@ -377,6 +392,8 @@ void MainWindow::configureMenus()
     fileMenu->addAction(m_actionCollection->action(KStandardAction::name(KStandardAction::Quit)));
 
     auto *viewMenu = menuBar()->addMenu(i18n("&View"));
+    viewMenu->addAction(m_rightPanelToggleAction);
+    viewMenu->addSeparator();
     viewMenu->addAction(m_agentSessionsPanelAction);
     viewMenu->addAction(m_contextPanelAction);
     viewMenu->addAction(m_mcpPanelAction);
@@ -397,45 +414,62 @@ void MainWindow::configureActivityBar()
     m_activityToolBar->setMovable(false);
     m_activityToolBar->setOrientation(Qt::Vertical);
     m_activityToolBar->setIconSize(QSize(22, 22));
+    m_activityToolBar->addAction(m_rightPanelToggleAction);
+    m_activityToolBar->addSeparator();
     m_activityToolBar->addAction(m_agentSessionsPanelAction);
     m_activityToolBar->addAction(m_contextPanelAction);
     m_activityToolBar->addAction(m_mcpPanelAction);
     addToolBar(Qt::RightToolBarArea, m_activityToolBar);
 }
 
-void MainWindow::onAgentSessionsPanelActionToggled(bool visible)
+void MainWindow::onRightPanelActionTriggered(QAction *action)
 {
-    if (visible) {
-        setActiveRightPanelAction(QString::fromLatin1(qtcode::settings::kRightPanelSessions));
+    QString panelId = QString::fromLatin1(qtcode::settings::kRightPanelSessions);
+    if (action == m_contextPanelAction) {
+        panelId = QString::fromLatin1(qtcode::settings::kRightPanelContext);
+    } else if (action == m_mcpPanelAction) {
+        panelId = QString::fromLatin1(qtcode::settings::kRightPanelMcp);
+    } else if (action != m_agentSessionsPanelAction) {
         return;
     }
 
-    if (currentActiveRightPanel() == QString::fromLatin1(qtcode::settings::kRightPanelSessions)) {
-        applyActiveRightPanel(QString::fromLatin1(qtcode::settings::kRightPanelNone));
+    if (m_rightColumnCollapsed) {
+        setRightColumnCollapsed(false);
     }
+
+    applyActiveRightPanel(panelId);
 }
 
-void MainWindow::onContextPanelActionToggled(bool visible)
+void MainWindow::toggleRightColumnCollapsed()
 {
-    if (visible) {
-        setActiveRightPanelAction(QString::fromLatin1(qtcode::settings::kRightPanelContext));
-        return;
-    }
-
-    if (currentActiveRightPanel() == QString::fromLatin1(qtcode::settings::kRightPanelContext)) {
-        applyActiveRightPanel(QString::fromLatin1(qtcode::settings::kRightPanelNone));
-    }
+    setRightColumnCollapsed(!m_rightColumnCollapsed);
 }
 
-void MainWindow::onMcpPanelActionToggled(bool visible)
+void MainWindow::setRightColumnCollapsed(bool collapsed)
 {
-    if (visible) {
-        setActiveRightPanelAction(QString::fromLatin1(qtcode::settings::kRightPanelMcp));
+    if (m_rightColumnCollapsed == collapsed) {
         return;
     }
 
-    if (currentActiveRightPanel() == QString::fromLatin1(qtcode::settings::kRightPanelMcp)) {
-        applyActiveRightPanel(QString::fromLatin1(qtcode::settings::kRightPanelNone));
+    m_rightColumnCollapsed = collapsed;
+    syncRightColumnVisibility();
+    updateRightPanelToggleAction();
+}
+
+void MainWindow::updateRightPanelToggleAction()
+{
+    if (m_rightPanelToggleAction == nullptr) {
+        return;
+    }
+
+    if (m_rightColumnCollapsed) {
+        m_rightPanelToggleAction->setIcon(QIcon::fromTheme(QStringLiteral("arrow-left")));
+        m_rightPanelToggleAction->setToolTip(i18n("Expand Right Panel"));
+        m_rightPanelToggleAction->setText(i18n("Expand Right Panel"));
+    } else {
+        m_rightPanelToggleAction->setIcon(QIcon::fromTheme(QStringLiteral("arrow-right")));
+        m_rightPanelToggleAction->setToolTip(i18n("Collapse Right Panel"));
+        m_rightPanelToggleAction->setText(i18n("Collapse Right Panel"));
     }
 }
 
@@ -511,15 +545,11 @@ void MainWindow::applyActiveRightPanel(const QString &panelId)
         m_rightPanelStack->setCurrentWidget(m_mcpServerPanel);
     }
 
-    syncRightPanelVisibility();
+    syncRightColumnVisibility();
 }
 
 QString MainWindow::currentActiveRightPanel() const
 {
-    if (m_agentSessionsPanelAction != nullptr && m_agentSessionsPanelAction->isChecked()) {
-        return QString::fromLatin1(qtcode::settings::kRightPanelSessions);
-    }
-
     if (m_contextPanelAction != nullptr && m_contextPanelAction->isChecked()) {
         return QString::fromLatin1(qtcode::settings::kRightPanelContext);
     }
@@ -528,10 +558,10 @@ QString MainWindow::currentActiveRightPanel() const
         return QString::fromLatin1(qtcode::settings::kRightPanelMcp);
     }
 
-    return QString::fromLatin1(qtcode::settings::kRightPanelNone);
+    return QString::fromLatin1(qtcode::settings::kRightPanelSessions);
 }
 
-void MainWindow::syncRightPanelVisibility()
+void MainWindow::syncRightColumnVisibility()
 {
     if (m_rootHorizontalSplitter == nullptr || m_rightPanelStack == nullptr) {
         return;
@@ -542,8 +572,7 @@ void MainWindow::syncRightPanelVisibility()
         return;
     }
 
-    const QString activePanel = currentActiveRightPanel();
-    if (activePanel == QString::fromLatin1(qtcode::settings::kRightPanelNone)) {
+    if (m_rightColumnCollapsed) {
         if (sizes.at(2) > 0) {
             m_storedRightColumnWidth = sizes.at(2);
         }
@@ -623,7 +652,18 @@ void MainWindow::applyPanelLayout(const qtcode::settings::PanelLayoutSettings &l
     }
     syncTerminalPanelHeight();
 
-    setActiveRightPanelAction(layout.activeRightPanel);
+    if (layout.storedRightColumnWidth > 120) {
+        m_storedRightColumnWidth = layout.storedRightColumnWidth;
+    }
+
+    QString activePanel = layout.activeRightPanel;
+    if (activePanel == QString::fromLatin1(qtcode::settings::kRightPanelNone)) {
+        activePanel = QString::fromLatin1(qtcode::settings::kRightPanelSessions);
+    }
+
+    m_rightColumnCollapsed = layout.rightColumnCollapsed;
+    updateRightPanelToggleAction();
+    setActiveRightPanelAction(activePanel);
 }
 
 qtcode::settings::PanelLayoutSettings MainWindow::currentPanelLayout() const
@@ -632,13 +672,17 @@ qtcode::settings::PanelLayoutSettings MainWindow::currentPanelLayout() const
     layout.windowWidth = width();
     layout.windowHeight = height();
     layout.activeRightPanel = currentActiveRightPanel();
+    layout.rightColumnCollapsed = m_rightColumnCollapsed;
 
     if (m_rootHorizontalSplitter != nullptr) {
         layout.columnSizes = m_rootHorizontalSplitter->sizes();
-        if (layout.columnSizes.size() >= 3
-            && layout.activeRightPanel == QString::fromLatin1(qtcode::settings::kRightPanelNone)) {
+        if (layout.columnSizes.size() >= 3 && m_rightColumnCollapsed) {
             layout.columnSizes[2] = 0;
         }
+    }
+
+    if (m_rightColumnCollapsed && m_storedRightColumnWidth > 120) {
+        layout.storedRightColumnWidth = m_storedRightColumnWidth;
     }
 
     if (m_mainVerticalSplitter != nullptr) {

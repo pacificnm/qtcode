@@ -60,6 +60,8 @@ QJsonObject PanelLayoutSettings::toJson() const
     json.insert(QStringLiteral("columnSizes"), sizesToJsonArray(columnSizes));
     json.insert(QStringLiteral("verticalSizes"), sizesToJsonArray(verticalSizes));
     json.insert(QStringLiteral("activeRightPanel"), activeRightPanel);
+    json.insert(QStringLiteral("rightColumnCollapsed"), rightColumnCollapsed);
+    json.insert(QStringLiteral("storedRightColumnWidth"), storedRightColumnWidth);
     json.insert(QStringLiteral("windowWidth"), windowWidth);
     json.insert(QStringLiteral("windowHeight"), windowHeight);
     json.insert(QStringLiteral("terminalCollapsed"), terminalCollapsed);
@@ -140,6 +142,25 @@ PanelLayoutSettings PanelLayoutSettings::fromJson(const QJsonObject &json)
     } else if (json.contains(QStringLiteral("agentPanelVisible"))
                && !json.value(QStringLiteral("agentPanelVisible")).toBool()) {
         layout.activeRightPanel = QString::fromLatin1(kRightPanelNone);
+    }
+
+    if (layout.activeRightPanel == QString::fromLatin1(kRightPanelNone)) {
+        layout.rightColumnCollapsed = true;
+        layout.activeRightPanel = QString::fromLatin1(kRightPanelSessions);
+    }
+
+    if (json.contains(QStringLiteral("rightColumnCollapsed"))) {
+        layout.rightColumnCollapsed =
+            json.value(QStringLiteral("rightColumnCollapsed")).toBool(defaults.rightColumnCollapsed);
+    } else if (layout.columnSizes.size() >= 3 && layout.columnSizes.at(2) == 0) {
+        layout.rightColumnCollapsed = true;
+    }
+
+    if (json.contains(QStringLiteral("storedRightColumnWidth"))) {
+        layout.storedRightColumnWidth = json.value(QStringLiteral("storedRightColumnWidth"))
+                                            .toInt(defaults.storedRightColumnWidth);
+    } else if (layout.columnSizes.size() >= 3 && layout.columnSizes.at(2) > 120) {
+        layout.storedRightColumnWidth = layout.columnSizes.at(2);
     }
 
     if (json.contains(QStringLiteral("windowWidth"))) {

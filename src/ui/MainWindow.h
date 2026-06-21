@@ -51,10 +51,9 @@ private slots:
     void resetPanelLayout();
     void saveCurrentFile();
     void refreshEditorActions(bool hasActiveEditor, bool isModified);
-    void onAgentSessionsPanelActionToggled(bool visible);
-    void onContextPanelActionToggled(bool visible);
-    void onMcpPanelActionToggled(bool visible);
+    void onRightPanelActionTriggered(QAction *action);
     void onTerminalPanelCollapsedChanged(bool collapsed);
+    void toggleRightColumnCollapsed();
 
 private:
     void configureLayout();
@@ -63,9 +62,11 @@ private:
     void configureActivityBar();
     void applyPanelLayout(const qtcode::settings::PanelLayoutSettings &layout);
     void applyActiveRightPanel(const QString &panelId);
-    void syncRightPanelVisibility();
+    void syncRightColumnVisibility();
     void syncTerminalPanelHeight();
     void setActiveRightPanelAction(const QString &panelId);
+    void setRightColumnCollapsed(bool collapsed);
+    void updateRightPanelToggleAction();
     [[nodiscard]] QString currentActiveRightPanel() const;
     [[nodiscard]] qtcode::settings::PanelLayoutSettings currentPanelLayout() const;
     void persistPanelLayout();
@@ -84,6 +85,7 @@ private:
     KActionCollection *m_actionCollection = nullptr;
     KHelpMenu *m_helpMenu = nullptr;
     QToolBar *m_activityToolBar = nullptr;
+    QAction *m_rightPanelToggleAction = nullptr;
     QAction *m_agentSessionsPanelAction = nullptr;
     QAction *m_contextPanelAction = nullptr;
     QAction *m_mcpPanelAction = nullptr;
@@ -97,6 +99,7 @@ private:
     KTextEditor::Application *m_ktextEditorApplication = nullptr;
     int m_storedRightColumnWidth = 320;
     int m_storedTerminalHeight = 240;
+    bool m_rightColumnCollapsed = false;
 };
 
 } // namespace qtcode::ui
