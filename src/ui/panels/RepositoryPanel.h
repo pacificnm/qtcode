@@ -15,7 +15,6 @@
 class QLabel;
 class QListWidget;
 class QListWidgetItem;
-class QPlainTextEdit;
 class QPushButton;
 namespace qtcode::git {
 class GitService;
@@ -80,11 +79,7 @@ private slots:
     void onGitOperationFinished();
     void onActiveProjectChanged();
     void onAutoRefreshTimer();
-    void onCommitMessageChanged();
-    void onCommitClicked();
-    void onPushClicked();
-    void onStageAllClicked();
-    void onUnstageAllClicked();
+    void onStageChangesClicked();
     void onInstallWorkspaceClicked();
     void refreshWorkspaceSetupState();
 
@@ -96,7 +91,7 @@ private:
     void showErrorState(const QString &message);
     void applySnapshot(const qtcode::git::RepositoryGitSnapshot &snapshot);
     void applyWorkingTreeStatus(const qtcode::git::GitWorkingTreeStatus &status);
-    void updateSourceControlActions(const qtcode::git::GitWorkingTreeStatus &status);
+    void updateChangesActions(const qtcode::git::GitWorkingTreeStatus &status);
     [[nodiscard]] QString resolveChangedFilePath(const QString &relativePath) const;
     [[nodiscard]] QString resolveGitExecutable() const;
     [[nodiscard]] bool activeRepositoryPath(QString *repositoryPath) const;
@@ -113,11 +108,9 @@ private:
     void refreshCapabilityState();
     void updateAutoRefreshTimer();
     void showIssuesContextMenu(const QPoint &position);
-    void showStagedFilesContextMenu(const QPoint &position);
     void showUnstagedFilesContextMenu(const QPoint &position);
     void attachIssueToContext(int issueNumber);
     void stageRelativePaths(const QStringList &relativePaths);
-    void unstageRelativePaths(const QStringList &relativePaths);
     [[nodiscard]] QStringList selectedRelativePaths(QListWidget *list) const;
 
     qtcode::git::GitService *m_gitService = nullptr;
@@ -131,15 +124,9 @@ private:
     QWidget *m_workspaceSetupWidget = nullptr;
     QLabel *m_workspaceSetupLabel = nullptr;
     QPushButton *m_installWorkspaceButton = nullptr;
-    QLabel *m_sourceControlStateLabel = nullptr;
-    QPlainTextEdit *m_commitMessageEdit = nullptr;
-    QPushButton *m_commitButton = nullptr;
-    QPushButton *m_pushButton = nullptr;
-    QLabel *m_stagedSectionLabel = nullptr;
-    QPushButton *m_unstageAllButton = nullptr;
-    QListWidget *m_stagedFilesList = nullptr;
+    QLabel *m_changesStateLabel = nullptr;
     QLabel *m_changesSectionLabel = nullptr;
-    QPushButton *m_stageAllButton = nullptr;
+    QPushButton *m_stageChangesButton = nullptr;
     QListWidget *m_unstagedFilesList = nullptr;
     QLabel *m_issuesStateLabel = nullptr;
     QListWidget *m_issuesList = nullptr;
@@ -153,10 +140,9 @@ private:
     bool m_showStatusFeedback = true;
     bool m_hasLoadedSnapshot = false;
     bool m_gitAvailable = false;
-    int m_commitsAhead = 0;
     QString m_pendingGitSuccessMessage;
-    bool m_clearCommitMessageOnSuccess = false;
     bool m_pendingRefreshAfterGitOperation = false;
+    qtcode::git::GitWorkingTreeStatus m_lastWorkingTreeStatus;
 };
 
 } // namespace qtcode::ui
