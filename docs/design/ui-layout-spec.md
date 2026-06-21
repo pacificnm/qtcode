@@ -23,6 +23,7 @@ Right-panel views:
 - Agent Sessions
 - Retrieved Context
 - MCP Servers
+- Command Library
 
 Only one right-panel view is visible at a time. Workspace tabs and terminal remain in the main column at all times.
 
@@ -124,6 +125,7 @@ Expected surfaces:
 - **Agent Sessions** — agent selector, session list, and new session control. The selector preselects the repository default agent from `.qtcode/config.yaml` when opening a project that has no prior selector value; session restore and auto-create behavior are described in [settings spec](../specs/settings-spec.md).
 - **Retrieved Context** — deduplicated context result list with checkboxes and attach/detach controls. Shows automatic memory hits plus manual `[source_file]` entries from **Add to Context** actions in the repository changed-files list, folder tree, and editor tab bar. Clicking a file-backed row opens the file in a workspace tab. No inline excerpt preview. See [retrieved context spec](../specs/retrieved-context-spec.md).
 - **MCP Servers** — MCP server configuration and memory tooling.
+- **Command Library** — repo-native commands, templates, rules, examples, and validation from the active repository. Opened from the right-side action icon and kept manually visible until the user closes it. See [Command Library feature](../features/command-library.md).
 - **Activity bar** — right-edge icon buttons that switch the active right-panel view or hide the right column.
 
 ## Status Bar

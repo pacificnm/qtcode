@@ -120,5 +120,5 @@ Tradeoffs:
 ## Follow-Ups
 
 - Define the command schema and validation rules in `docs/specs/qtcommands-spec.md`.
-- Add the Command Library UI in `docs/design/qtcommands-design.md`.
+- Add the Command Library UI in `docs/design/command-library-panel.md`.
 - Track delivery in `docs/milestones/m07-qtcommands.md`.

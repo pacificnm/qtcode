@@ -21,10 +21,12 @@ QTCode is a lightweight native KDE/Linux developer cockpit for AI-assisted devel
 13. [specs/ktexteditor-workspace-spec.md](specs/ktexteditor-workspace-spec.md)
 14. [specs/retrieved-context-spec.md](specs/retrieved-context-spec.md)
 15. [design/qtcommands-design.md](design/qtcommands-design.md)
-16. [engineering/beta-setup-guide.md](engineering/beta-setup-guide.md)
-17. [engineering/packaging-notes.md](engineering/packaging-notes.md)
-18. [milestones/](milestones/)
-19. [adrs/](adrs/)
+16. [design/command-library-panel.md](design/command-library-panel.md)
+17. [features/command-library.md](features/command-library.md)
+18. [engineering/beta-setup-guide.md](engineering/beta-setup-guide.md)
+19. [engineering/packaging-notes.md](engineering/packaging-notes.md)
+20. [milestones/](milestones/)
+21. [adrs/](adrs/)
 
 ## Folder Guide
 
@@ -33,6 +35,7 @@ QTCode is a lightweight native KDE/Linux developer cockpit for AI-assisted devel
 - [milestones/](milestones/): milestone-level specs with scope and exit criteria.
 - [engineering/](engineering/): technical specs for architecture, data, integrations, classes, and flows.
 - [design/](design/): product, UI, interaction, and feature design specs.
+- [features/](features/): product feature writeups and user-facing workflow notes.
 - [specs/](specs/): feature-level implementation specifications.
 - [issues/](issues/): implementation issue briefs that can be copied into GitHub issues.
 - [toolchain-requirements.md](toolchain-requirements.md): baseline build and scripting environment.

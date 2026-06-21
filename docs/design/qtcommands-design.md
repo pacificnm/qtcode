@@ -6,6 +6,8 @@ ADR: [ADR 0009: QTCommands must be repo-native](../adrs/0009-qtcommands-repo-nat
 
 Specification: [QTCommands specification](../specs/qtcommands-spec.md)
 
+Detailed panel design: [Command Library panel](command-library-panel.md)
+
 ## Product Intent
 
 QTCommands makes QTCode a better long-lived AI cockpit by storing reusable project patterns in the repository itself. When context is reset, the command system preserves the project rules, vocabulary, examples, and templates that agents need to generate consistent code.
@@ -238,4 +240,3 @@ The command system should appear in the repository as a normal, reviewable set o
 8. The user approves or edits the generated code.
 
 This flow keeps the agent anchored to the repo's approved patterns instead of re-deriving them from scratch.
-
