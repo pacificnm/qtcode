@@ -39,6 +39,7 @@ QJsonArray sizesToJsonArray(const QList<int> &sizes)
 QJsonObject PanelLayoutSettings::toJson() const
 {
     QJsonObject json;
+    json.insert(QStringLiteral("columnSizes"), sizesToJsonArray(columnSizes));
     json.insert(QStringLiteral("horizontalSizes"), sizesToJsonArray(horizontalSizes));
     json.insert(QStringLiteral("verticalSizes"), sizesToJsonArray(verticalSizes));
     json.insert(QStringLiteral("windowWidth"), windowWidth);
@@ -51,6 +52,12 @@ PanelLayoutSettings PanelLayoutSettings::fromJson(const QJsonObject &json)
     const PanelLayoutSettings defaults = PanelLayoutSettings::defaults();
     PanelLayoutSettings layout = defaults;
 
+    if (json.contains(QStringLiteral("columnSizes"))) {
+        layout.columnSizes = jsonArrayToSizes(
+            json.value(QStringLiteral("columnSizes")).toArray(),
+            defaults.columnSizes);
+    }
+
     if (json.contains(QStringLiteral("horizontalSizes"))) {
         layout.horizontalSizes = jsonArrayToSizes(
             json.value(QStringLiteral("horizontalSizes")).toArray(),
@@ -61,6 +68,11 @@ PanelLayoutSettings PanelLayoutSettings::fromJson(const QJsonObject &json)
         layout.verticalSizes = jsonArrayToSizes(
             json.value(QStringLiteral("verticalSizes")).toArray(),
             defaults.verticalSizes);
+    }
+
+    if (!json.contains(QStringLiteral("columnSizes")) && layout.horizontalSizes.size() >= 3) {
+        layout.columnSizes = {layout.horizontalSizes.at(0), defaults.columnSizes.at(1)};
+        layout.horizontalSizes = {layout.horizontalSizes.at(1), layout.horizontalSizes.at(2)};
     }
 
     if (json.contains(QStringLiteral("windowWidth"))) {
