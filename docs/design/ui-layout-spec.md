@@ -5,14 +5,16 @@
 Primary layout:
 
 ```text
-+----------------------+------------------+--------------+
-| Repository Panel     | Agent Panel      | MCP Panel    |
-| (full height)        |                  | (full height)|
-|                      +------------------+              |
-|                      | Terminal Panel   |              |
-|                      | (middle only)    |              |
-+----------------------+------------------+--------------+
++----------------------+------------------+--------------+--------------+---+
+| Repository Panel     | Agent Panel      | Secondary    | MCP Panel    |Act|
+| (full height)        |                  | panel column | (full height)|Bar|
+|                      +------------------+              |              |   |
+|                      | Terminal Panel   |              |              |   |
+|                      | (middle only)    |              |              |   |
++----------------------+------------------+--------------+--------------+---+
 ```
+
+The right activity bar toggles the AI Agent, Retrieved Context, and Generated Changes panels. Context and Generated Changes share the secondary panel column between the middle workspace and MCP column.
 
 ## Repository Panel
 
@@ -34,7 +36,7 @@ Expected sections:
 - Pull requests.
 - Repository search.
 
-## Agent Panel
+## Agent Panels
 
 Purpose:
 
@@ -44,15 +46,12 @@ Purpose:
 - Show responses and generated artifacts.
 - Approve or reject changes.
 
-Expected sections:
+Expected surfaces:
 
-- Agent selector.
-- Session list.
-- Prompt composer.
-- Conversation transcript.
-- Context result viewer.
-- Diff review area.
-- Status and error indicators.
+- **AI Agent panel** — agent selector, session list, prompt composer, conversation transcript, and status indicators in the middle column above the terminal.
+- **Retrieved Context panel** — context result viewer and attach/detach controls in the secondary column.
+- **Generated Changes panel** — diff review area and approve/reject controls in the secondary column.
+- **Activity bar** — right-edge icon buttons that toggle each panel open or closed.
 
 ## Terminal Panel
 
@@ -87,4 +86,4 @@ Although QTCode is desktop-first, the layout should tolerate:
 - vertical resizing
 - hidden/collapsed panels
 
-Panel sizes should be persisted per user.
+Panel sizes and activity-bar panel visibility should be persisted per user.
