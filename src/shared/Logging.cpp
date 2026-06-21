@@ -12,6 +12,7 @@ Q_LOGGING_CATEGORY(qtcodeTerminal, "qtcode.terminal")
 Q_LOGGING_CATEGORY(qtcodeGit, "qtcode.git")
 Q_LOGGING_CATEGORY(qtcodeGithub, "qtcode.github")
 Q_LOGGING_CATEGORY(qtcodeMemory, "qtcode.memory")
+Q_LOGGING_CATEGORY(qtcodeCommands, "qtcode.commands")
 
 namespace qtcode::shared {
 
