@@ -4,24 +4,35 @@
 #include <KAboutData>
 #include <KLocalizedString>
 
+#include <QAbstractScrollArea>
 #include <QScrollBar>
-#include <QTextEdit>
 #include <QtTest>
 
 namespace {
+
+[[nodiscard]] qtcode::agents::AgentMessage makeMessage(
+    const QString &id,
+    const QString &role,
+    const QString &content)
+{
+    qtcode::agents::AgentMessage message;
+    message.id = id;
+    message.role = role;
+    message.content = content;
+    return message;
+}
 
 [[nodiscard]] QList<qtcode::agents::AgentMessage> sampleMessages(int count)
 {
     QList<qtcode::agents::AgentMessage> messages;
     messages.reserve(count);
     for (int index = 0; index < count; ++index) {
-        qtcode::agents::AgentMessage message;
-        message.id = QStringLiteral("message-%1").arg(index);
-        message.role = index % 2 == 0 ? QStringLiteral("user") : QStringLiteral("assistant");
-        message.content = QStringLiteral(
-                              "Message %1 with enough text to make the conversation view scroll vertically.")
-                              .arg(index);
-        messages.append(message);
+        messages.append(makeMessage(
+            QStringLiteral("message-%1").arg(index),
+            index % 2 == 0 ? QStringLiteral("user") : QStringLiteral("assistant"),
+            QStringLiteral(
+                "Message %1 with enough text to make the conversation view scroll vertically.")
+                .arg(index)));
     }
     return messages;
 }
@@ -33,25 +44,49 @@ class ConversationViewTest final : public QObject
     Q_OBJECT
 
 private slots:
-    void activityIndicatorUpdateKeepsScrollAtBottom();
+    void incrementalUpdateKeepsScrollAtBottom();
     void appendedMessageScrollsToBottom();
+    void transcriptUsesSingleScrollArea();
+    void teardownWithLoadedConversationDoesNotCrash();
 };
 
-void ConversationViewTest::activityIndicatorUpdateKeepsScrollAtBottom()
+void ConversationViewTest::incrementalUpdateKeepsScrollAtBottom()
 {
     qtcode::ui::ConversationView view;
-    auto *textEdit = view.findChild<QTextEdit *>();
-    QVERIFY(textEdit != nullptr);
+    QList<qtcode::agents::AgentMessage> messages;
+    messages.append(makeMessage(
+        QStringLiteral("message-0"),
+        QStringLiteral("user"),
+        QStringLiteral("Investigate the failing test.")));
+    messages.append(makeMessage(
+        QStringLiteral("message-1"),
+        QStringLiteral("activity"),
+        QStringLiteral("Running: ctest --output-on-failure")));
+    messages.append(makeMessage(
+        QStringLiteral("message-2"),
+        QStringLiteral("assistant"),
+        QStringLiteral("The failure comes from a stale cache.")));
 
-    const QList<qtcode::agents::AgentMessage> messages = sampleMessages(24);
+    for (int index = 3; index < 24; ++index) {
+        messages.append(makeMessage(
+            QStringLiteral("message-%1").arg(index),
+            index % 2 == 0 ? QStringLiteral("user") : QStringLiteral("assistant"),
+            QStringLiteral(
+                "Message %1 with enough text to make the conversation view scroll vertically.")
+                .arg(index)));
+    }
+
     view.setMessages(messages);
 
-    QScrollBar *scrollBar = textEdit->verticalScrollBar();
-    QVERIFY(scrollBar != nullptr);
+    QScrollBar *scrollBar = view.verticalScrollBar();
+    QVERIFY2(scrollBar != nullptr, "ConversationView should expose its scroll bar");
     scrollBar->setValue(scrollBar->maximum());
     const int bottomBefore = scrollBar->value();
 
-    view.syncMessages(messages, true, QStringLiteral("Agent is working…"));
+    qtcode::agents::AgentMessage &lastMessage = messages.last();
+    lastMessage.content.append(QStringLiteral(" Updated while running."));
+
+    view.syncMessages(messages);
     QCoreApplication::processEvents();
 
     QCOMPARE(scrollBar->value(), scrollBar->maximum());
@@ -61,26 +96,68 @@ void ConversationViewTest::activityIndicatorUpdateKeepsScrollAtBottom()
 void ConversationViewTest::appendedMessageScrollsToBottom()
 {
     qtcode::ui::ConversationView view;
-    auto *textEdit = view.findChild<QTextEdit *>();
-    QVERIFY(textEdit != nullptr);
-
     QList<qtcode::agents::AgentMessage> messages = sampleMessages(24);
     view.setMessages(messages);
 
-    QScrollBar *scrollBar = textEdit->verticalScrollBar();
-    QVERIFY(scrollBar != nullptr);
+    QScrollBar *scrollBar = view.verticalScrollBar();
+    QVERIFY2(scrollBar != nullptr, "ConversationView should expose its scroll bar");
     scrollBar->setValue(scrollBar->maximum());
 
-    qtcode::agents::AgentMessage userMessage;
-    userMessage.id = QStringLiteral("new-user-message");
-    userMessage.role = QStringLiteral("user");
-    userMessage.content = QStringLiteral("A newly submitted prompt.");
-    messages.append(userMessage);
+    messages.append(makeMessage(
+        QStringLiteral("new-user-message"),
+        QStringLiteral("user"),
+        QStringLiteral("A newly submitted prompt.")));
 
-    view.syncMessages(messages, true, QStringLiteral("Agent is working…"));
+    view.syncMessages(messages);
     QCoreApplication::processEvents();
 
     QCOMPARE(scrollBar->value(), scrollBar->maximum());
+}
+
+void ConversationViewTest::transcriptUsesSingleScrollArea()
+{
+    qtcode::ui::ConversationView view;
+    view.resize(640, 480);
+    view.show();
+    QCoreApplication::processEvents();
+
+    QList<qtcode::agents::AgentMessage> messages;
+    messages.append(makeMessage(
+        QStringLiteral("message-0"),
+        QStringLiteral("user"),
+        QStringLiteral("Investigate the scrolling behavior.")));
+    messages.append(makeMessage(
+        QStringLiteral("message-1"),
+        QStringLiteral("assistant"),
+        QStringLiteral(
+            "First paragraph of the reply.\n"
+            "Second paragraph of the reply.\n"
+            "Third paragraph of the reply.\n"
+            "Fourth paragraph of the reply.\n"
+            "Fifth paragraph of the reply.")));
+
+    view.setMessages(messages);
+    QCoreApplication::processEvents();
+
+    const QList<QAbstractScrollArea *> nestedScrollAreas =
+        view.findChildren<QAbstractScrollArea *>();
+    QCOMPARE(nestedScrollAreas.size(), 1);
+    QVERIFY(view.verticalScrollBar() != nullptr);
+    QCOMPARE(view.verticalScrollBar(), nestedScrollAreas.constFirst()->verticalScrollBar());
+}
+
+void ConversationViewTest::teardownWithLoadedConversationDoesNotCrash()
+{
+    QWidget parent;
+    parent.resize(800, 600);
+
+    auto *view = new qtcode::ui::ConversationView(&parent);
+    view->setMessages(sampleMessages(12));
+    view->show();
+    QCoreApplication::processEvents();
+
+    delete view;
+    QCoreApplication::processEvents();
 }
 
 QObject *buildConversationViewTest()

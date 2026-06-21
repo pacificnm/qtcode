@@ -9,10 +9,11 @@
 #include "core/WorkspaceModels.h"
 #include "git/GitService.h"
 #include "github/GitHubService.h"
-#include "github/GitHubCachePolicy.h"
+#include "github/GitHubIssueBranchNaming.h"
 #include "settings/ProjectModels.h"
 #include "shared/Logging.h"
 #include "ui/dialogs/ChangeRepositoryDialog.h"
+#include "ui/dialogs/CreateIssueBranchDialog.h"
 #include "ui/dialogs/StageChangesDialog.h"
 #include "ui/widgets/CollapsibleSection.h"
 
@@ -62,12 +63,14 @@ struct NumberedListEntry
     int number = 0;
     QString text;
     QString url;
+    QString title;
 };
 
 enum
 {
     NumberRole = Qt::UserRole,
     UrlRole = Qt::UserRole + 1,
+    TitleRole = Qt::UserRole + 2,
 };
 
 struct PathListEntry
@@ -145,6 +148,7 @@ void syncNumberedListWidget(QListWidget *list, const QList<NumberedListEntry> &e
         auto *item = new QListWidgetItem(entry.text);
         item->setData(NumberRole, entry.number);
         item->setData(UrlRole, entry.url);
+        item->setData(TitleRole, entry.title);
         list->addItem(item);
     }
 
@@ -734,7 +738,8 @@ void RepositoryPanel::showGitHubIssues(const qtcode::github::GitHubIssueListResu
                  issue.title,
                  issue.state,
                  issue.author),
-            issue.url});
+            issue.url,
+            issue.title});
     }
 
     syncNumberedListWidget(m_issuesList, entries);
@@ -788,6 +793,7 @@ void RepositoryPanel::showGitHubPullRequests(const qtcode::github::GitHubPullReq
                  pullRequest.title,
                  pullRequest.state,
                  pullRequest.author),
+            {},
             {}});
     }
 
@@ -1302,8 +1308,38 @@ void RepositoryPanel::showIssuesContextMenu(const QPoint &position)
     }
 
     const QString issueUrl = item->data(UrlRole).toString();
+    const QString issueTitle = item->data(TitleRole).toString();
+    const QString existingBranch = resolveIssueBranchName(issueNumber);
+    const bool gitReady = m_gitAvailable && m_gitService != nullptr;
+    const bool ghReady =
+        m_cliCapabilityService != nullptr
+        && m_cliCapabilityService->snapshot().gh.available
+        && m_cliCapabilityService->snapshot().gh.authenticated;
 
     QMenu menu(this);
+
+    if (existingBranch.isEmpty()) {
+        QAction *createBranchAction = menu.addAction(
+            QIcon::fromTheme(QStringLiteral("list-add")),
+            i18n("Create Branch"),
+            this,
+            [this, issueNumber, issueTitle]() {
+                createIssueBranch(issueNumber, issueTitle);
+            });
+        createBranchAction->setEnabled(gitReady && ghReady);
+    } else {
+        QAction *changeBranchAction = menu.addAction(
+            QIcon::fromTheme(QStringLiteral("vcs-branch")),
+            i18n("Change Branch"),
+            this,
+            [this, existingBranch]() {
+                checkoutIssueBranch(existingBranch);
+            });
+        changeBranchAction->setEnabled(gitReady);
+    }
+
+    menu.addSeparator();
+
     menu.addAction(
         QIcon::fromTheme(QStringLiteral("bookmark-new")),
         i18n("Add to Context"),
@@ -1325,6 +1361,90 @@ void RepositoryPanel::showIssuesContextMenu(const QPoint &position)
     });
 
     menu.exec(m_issuesList->viewport()->mapToGlobal(position));
+}
+
+QString RepositoryPanel::resolveIssueBranchName(int issueNumber) const
+{
+    if (issueNumber <= 0 || m_gitService == nullptr) {
+        return {};
+    }
+
+    QString repositoryPath;
+    const QString gitExecutable = resolveGitExecutable();
+    if (!activeRepositoryPath(&repositoryPath) || gitExecutable.isEmpty()) {
+        return {};
+    }
+
+    QStringList branchReferences;
+    QString errorMessage;
+    if (!m_gitService->listRepositoryBranchReferences(
+            repositoryPath,
+            gitExecutable,
+            &branchReferences,
+            true,
+            &errorMessage)) {
+        qCWarning(qtcodeUi) << "Failed to list repository branches:" << errorMessage;
+        return {};
+    }
+
+    QStringList linkedBranches;
+    if (m_gitHubService != nullptr && m_cliCapabilityService != nullptr
+        && m_cliCapabilityService->snapshot().gh.available
+        && m_cliCapabilityService->snapshot().gh.authenticated
+        && !m_activeProjectId.isEmpty()) {
+        const qtcode::github::GitHubIssueBranchListResult linkedResult =
+            m_gitHubService->listIssueLinkedBranchesForProject(m_activeProjectId, issueNumber);
+        if (linkedResult.success) {
+            linkedBranches = linkedResult.branchNames;
+        }
+    }
+
+    return qtcode::github::resolveIssueBranchName(issueNumber, linkedBranches, branchReferences);
+}
+
+void RepositoryPanel::createIssueBranch(int issueNumber, const QString &issueTitle)
+{
+    if (m_activeProjectId.isEmpty() || issueNumber <= 0) {
+        return;
+    }
+
+    CreateIssueBranchDialog dialog(
+        m_gitService,
+        m_gitHubService,
+        m_projectManager,
+        m_cliCapabilityService,
+        m_statusService,
+        m_activeProjectId,
+        issueNumber,
+        issueTitle,
+        this);
+    connect(
+        &dialog,
+        &CreateIssueBranchDialog::branchChanged,
+        this,
+        [this]() { refreshStatus(true); });
+
+    dialog.exec();
+}
+
+void RepositoryPanel::checkoutIssueBranch(const QString &branchName)
+{
+    const QString trimmedBranchName = branchName.trimmed();
+    if (trimmedBranchName.isEmpty()) {
+        return;
+    }
+
+    QString repositoryPath;
+    const QString gitExecutable = resolveGitExecutable();
+    if (!activeRepositoryPath(&repositoryPath) || gitExecutable.isEmpty() || m_gitService == nullptr) {
+        return;
+    }
+
+    startGitOperation(
+        [this, repositoryPath, gitExecutable, trimmedBranchName]() {
+            return m_gitService->checkoutRemoteBranch(repositoryPath, gitExecutable, trimmedBranchName);
+        },
+        i18n("Checked out branch %1.", trimmedBranchName));
 }
 
 void RepositoryPanel::attachIssueToContext(int issueNumber)

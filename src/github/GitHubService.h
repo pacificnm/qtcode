@@ -24,6 +24,15 @@ public:
     [[nodiscard]] GitHubPullRequestDetailResult viewPullRequestForProject(
         const QString &projectId,
         int pullRequestNumber) const;
+    [[nodiscard]] GitHubIssueBranchListResult listIssueLinkedBranchesForProject(
+        const QString &projectId,
+        int issueNumber) const;
+    [[nodiscard]] GitHubIssueBranchDevelopResult developIssueBranchForProject(
+        const QString &projectId,
+        int issueNumber,
+        const QString &baseBranch,
+        const QString &branchName,
+        bool checkout = false) const;
 
 private:
     struct ResolvedGitHubRepository

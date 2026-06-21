@@ -4,7 +4,7 @@
 
 #include <QLabel>
 #include <QPushButton>
-#include <QTextEdit>
+#include <QPlainTextEdit>
 #include <QVBoxLayout>
 
 namespace qtcode::ui {
@@ -36,7 +36,7 @@ void GitHubDetailView::configureLayout()
     m_cacheStatusLabel->setWordWrap(true);
     m_cacheStatusLabel->setAlignment(Qt::AlignTop | Qt::AlignLeft);
 
-    m_bodyView = new QTextEdit(this);
+    m_bodyView = new QPlainTextEdit(this);
     m_bodyView->setReadOnly(true);
     m_bodyView->setMinimumHeight(120);
 

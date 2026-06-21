@@ -85,9 +85,9 @@ void CollapsibleSection::setExpanded(bool expanded)
     }
 
     const auto verticalPolicy = expanded ? QSizePolicy::Expanding : QSizePolicy::Maximum;
-    setSizePolicy(QSizePolicy::Preferred, verticalPolicy);
+    setSizePolicy(QSizePolicy::Expanding, verticalPolicy);
     if (m_contentWidget != nullptr) {
-        m_contentWidget->setSizePolicy(QSizePolicy::Preferred, verticalPolicy);
+        m_contentWidget->setSizePolicy(QSizePolicy::Expanding, verticalPolicy);
     }
 
     updateToggleIcon();

@@ -3,6 +3,7 @@
 #include <QWidget>
 
 class QComboBox;
+class QLabel;
 class QListWidget;
 class QPlainTextEdit;
 class QPushButton;

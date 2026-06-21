@@ -119,6 +119,11 @@ bool AgentSession::appendRoleOutput(const QString &role, const QString &text)
         return false;
     }
 
+    if (m_messages.last().content == text) {
+        touchUpdatedAt();
+        return true;
+    }
+
     m_messages.last().content.append(text);
     touchUpdatedAt();
     return true;

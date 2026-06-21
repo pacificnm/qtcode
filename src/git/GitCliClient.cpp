@@ -121,6 +121,116 @@ GitOperationResult GitCliClient::createBranch(const QString &branchName) const
         kGitCommandTimeoutMs);
 }
 
+GitOperationResult GitCliClient::fetchRemoteBranch(
+    const QString &remote,
+    const QString &branchName) const
+{
+    const QString trimmedRemote = remote.trimmed();
+    const QString trimmedBranchName = branchName.trimmed();
+    if (trimmedRemote.isEmpty() || trimmedBranchName.isEmpty()) {
+        GitOperationResult result;
+        result.errorMessage = QStringLiteral("Remote and branch name are required.");
+        return result;
+    }
+
+    return runGit(
+        {QStringLiteral("fetch"), trimmedRemote, trimmedBranchName},
+        kGitPushTimeoutMs);
+}
+
+GitOperationResult GitCliClient::checkoutRemoteBranch(
+    const QString &branchName,
+    const QString &remote) const
+{
+    const QString trimmedBranchName = branchName.trimmed();
+    const QString trimmedRemote = remote.trimmed();
+    if (trimmedBranchName.isEmpty() || trimmedRemote.isEmpty()) {
+        GitOperationResult result;
+        result.errorMessage = QStringLiteral("Branch and remote names are required.");
+        return result;
+    }
+
+    GitOperationResult checkoutResult = runGit(
+        {QStringLiteral("checkout"), trimmedBranchName},
+        kGitCommandTimeoutMs);
+    if (checkoutResult.success) {
+        return checkoutResult;
+    }
+
+    const GitOperationResult fetchResult = fetchRemoteBranch(trimmedRemote, trimmedBranchName);
+    if (!fetchResult.success) {
+        return fetchResult;
+    }
+
+    checkoutResult = runGit(
+        {QStringLiteral("checkout"), trimmedBranchName},
+        kGitCommandTimeoutMs);
+    if (checkoutResult.success) {
+        return checkoutResult;
+    }
+
+    return runGit(
+        {QStringLiteral("checkout"),
+         QStringLiteral("-B"),
+         trimmedBranchName,
+         QStringLiteral("%1/%2").arg(trimmedRemote, trimmedBranchName)},
+        kGitCommandTimeoutMs);
+}
+
+GitOperationResult GitCliClient::listBranchReferences(
+    QStringList *branchReferences,
+    bool includeRemote) const
+{
+    GitOperationResult result;
+
+    if (branchReferences == nullptr) {
+        result.errorMessage = QStringLiteral("Branch reference output pointer is null.");
+        return result;
+    }
+
+    branchReferences->clear();
+
+    const GitOperationResult localResult = runGit(
+        {QStringLiteral("for-each-ref"),
+         QStringLiteral("--format=%(refname:short)"),
+         QStringLiteral("refs/heads/")},
+        kGitCommandTimeoutMs);
+    if (!localResult.success) {
+        return localResult;
+    }
+
+    for (const QString &line : localResult.standardOutput.split(QChar::fromLatin1('\n'), Qt::SkipEmptyParts)) {
+        const QString branchName = line.trimmed();
+        if (!branchName.isEmpty()) {
+            branchReferences->append(branchName);
+        }
+    }
+
+    if (includeRemote) {
+        const GitOperationResult remoteResult = runGit(
+            {QStringLiteral("for-each-ref"),
+             QStringLiteral("--format=%(refname:short)"),
+             QStringLiteral("refs/remotes/")},
+            kGitCommandTimeoutMs);
+        if (!remoteResult.success) {
+            return remoteResult;
+        }
+
+        for (const QString &line :
+             remoteResult.standardOutput.split(QChar::fromLatin1('\n'), Qt::SkipEmptyParts)) {
+            const QString branchName = line.trimmed();
+            if (branchName.isEmpty() || branchName.endsWith(QStringLiteral("/HEAD"))) {
+                continue;
+            }
+            branchReferences->append(branchName);
+        }
+    }
+
+    branchReferences->removeDuplicates();
+    result.success = true;
+    return result;
+}
+
 GitOperationResult GitCliClient::runGit(const QStringList &arguments, int timeoutMs) const
 {
     GitOperationResult result;

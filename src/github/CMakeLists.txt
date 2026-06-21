@@ -2,6 +2,7 @@ qtcode_add_module_library(qtcode_github STATIC
     GhCliClient.cpp
     GitHubCachePolicy.cpp
     GitHubContextFormatting.cpp
+    GitHubIssueBranchNaming.cpp
     GitHubRemoteResolver.cpp
     GitHubService.cpp
 )

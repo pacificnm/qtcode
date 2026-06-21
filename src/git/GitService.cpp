@@ -532,6 +532,59 @@ GitOperationResult GitService::createBranch(
     return configuredGitCliClient(path, gitExecutable).createBranch(branchName);
 }
 
+GitOperationResult GitService::fetchRemoteBranch(
+    const QString &path,
+    const QString &gitExecutable,
+    const QString &remote,
+    const QString &branchName) const
+{
+    return configuredGitCliClient(path, gitExecutable).fetchRemoteBranch(remote, branchName);
+}
+
+GitOperationResult GitService::checkoutRemoteBranch(
+    const QString &path,
+    const QString &gitExecutable,
+    const QString &branchName,
+    const QString &remote) const
+{
+    return configuredGitCliClient(path, gitExecutable).checkoutRemoteBranch(branchName, remote);
+}
+
+bool GitService::listRepositoryBranchReferences(
+    const QString &path,
+    const QString &gitExecutable,
+    QStringList *branchReferences,
+    bool includeRemote,
+    QString *errorMessage) const
+{
+    if (branchReferences == nullptr) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("Git branch reference output pointer is null.");
+        }
+        return false;
+    }
+
+    GitRepositoryInfo repositoryInfo;
+    if (!inspectRepository(path, &repositoryInfo, errorMessage)) {
+        return false;
+    }
+
+    if (gitExecutable.trimmed().isEmpty()) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("Git executable is not configured.");
+        }
+        return false;
+    }
+
+    const GitCliClient client = configuredGitCliClient(path, gitExecutable);
+    const GitOperationResult result = client.listBranchReferences(branchReferences, includeRemote);
+    if (!result.success && errorMessage != nullptr) {
+        *errorMessage = result.errorMessage;
+    }
+
+    return result.success;
+}
+
 QString commitSubject(const git_commit *commit)
 {
     const char *message = git_commit_message(commit);

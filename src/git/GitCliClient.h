@@ -25,6 +25,15 @@ public:
     [[nodiscard]] GitOperationResult push() const;
     [[nodiscard]] GitOperationResult checkoutBranch(const QString &branchName) const;
     [[nodiscard]] GitOperationResult createBranch(const QString &branchName) const;
+    [[nodiscard]] GitOperationResult fetchRemoteBranch(
+        const QString &remote,
+        const QString &branchName) const;
+    [[nodiscard]] GitOperationResult checkoutRemoteBranch(
+        const QString &branchName,
+        const QString &remote = QStringLiteral("origin")) const;
+    [[nodiscard]] GitOperationResult listBranchReferences(
+        QStringList *branchReferences,
+        bool includeRemote = true) const;
 
 private:
     [[nodiscard]] GitOperationResult runGit(

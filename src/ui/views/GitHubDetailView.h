@@ -7,7 +7,7 @@
 
 class QLabel;
 class QPushButton;
-class QTextEdit;
+class QPlainTextEdit;
 
 namespace qtcode::ui {
 
@@ -54,7 +54,7 @@ private:
     QLabel *m_titleLabel = nullptr;
     QLabel *m_metadataLabel = nullptr;
     QLabel *m_cacheStatusLabel = nullptr;
-    QTextEdit *m_bodyView = nullptr;
+    QPlainTextEdit *m_bodyView = nullptr;
     QPushButton *m_attachButton = nullptr;
 };
 

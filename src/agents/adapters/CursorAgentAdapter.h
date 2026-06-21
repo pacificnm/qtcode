@@ -45,6 +45,8 @@ private:
     void emitAssistantMessageObject(const QJsonObject &messageObject);
     void emitToolCallEvent(const QJsonObject &eventObject);
     [[nodiscard]] static QString extractShellCommand(const QJsonObject &eventObject);
+    [[nodiscard]] static QString extractToolCallActivityText(const QJsonObject &eventObject);
+    [[nodiscard]] static QString truncateForActivity(const QString &text, int maxLength = 120);
     void finishRequest(AgentRequestStatus status, const QString &errorMessage);
     [[nodiscard]] static AgentError errorFromProcess(
         QProcess::ProcessError processError,

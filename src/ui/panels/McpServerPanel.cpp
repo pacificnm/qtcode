@@ -18,6 +18,7 @@
 #include <QIcon>
 #include <QLabel>
 #include <QListWidget>
+#include <QPalette>
 #include <QPushButton>
 #include <QSignalBlocker>
 #include <QToolButton>
@@ -147,7 +148,7 @@ void McpServerPanel::refreshServerList()
         auto *item = new QListWidgetItem(serverListLabel(server), m_serverList);
         item->setData(Qt::UserRole, server.id);
         if (!server.enabled) {
-            item->setForeground(Qt::gray);
+            item->setForeground(palette().color(QPalette::PlaceholderText));
         }
     }
 

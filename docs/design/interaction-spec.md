@@ -43,6 +43,15 @@ See [retrieved context spec](../specs/retrieved-context-spec.md) for panel behav
 4. User selects an issue or pull request.
 5. Selected content can be attached to an agent request.
 
+## GitHub Issue Branch Flow
+
+1. User right-clicks an issue in the repository panel issues list.
+2. QTCode resolves whether an issue branch already exists from GitHub-linked branches and local/remote names matching `{number}-*`.
+3. When no branch exists and both Git and authenticated `gh` are available, **Create Branch** opens `CreateIssueBranchDialog` with a suggested `{number}-{slug}` name and a base-branch picker defaulting to `main` or `master`.
+4. Create runs `gh issue develop`, fetches the branch from `origin`, and offers **Change Branch** in the dialog to check it out immediately.
+5. When a branch already exists, **Change Branch** checks it out through `GitService` and refreshes repository status.
+6. **Add to Context** and **Copy Link** remain available regardless of branch state.
+
 ## Agent Change Review Flow
 
 1. Agent modifies files through its own tooling.

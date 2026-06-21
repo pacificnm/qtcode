@@ -56,9 +56,17 @@ Tracks known projects, active project, recent repositories, and project-scoped s
 
 Qt model for local and GitHub repository lists.
 
+### `RepositoryPanel`
+
+Hosts repository context in the left column: local repositories, git status, changed files, GitHub issues and pull requests, and attach-to-agent flows. Provides context menus for changed files, local repositories (select/create branch, remove), and GitHub issues (**Create Branch**, **Change Branch**, **Add to Context**, **Copy Link**). Resolves existing issue branches through `GitHubService`, `GitService::listRepositoryBranchReferences`, and `GitHubIssueBranchNaming`.
+
+### `CreateIssueBranchDialog`
+
+Modal dialog for creating a GitHub issue-linked branch. Suggests a branch name, lets the user choose a local base branch (defaulting to `main` or `master`), runs `gh issue develop`, fetches the new branch from `origin`, and offers an in-dialog **Change Branch** action to check it out before closing.
+
 ### `GitService`
 
-Provides repository status, current branch, tags, commit summaries, diffs, and safe Git operation entry points.
+Provides repository status, current branch, tags, commit summaries, diffs, and safe Git operation entry points. Branch helpers include local branch listing, checkout/create, `listRepositoryBranchReferences`, `fetchRemoteBranch`, and `checkoutRemoteBranch` for issue-branch workflows.
 
 ## Agent Classes
 
@@ -122,11 +130,15 @@ Stores one terminal tab's logical metadata, including project, shell, working di
 
 ### `GitHubService`
 
-Coordinates GitHub workflows for repositories, issues, and pull requests.
+Coordinates GitHub workflows for repositories, issues, and pull requests. Resolves project remotes to owner/name and exposes issue-linked branch list/develop helpers used by `RepositoryPanel` and `CreateIssueBranchDialog`.
 
 ### `GhCliClient`
 
-Executes `gh` commands, requests JSON output, parses results, and maps errors to user-facing states.
+Executes `gh` commands, requests JSON output, parses results, and maps errors to user-facing states. Issue branch support includes `listIssueLinkedBranches` (`gh issue develop --list`) and `developIssueBranch` (`gh issue develop` with `--base` and `--name`).
+
+### `GitHubIssueBranchNaming`
+
+Pure helpers for issue branch slug generation, `{number}-*` matching across local and remote refs, and resolving the effective issue branch name from linked and repository branches.
 
 ## Storage Classes
 

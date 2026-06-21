@@ -39,7 +39,7 @@ Purpose:
 Implementation:
 
 - `ProjectNavigationPanel` hosts a compact tab bar with **Repository** and **Files** views.
-- **Repository** view: existing `RepositoryPanel` (local repositories, changed files, GitHub issues and pull requests, detail attach flows). Add repository and refresh status remain in the **File** menu; refresh also runs automatically on project selection and startup.
+- **Repository** view: existing `RepositoryPanel` (local repositories, changed files, GitHub issues and pull requests, detail attach flows). GitHub issues expose a context menu with **Create Branch** or **Change Branch** (when an issue branch already exists), **Add to Context**, and **Copy Link**. Local repositories expose **Select Branch**, **Create Branch**, and **Remove**. Add repository and refresh status remain in the **File** menu; refresh also runs automatically on project selection and startup.
 - **Files** view: `FileTreePanel` rooted at the active project path via `QFileSystemModel`. Activating a text file requests a workspace tab through `WorkspaceTabs::requestOpenFile`. Context menu and **File** menu actions support project-root-scoped new file, new folder, rename, and delete through `FileOperationService`.
 
 Expected repository sections:
@@ -93,6 +93,28 @@ The workspace editing slice is intentionally narrow. QTCode is still a developer
 - No automatic agent edits through the editor surface; review agent file changes through git and the repository changed-files list.
 
 See [KTextEditor workspace spec](../specs/ktexteditor-workspace-spec.md) for the full non-goals list.
+
+### Conversation transcript
+
+The AI Chat transcript follows a **Cursor app chat-inspired** turn layout while staying native Qt/KDE. Implementation lives in `ConversationView`, `ConversationTurnWidget`, and related helpers.
+
+1. **Turn-based transcript** — each user prompt opens a turn; all following assistant prose and tool activity belong to that turn until the next user message.
+2. **User prompt bubble** — right-aligned card on `palette(base)` with a subtle border. While scrolling a long agent response, the active turn's prompt pins to the top as a sticky overlay.
+3. **Tool/command cards** — shell, file, and search activity render in framed cards with a header row and monospace body. Consecutive activity lines group into collapsible step blocks.
+4. **Assistant prose** — full-width markdown-lite blocks without a bubble background.
+5. **Turn collapse while generating** — when a request is in flight, completed turns collapse to a compact summary row and dim to 55% opacity; the active turn stays expanded. Users can click a collapsed turn to expand it manually.
+6. **Turn footers** — completed turns show a quiet summary such as `Worked · 3 steps · 1 reply`.
+7. **Session status strip** — a single quiet line between the transcript and composer shows agent, model, mode, active project, and the current running status when a request is in flight.
+8. **Streaming-first updates** — transcript updates incrementally during agent output without resetting scroll position when the user is already at the bottom.
+
+Activity lines map from agent adapters:
+
+- **Cursor** `stream-json` `tool_call` events become activity messages (`Running: …`, `Read: …`, `Write: …`, etc.) rendered as typed tool cards.
+- **Codex** command execution items become `Ran: …` shell cards.
+
+The transcript uses a `QScrollArea` with per-turn widgets rather than a single flat `QTextEdit` document.
+
+See [Cursor app chat parity](#cursor-app-chat-parity) for the full visual target.
 
 ### Prompt composer
 
@@ -151,12 +173,85 @@ Implementation notes:
 
 ## Visual Direction
 
-- Native KDE feel.
+- Native KDE feel with **Cursor app chat density** in the AI Chat transcript and composer stack.
 - Dense but readable information layout.
 - Avoid marketing-style hero areas.
 - Prefer predictable panels, splitters, tabs, lists, and toolbars.
 - Keep icons and text compact.
 - Make empty states useful but quiet.
+
+## Cursor app chat parity
+
+QTCode should not clone Cursor pixel-for-pixel, but the AI Chat column should borrow Cursor app chat patterns because Cursor is a first-class agent adapter and the product is terminal-first.
+
+### Layout hierarchy
+
+```text
++------------------------------------------+
+| Sticky prompt overlay (active turn only) |
++------------------------------------------+
+| Conversation transcript (turn widgets)   |
+|  [prior turns collapsed/dimmed]          |
+|  [active turn: bubble + cards + prose]   |
++------------------------------------------+
+| Session status strip (model · project)   |
++------------------------------------------+
+| Prompt composer                          |
+| Control row (model/mode · send/stop)     |
++------------------------------------------+
+| Terminal panel                           |
++------------------------------------------+
+```
+
+### Transcript rules
+
+- Organize the transcript into **turns**, not a flat chronological log.
+- Render user prompts in a **right-aligned bubble**; keep agent prose plain and full-width.
+- Render shell, file, and search activity in **typed tool cards** with header and monospace body.
+- Group consecutive activity lines into **collapsible step blocks** inside a turn.
+- **Collapse and dim** completed turns while a request is running; restore them when the request finishes unless the user expanded a turn manually.
+- Show a compact **turn footer** on completed turns (`Worked · N steps · M replies`).
+- Pin the active turn's prompt at the top while scrolling through a long response.
+- Prefer palette-backed styling over hard-coded colors so Breeze light/dark themes stay correct.
+- Keep scroll pinned to bottom while streaming unless the user has scrolled up.
+
+### Tool card mapping
+
+| Activity prefix | Card type | Header |
+| --- | --- | --- |
+| `Running:`, `Ran:` | Shell | Shell |
+| `Read:`, `Write:`, `Edit:`, `Delete:`, `List:` | File | Verb |
+| `Grep:`, `Glob:` | Search | Verb |
+| Other | Generic | Verb |
+
+### Status strip rules
+
+- One compact line above the composer.
+- Show session metadata: agent name, selected model, execution mode, active project.
+- Append the live running status (`Running: …`, `Read: …`, etc.) while a request is active.
+- Use middot separators; no toolbar chrome.
+
+### Composer rules
+
+- Full-width multi-line input remains primary.
+- Model and execution mode selectors stay on the control row below the input for now.
+- Enter sends; Shift+Enter inserts a newline; Send becomes Stop while running.
+
+### Adapter mapping
+
+| Cursor CLI signal | QTCode surface |
+| --- | --- |
+| `assistant` stream text | Assistant prose block in the active turn |
+| `tool_call` started | Typed tool card + optional step group + status strip update |
+| `system` init | Status strip model/project context when available |
+| Codex command execution | Shell tool card (`Ran: …`) |
+
+### Non-goals
+
+- No Electron/Chromium shell or Monaco rendering.
+- No pixel-perfect Cursor theme clone.
+- No thinking-block UI until the Cursor CLI exposes those events outside print mode.
+- No virtualized row rendering in v1; `QScrollArea` with per-turn widgets is sufficient.
 
 ## Responsive Behavior
 

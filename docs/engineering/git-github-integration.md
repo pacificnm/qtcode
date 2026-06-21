@@ -45,6 +45,23 @@ Prefer `gh` JSON output:
 - `gh pr list --json ...`
 - `gh pr view --json ...`
 
+Issue branch workflows also use `gh issue develop`:
+
+- `gh issue develop --list <number> --repo <owner/name>` — linked branches for an issue.
+- `gh issue develop <number> --repo <owner/name> --base <branch> --name <branch>` — create and link a branch on GitHub.
+
+After branch creation, QTCode fetches the remote branch with Git CLI (`git fetch origin <branch>`) and can check it out locally through `GitService`.
+
+## Issue Branch Detection And Naming
+
+`GitHubIssueBranchNaming` provides shared helpers:
+
+- `suggestedIssueBranchName(issueNumber, title)` — `{number}-{slugified-title}` with a 60-character slug cap.
+- `matchingIssueBranches(issueNumber, branchNames)` — local or remote names equal to the issue number or starting with `{number}-`.
+- `resolveIssueBranchName(...)` — prefers GitHub-linked branches, then repository branch matches.
+
+`RepositoryPanel` uses these helpers to decide whether the issues context menu shows **Create Branch** or **Change Branch**.
+
 ## Repository Mapping
 
 Repository remote URLs should map to GitHub owner/name when possible.
@@ -67,3 +84,5 @@ Supported forms:
 ## Safety
 
 Destructive actions, branch switches with dirty worktrees, pushes, force pushes, rebases, and patch application must use explicit confirmation flows.
+
+Issue branch checkout follows the same Git CLI path as other branch switches. Dirty-worktree protection is delegated to Git command failures surfaced through `StatusService`.

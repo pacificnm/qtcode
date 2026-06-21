@@ -7,6 +7,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonValue>
+#include <QRegularExpression>
 
 namespace qtcode::github {
 
@@ -465,6 +466,167 @@ GitHubRepositoryInfo GhCliClient::viewRepository(
     }
 
     return repositoryInfo;
+}
+
+QStringList parseIssueDevelopListOutput(const QString &output)
+{
+    QStringList branchNames;
+
+    const QStringList lines = output.split(QChar::fromLatin1('\n'), Qt::SkipEmptyParts);
+    branchNames.reserve(lines.size());
+
+    for (const QString &line : lines) {
+        const QString trimmedLine = line.trimmed();
+        if (trimmedLine.isEmpty()) {
+            continue;
+        }
+
+        QString branchName = trimmedLine.section(QRegularExpression(QStringLiteral("\\s+")), 0, 0).trimmed();
+        if (branchName.startsWith(QLatin1Char('"')) && branchName.endsWith(QLatin1Char('"'))) {
+            branchName = branchName.mid(1, branchName.size() - 2);
+        }
+
+        if (!branchName.isEmpty()) {
+            branchNames.append(branchName);
+        }
+    }
+
+    branchNames.removeDuplicates();
+    return branchNames;
+}
+
+GitHubIssueBranchListResult GhCliClient::listIssueLinkedBranches(
+    const QString &owner,
+    const QString &name,
+    int issueNumber) const
+{
+    GitHubIssueBranchListResult result;
+
+    if (!isConfigured()) {
+        result.errorMessage = QStringLiteral("GitHub CLI executable is not configured.");
+        return result;
+    }
+
+    if (owner.isEmpty() || name.isEmpty()) {
+        result.errorMessage = QStringLiteral("GitHub owner and repository name are required.");
+        return result;
+    }
+
+    if (issueNumber <= 0) {
+        result.errorMessage = QStringLiteral("Issue number must be positive.");
+        return result;
+    }
+
+    const shared::ProcessResult processResult = shared::ProcessRunner::run(
+        m_executablePath,
+        {QStringLiteral("issue"),
+         QStringLiteral("develop"),
+         QStringLiteral("--list"),
+         QString::number(issueNumber),
+         QStringLiteral("--repo"),
+         repositorySlug(owner, name)},
+        kGhCommandTimeoutMs);
+
+    if (!processResult.started) {
+        result.errorMessage = QStringLiteral("Failed to start GitHub CLI: %1")
+                                  .arg(processResult.standardError);
+        return result;
+    }
+
+    if (processResult.exitCode != 0) {
+        const QString details =
+            QStringLiteral("%1\n%2").arg(processResult.standardOutput, processResult.standardError).trimmed();
+        result.errorMessage = details.isEmpty()
+            ? QStringLiteral("GitHub CLI issue develop list failed.")
+            : details;
+        qCWarning(qtcodeGithub) << "gh issue develop --list failed for" << repositorySlug(owner, name)
+                                << issueNumber << details;
+        return result;
+    }
+
+    result.branchNames = parseIssueDevelopListOutput(processResult.standardOutput);
+    result.success = true;
+    return result;
+}
+
+GitHubIssueBranchDevelopResult GhCliClient::developIssueBranch(
+    const QString &owner,
+    const QString &name,
+    int issueNumber,
+    const QString &baseBranch,
+    const QString &branchName,
+    bool checkout) const
+{
+    GitHubIssueBranchDevelopResult result;
+
+    if (!isConfigured()) {
+        result.errorMessage = QStringLiteral("GitHub CLI executable is not configured.");
+        return result;
+    }
+
+    if (owner.isEmpty() || name.isEmpty()) {
+        result.errorMessage = QStringLiteral("GitHub owner and repository name are required.");
+        return result;
+    }
+
+    if (issueNumber <= 0) {
+        result.errorMessage = QStringLiteral("Issue number must be positive.");
+        return result;
+    }
+
+    const QString trimmedBaseBranch = baseBranch.trimmed();
+    if (trimmedBaseBranch.isEmpty()) {
+        result.errorMessage = QStringLiteral("Base branch is required.");
+        return result;
+    }
+
+    const QString trimmedBranchName = branchName.trimmed();
+    if (trimmedBranchName.isEmpty()) {
+        result.errorMessage = QStringLiteral("Branch name is required.");
+        return result;
+    }
+
+    QStringList arguments {
+        QStringLiteral("issue"),
+        QStringLiteral("develop"),
+        QString::number(issueNumber),
+        QStringLiteral("--repo"),
+        repositorySlug(owner, name),
+        QStringLiteral("--base"),
+        trimmedBaseBranch,
+        QStringLiteral("--name"),
+        trimmedBranchName};
+
+    if (checkout) {
+        arguments.append(QStringLiteral("--checkout"));
+    }
+
+    const shared::ProcessResult processResult = shared::ProcessRunner::run(
+        m_executablePath,
+        arguments,
+        kGhCommandTimeoutMs);
+
+    result.standardOutput =
+        QStringLiteral("%1\n%2").arg(processResult.standardOutput, processResult.standardError).trimmed();
+    result.branchName = trimmedBranchName;
+
+    if (!processResult.started) {
+        result.errorMessage = QStringLiteral("Failed to start GitHub CLI: %1")
+                                  .arg(processResult.standardError);
+        return result;
+    }
+
+    if (processResult.exitCode != 0) {
+        result.errorMessage = result.standardOutput.isEmpty()
+            ? QStringLiteral("GitHub CLI issue develop failed.")
+            : result.standardOutput;
+        qCWarning(qtcodeGithub) << "gh issue develop failed for" << repositorySlug(owner, name)
+                                << issueNumber << result.errorMessage;
+        return result;
+    }
+
+    result.success = true;
+    return result;
 }
 
 } // namespace qtcode::github

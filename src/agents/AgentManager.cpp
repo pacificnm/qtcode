@@ -19,6 +19,34 @@
 
 namespace qtcode::agents {
 
+namespace {
+
+[[nodiscard]] bool isDuplicateOutputInCurrentTurn(
+    const AgentSession *session,
+    const QString &role,
+    const QString &text)
+{
+    if (session == nullptr || text.isEmpty() || session->status() != AgentSessionStatus::Running) {
+        return false;
+    }
+
+    const QList<AgentMessage> messages = session->messages();
+    for (int index = messages.size() - 1; index >= 0; --index) {
+        const AgentMessage &message = messages.at(index);
+        if (message.role == QStringLiteral("user")) {
+            return false;
+        }
+
+        if (message.role == role && message.content == text) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+} // namespace
+
 AgentManager::AgentManager(storage::StorageService &storageService, QObject *parent)
     : QObject(parent)
     , m_storageService(storageService)
@@ -703,6 +731,10 @@ bool AgentManager::appendOrPersistOutput(
 
     if (!startNewMessage && session->appendRoleOutput(normalizedRole, text)) {
         scheduleMessagePersist(session);
+        return true;
+    }
+
+    if (isDuplicateOutputInCurrentTurn(session, normalizedRole, text)) {
         return true;
     }
 

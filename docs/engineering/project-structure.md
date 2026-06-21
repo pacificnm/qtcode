@@ -23,6 +23,8 @@ qtcode/
         RepositoryPanel.h
         AgentPanel.h
         TerminalPanel.h
+      dialogs/
+        CreateIssueBranchDialog.h
       models/
         RepositoryListModel.h
         GitStatusModel.h
@@ -56,6 +58,7 @@ qtcode/
       GitHubService.h
       GhCliClient.h
       GitHubModels.h
+      GitHubIssueBranchNaming.h
     memory/
       MemoryService.h
       McpClient.h

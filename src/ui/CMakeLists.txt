@@ -12,9 +12,13 @@ qtcode_add_module_library(qtcode_ui STATIC
     dialogs/McpServerDialog.cpp
     dialogs/SettingsDialog.cpp
     dialogs/ChangeRepositoryDialog.cpp
+    dialogs/CreateIssueBranchDialog.cpp
     dialogs/StageChangesDialog.cpp
     widgets/CollapsibleSection.cpp
     panels/TerminalPanel.cpp
+    views/ConversationFormatting.cpp
+    views/ConversationTurns.cpp
+    views/ConversationTurnWidget.cpp
     views/ConversationView.cpp
     views/ContextResultsView.cpp
     views/GitHubDetailView.cpp

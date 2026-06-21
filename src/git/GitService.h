@@ -77,6 +77,22 @@ public:
         const QString &path,
         const QString &gitExecutable,
         const QString &branchName) const;
+    [[nodiscard]] GitOperationResult fetchRemoteBranch(
+        const QString &path,
+        const QString &gitExecutable,
+        const QString &remote,
+        const QString &branchName) const;
+    [[nodiscard]] GitOperationResult checkoutRemoteBranch(
+        const QString &path,
+        const QString &gitExecutable,
+        const QString &branchName,
+        const QString &remote = QStringLiteral("origin")) const;
+    [[nodiscard]] bool listRepositoryBranchReferences(
+        const QString &path,
+        const QString &gitExecutable,
+        QStringList *branchReferences,
+        bool includeRemote = true,
+        QString *errorMessage = nullptr) const;
 };
 
 } // namespace qtcode::git

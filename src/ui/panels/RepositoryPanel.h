@@ -114,6 +114,9 @@ private:
     void showIssuesContextMenu(const QPoint &position);
     void showUnstagedFilesContextMenu(const QPoint &position);
     void attachIssueToContext(int issueNumber);
+    void createIssueBranch(int issueNumber, const QString &issueTitle);
+    void checkoutIssueBranch(const QString &branchName);
+    [[nodiscard]] QString resolveIssueBranchName(int issueNumber) const;
     void stageRelativePaths(const QStringList &relativePaths);
     [[nodiscard]] QStringList selectedRelativePaths(QListWidget *list) const;
 

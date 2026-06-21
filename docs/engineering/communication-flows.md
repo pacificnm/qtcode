@@ -82,6 +82,33 @@ Repository selected
   -> RepositoryPanel displays issues
 ```
 
+## Create GitHub Issue Branch
+
+```text
+User right-clicks issue in RepositoryPanel
+  -> RepositoryPanel::resolveIssueBranchName()
+       GitHubService::listIssueLinkedBranchesForProject (when gh is ready)
+       GitService::listRepositoryBranchReferences
+       GitHubIssueBranchNaming::resolveIssueBranchName
+  -> Menu shows Create Branch when no branch is resolved
+  -> CreateIssueBranchDialog opens with suggested branch name and local base-branch list
+  -> User confirms Create Branch
+  -> GitHubService::developIssueBranchForProject (gh issue develop)
+  -> GitService::fetchRemoteBranch (git fetch origin <branch>)
+  -> Dialog offers Change Branch to check out locally
+  -> RepositoryPanel refreshes git status on checkout
+```
+
+## Checkout GitHub Issue Branch
+
+```text
+User right-clicks issue with an existing branch
+  -> RepositoryPanel shows Change Branch in the issues context menu
+  -> GitService::checkoutRemoteBranch runs asynchronously
+  -> StatusService reports success or error
+  -> RepositoryPanel refreshes git status
+```
+
 ## Open Terminal Tab
 
 ```text

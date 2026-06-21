@@ -357,6 +357,14 @@ void CursorAgentAdapter::emitOutputText(const QString &text, bool startNewMessag
 
     m_receivedAssistantOutput = true;
 
+    if (!startNewMessage) {
+        if (text.startsWith(m_accumulatedAssistantText)) {
+            m_accumulatedAssistantText = text;
+        } else {
+            m_accumulatedAssistantText.append(text);
+        }
+    }
+
     AgentEvent event;
     event.type = AgentEventType::OutputText;
     event.text = text;
@@ -440,6 +448,100 @@ void CursorAgentAdapter::emitAssistantMessageObject(const QJsonObject &messageOb
     emitAssistantStreamText(messageObject.value(QStringLiteral("text")).toString());
 }
 
+QString CursorAgentAdapter::truncateForActivity(const QString &text, int maxLength)
+{
+    const QString trimmed = text.trimmed();
+    if (trimmed.size() <= maxLength) {
+        return trimmed;
+    }
+    return trimmed.left(maxLength - 1) + QStringLiteral("…");
+}
+
+QString CursorAgentAdapter::extractToolCallActivityText(const QJsonObject &eventObject)
+{
+    const QJsonObject toolCall = eventObject.value(QStringLiteral("tool_call")).toObject();
+    for (auto iterator = toolCall.begin(); iterator != toolCall.end(); ++iterator) {
+        const QString toolKey = iterator.key();
+        const QJsonObject payload = iterator.value().toObject();
+        const QJsonObject args = payload.value(QStringLiteral("args")).toObject();
+
+        if (toolKey == QStringLiteral("shellToolCall")) {
+            QString command = args.value(QStringLiteral("command")).toString().trimmed();
+            if (command.isEmpty()) {
+                command = payload.value(QStringLiteral("description")).toString().trimmed();
+            }
+            if (command.isEmpty()) {
+                continue;
+            }
+            return QStringLiteral("Running: %1").arg(truncateForActivity(command));
+        }
+
+        if (toolKey == QStringLiteral("readToolCall")) {
+            const QString path = args.value(QStringLiteral("path")).toString().trimmed();
+            if (!path.isEmpty()) {
+                return QStringLiteral("Read: %1").arg(path);
+            }
+        }
+
+        if (toolKey == QStringLiteral("writeToolCall") || toolKey == QStringLiteral("editToolCall")) {
+            const QString path = args.value(QStringLiteral("path")).toString().trimmed();
+            if (!path.isEmpty()) {
+                const QString verb = toolKey == QStringLiteral("writeToolCall")
+                    ? QStringLiteral("Write")
+                    : QStringLiteral("Edit");
+                return QStringLiteral("%1: %2").arg(verb, path);
+            }
+        }
+
+        if (toolKey == QStringLiteral("deleteToolCall")) {
+            const QString path = args.value(QStringLiteral("path")).toString().trimmed();
+            if (!path.isEmpty()) {
+                return QStringLiteral("Delete: %1").arg(path);
+            }
+        }
+
+        if (toolKey == QStringLiteral("grepToolCall")) {
+            const QString pattern = args.value(QStringLiteral("pattern")).toString().trimmed();
+            if (!pattern.isEmpty()) {
+                return QStringLiteral("Grep: %1").arg(truncateForActivity(pattern, 80));
+            }
+        }
+
+        if (toolKey == QStringLiteral("globToolCall")) {
+            QString pattern = args.value(QStringLiteral("globPattern")).toString().trimmed();
+            if (pattern.isEmpty()) {
+                pattern = args.value(QStringLiteral("pattern")).toString().trimmed();
+            }
+            if (!pattern.isEmpty()) {
+                return QStringLiteral("Glob: %1").arg(truncateForActivity(pattern, 80));
+            }
+        }
+
+        if (toolKey == QStringLiteral("lsToolCall")) {
+            const QString path = args.value(QStringLiteral("path")).toString().trimmed();
+            if (!path.isEmpty()) {
+                return QStringLiteral("List: %1").arg(path);
+            }
+        }
+
+        if (toolKey == QStringLiteral("todoToolCall")) {
+            const QString content = args.value(QStringLiteral("content")).toString().trimmed();
+            if (!content.isEmpty()) {
+                return QStringLiteral("Todo: %1").arg(truncateForActivity(content, 80));
+            }
+        }
+
+        if (toolKey == QStringLiteral("function")) {
+            const QString name = payload.value(QStringLiteral("name")).toString().trimmed();
+            if (!name.isEmpty()) {
+                return QStringLiteral("Tool: %1").arg(name);
+            }
+        }
+    }
+
+    return {};
+}
+
 QString CursorAgentAdapter::extractShellCommand(const QJsonObject &eventObject)
 {
     const QJsonObject toolCall = eventObject.value(QStringLiteral("tool_call")).toObject();
@@ -458,13 +560,12 @@ QString CursorAgentAdapter::extractShellCommand(const QJsonObject &eventObject)
 void CursorAgentAdapter::emitToolCallEvent(const QJsonObject &eventObject)
 {
     const QString subtype = eventObject.value(QStringLiteral("subtype")).toString();
-    const QString command = extractShellCommand(eventObject);
-    if (command.isEmpty()) {
+    const QString activityText = extractToolCallActivityText(eventObject);
+    if (activityText.isEmpty()) {
         return;
     }
 
     if (subtype == QStringLiteral("started")) {
-        const QString activityText = QStringLiteral("Running: %1").arg(command);
         emitActivityText(activityText);
         emitStatusText(activityText);
         return;
@@ -490,11 +591,20 @@ void CursorAgentAdapter::emitNormalizedEvent(const QJsonObject &eventObject)
     }
 
     if (type == QStringLiteral("result") && !m_receivedAssistantOutput) {
-        emitOutputText(eventObject.value(QStringLiteral("result")).toString());
+        emitAssistantStreamText(eventObject.value(QStringLiteral("result")).toString());
         return;
     }
 
     if (type == QStringLiteral("system")) {
+        const QString subtype = eventObject.value(QStringLiteral("subtype")).toString();
+        if (subtype == QStringLiteral("init")) {
+            const QString model = eventObject.value(QStringLiteral("model")).toString().trimmed();
+            if (!model.isEmpty()) {
+                emitStatusText(QStringLiteral("Connected · %1").arg(model));
+                return;
+            }
+        }
+
         emitStatusText(QStringLiteral("Cursor agent connected"));
     }
 }

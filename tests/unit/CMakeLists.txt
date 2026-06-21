@@ -358,6 +358,52 @@ set_tests_properties(conversation_view PROPERTIES
     TIMEOUT 30
 )
 
+qtcode_add_executable(qtcode_conversation_turns_test
+    ui/ConversationTurnsTest.cpp
+)
+
+target_link_libraries(qtcode_conversation_turns_test
+    PRIVATE
+        qtcode_ui
+        Qt6::Test
+        Qt6::Widgets
+        KF6::CoreAddons
+        KF6::I18n
+)
+
+add_test(
+    NAME conversation_turns
+    COMMAND qtcode_conversation_turns_test
+)
+
+set_tests_properties(conversation_turns PROPERTIES
+    LABELS "unit;ui"
+    TIMEOUT 30
+)
+
+qtcode_add_executable(qtcode_conversation_turn_widget_test
+    ui/ConversationTurnWidgetTest.cpp
+)
+
+target_link_libraries(qtcode_conversation_turn_widget_test
+    PRIVATE
+        qtcode_ui
+        Qt6::Test
+        Qt6::Widgets
+        KF6::CoreAddons
+        KF6::I18n
+)
+
+add_test(
+    NAME conversation_turn_widget
+    COMMAND qtcode_conversation_turn_widget_test
+)
+
+set_tests_properties(conversation_turn_widget PROPERTIES
+    LABELS "unit;ui"
+    TIMEOUT 30
+)
+
 qtcode_add_executable(qtcode_git_cli_client_test
     git/GitCliClientTest.cpp
 )
@@ -396,6 +442,26 @@ add_test(
 set_tests_properties(git_service PROPERTIES
     LABELS "unit;git"
     TIMEOUT 60
+)
+
+qtcode_add_executable(qtcode_github_issue_branch_naming_test
+    github/GitHubIssueBranchNamingTest.cpp
+)
+
+target_link_libraries(qtcode_github_issue_branch_naming_test
+    PRIVATE
+        qtcode_github
+        Qt6::Test
+)
+
+add_test(
+    NAME github_issue_branch_naming
+    COMMAND qtcode_github_issue_branch_naming_test
+)
+
+set_tests_properties(github_issue_branch_naming PROPERTIES
+    LABELS "unit;github"
+    TIMEOUT 30
 )
 
 qtcode_add_executable(qtcode_terminal_manager_working_directory_test

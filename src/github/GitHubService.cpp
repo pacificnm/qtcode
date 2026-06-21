@@ -637,6 +637,55 @@ bool GitHubService::persistPullRequestToCache(
         &cacheError);
 }
 
+GitHubIssueBranchListResult GitHubService::listIssueLinkedBranchesForProject(
+    const QString &projectId,
+    int issueNumber) const
+{
+    GitHubIssueBranchListResult result;
+
+    const ResolvedGitHubRepository resolved = resolvePrimaryGitHubRepository(projectId);
+    if (!resolved.success) {
+        result.errorMessage = resolved.errorMessage;
+        return result;
+    }
+
+    if (!m_ghClient.isConfigured()) {
+        result.errorMessage = QStringLiteral("GitHub CLI is not available.");
+        return result;
+    }
+
+    return m_ghClient.listIssueLinkedBranches(resolved.owner, resolved.name, issueNumber);
+}
+
+GitHubIssueBranchDevelopResult GitHubService::developIssueBranchForProject(
+    const QString &projectId,
+    int issueNumber,
+    const QString &baseBranch,
+    const QString &branchName,
+    bool checkout) const
+{
+    GitHubIssueBranchDevelopResult result;
+
+    const ResolvedGitHubRepository resolved = resolvePrimaryGitHubRepository(projectId);
+    if (!resolved.success) {
+        result.errorMessage = resolved.errorMessage;
+        return result;
+    }
+
+    if (!m_ghClient.isConfigured()) {
+        result.errorMessage = QStringLiteral("GitHub CLI is not available.");
+        return result;
+    }
+
+    return m_ghClient.developIssueBranch(
+        resolved.owner,
+        resolved.name,
+        issueNumber,
+        baseBranch,
+        branchName,
+        checkout);
+}
+
 GitHubRepositoryIdentity resolveRemoteUrl(const QString &remoteUrl)
 {
     return parseGitHubRemoteUrl(remoteUrl);

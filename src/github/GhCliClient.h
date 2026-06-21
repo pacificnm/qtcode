@@ -30,6 +30,17 @@ public:
     [[nodiscard]] GitHubRepositoryInfo viewRepository(
         const QString &owner,
         const QString &name) const;
+    [[nodiscard]] GitHubIssueBranchListResult listIssueLinkedBranches(
+        const QString &owner,
+        const QString &name,
+        int issueNumber) const;
+    [[nodiscard]] GitHubIssueBranchDevelopResult developIssueBranch(
+        const QString &owner,
+        const QString &name,
+        int issueNumber,
+        const QString &baseBranch,
+        const QString &branchName,
+        bool checkout = false) const;
 
 private:
     QString m_executablePath;

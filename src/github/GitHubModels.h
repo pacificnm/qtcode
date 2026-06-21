@@ -97,4 +97,19 @@ struct GitHubPullRequestDetailResult
     GitHubPullRequestDetail detail;
 };
 
+struct GitHubIssueBranchListResult
+{
+    bool success = false;
+    QString errorMessage;
+    QStringList branchNames;
+};
+
+struct GitHubIssueBranchDevelopResult
+{
+    bool success = false;
+    QString errorMessage;
+    QString branchName;
+    QString standardOutput;
+};
+
 } // namespace qtcode::github

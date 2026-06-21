@@ -59,6 +59,59 @@ namespace {
     return scriptPath;
 }
 
+[[nodiscard]] QString createFakeCursorResultFirstScript(const QString &directoryPath)
+{
+    const QString scriptPath = QDir(directoryPath).filePath(QStringLiteral("fake_cursor_result_first"));
+    QFile script(scriptPath);
+    if (!script.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        return {};
+    }
+
+    QTextStream stream(&script);
+    stream << "#!/bin/sh\n";
+    stream << "printf '%s\\n' "
+              << "'{\"type\":\"result\",\"subtype\":\"success\",\"result\":\"hello\"}' "
+              << "'{\"type\":\"assistant\",\"message\":{\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"hello\"}]}}' "
+              << "'{\"type\":\"assistant\",\"message\":{\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"hello\"}]}}' "
+              << "'{\"type\":\"result\",\"subtype\":\"success\",\"result\":\"hello\"}'\n";
+    stream << "exit 0\n";
+    script.close();
+
+    if (!QFile::setPermissions(
+            scriptPath,
+            QFile::ExeUser | QFile::ReadUser | QFile::ReadGroup | QFile::ReadOther)) {
+        return {};
+    }
+
+    return scriptPath;
+}
+
+[[nodiscard]] QString createFakeCursorToolCallScript(const QString &directoryPath)
+{
+    const QString scriptPath = QDir(directoryPath).filePath(QStringLiteral("fake_cursor_tools"));
+    QFile script(scriptPath);
+    if (!script.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        return {};
+    }
+
+    QTextStream stream(&script);
+    stream << "#!/bin/sh\n";
+    stream << "printf '%s\\n' "
+              << "'{\"type\":\"tool_call\",\"subtype\":\"started\",\"tool_call\":{\"readToolCall\":{\"args\":{\"path\":\"src/main.cpp\"}}}}' "
+              << "'{\"type\":\"assistant\",\"message\":{\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"done\"}]}}' "
+              << "'{\"type\":\"result\",\"subtype\":\"success\",\"result\":\"done\"}'\n";
+    stream << "exit 0\n";
+    script.close();
+
+    if (!QFile::setPermissions(
+            scriptPath,
+            QFile::ExeUser | QFile::ReadUser | QFile::ReadGroup | QFile::ReadOther)) {
+        return {};
+    }
+
+    return scriptPath;
+}
+
 } // namespace
 
 class CursorAgentAdapterTest final : public QObject
@@ -71,6 +124,8 @@ private slots:
     void missingExecutableFailsValidation();
     void missingExecutableStartRequestMapsError();
     void duplicateAssistantEventsDoNotDuplicateText();
+    void resultBeforeAssistantEventsDoNotDuplicateText();
+    void toolCallStartedEmitsActivityLine();
 };
 
 void CursorAgentAdapterTest::initTestCase()
@@ -160,6 +215,82 @@ void CursorAgentAdapterTest::duplicateAssistantEventsDoNotDuplicateText()
     }
 
     QCOMPARE(combinedOutput, QStringLiteral("hello"));
+}
+
+void CursorAgentAdapterTest::resultBeforeAssistantEventsDoNotDuplicateText()
+{
+    QTemporaryDir tempDir;
+    QVERIFY(tempDir.isValid());
+
+    const QString scriptPath = createFakeCursorResultFirstScript(tempDir.path());
+    QVERIFY(!scriptPath.isEmpty());
+
+    qtcode::agents::CursorAgentAdapter adapter;
+    adapter.setExecutablePath(scriptPath);
+
+    QSignalSpy eventSpy(&adapter, &qtcode::agents::AgentAdapter::eventEmitted);
+    QSignalSpy finishedSpy(&adapter, &qtcode::agents::AgentAdapter::requestFinished);
+
+    qtcode::agents::AgentRequest request;
+    request.prompt = QStringLiteral("Say hello.");
+    request.workingDirectory = tempDir.path();
+
+    QString errorMessage;
+    QVERIFY(adapter.startRequest(request, &errorMessage));
+
+    QTRY_COMPARE_WITH_TIMEOUT(finishedSpy.count(), 1, 5000);
+
+    QString combinedOutput;
+    for (int index = 0; index < eventSpy.count(); ++index) {
+        const auto event = eventSpy.at(index).at(0).value<qtcode::agents::AgentEvent>();
+        if (event.type == qtcode::agents::AgentEventType::OutputText
+            && event.messageRole != QStringLiteral("activity")) {
+            combinedOutput.append(event.text);
+        }
+    }
+
+    QCOMPARE(combinedOutput, QStringLiteral("hello"));
+}
+
+void CursorAgentAdapterTest::toolCallStartedEmitsActivityLine()
+{
+    QTemporaryDir tempDir;
+    QVERIFY(tempDir.isValid());
+
+    const QString scriptPath = createFakeCursorToolCallScript(tempDir.path());
+    QVERIFY(!scriptPath.isEmpty());
+
+    qtcode::agents::CursorAgentAdapter adapter;
+    adapter.setExecutablePath(scriptPath);
+
+    QSignalSpy eventSpy(&adapter, &qtcode::agents::AgentAdapter::eventEmitted);
+    QSignalSpy finishedSpy(&adapter, &qtcode::agents::AgentAdapter::requestFinished);
+
+    qtcode::agents::AgentRequest request;
+    request.prompt = QStringLiteral("Read a file.");
+    request.workingDirectory = tempDir.path();
+
+    QString errorMessage;
+    QVERIFY(adapter.startRequest(request, &errorMessage));
+
+    QTRY_COMPARE_WITH_TIMEOUT(finishedSpy.count(), 1, 5000);
+
+    bool foundActivity = false;
+    for (int index = 0; index < eventSpy.count(); ++index) {
+        const auto event = eventSpy.at(index).at(0).value<qtcode::agents::AgentEvent>();
+        if (event.type != qtcode::agents::AgentEventType::OutputText) {
+            continue;
+        }
+        if (event.messageRole != QStringLiteral("activity")) {
+            continue;
+        }
+        if (event.text == QStringLiteral("Read: src/main.cpp")) {
+            foundActivity = true;
+            break;
+        }
+    }
+
+    QVERIFY2(foundActivity, "Expected read tool call to emit an activity line");
 }
 
 QTEST_MAIN(CursorAgentAdapterTest)
