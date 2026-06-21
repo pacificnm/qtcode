@@ -40,6 +40,7 @@ private:
     void loadCurrentValues();
     void refreshRepositorySection();
     [[nodiscard]] qtcode::settings::AppConfig currentConfig() const;
+    [[nodiscard]] bool saveRepositorySettings(QString *errorMessage) const;
     void setStatusMessage(const QString &message);
 
     qtcode::core::AppConfigService *m_appConfigService = nullptr;
@@ -48,14 +49,11 @@ private:
     QGroupBox *m_repositoryGroupBox = nullptr;
     QCheckBox *m_restoreLastProjectCheckbox = nullptr;
     QCheckBox *m_startMaximizedCheckbox = nullptr;
-    QLineEdit *m_repoHelpPathLineEdit = nullptr;
     QSpinBox *m_leftPanelWidthSpinBox = nullptr;
     QSpinBox *m_rightPanelWidthSpinBox = nullptr;
-    QLabel *m_activeRepositoryLabel = nullptr;
-    QLabel *m_repoHelpOverrideLabel = nullptr;
-    QLabel *m_repoHelpEffectiveLabel = nullptr;
     QLabel *m_noActiveRepositoryLabel = nullptr;
-    QLabel *m_repositoryConfigHintLabel = nullptr;
+    QLabel *m_activeRepositoryLabel = nullptr;
+    QLineEdit *m_repoHelpEntryLineEdit = nullptr;
     QWidget *m_repositoryDetailsWidget = nullptr;
     QDialogButtonBox *m_buttonBox = nullptr;
 };

@@ -208,6 +208,26 @@ set_tests_properties(repo_config_loader PROPERTIES
     TIMEOUT 30
 )
 
+qtcode_add_executable(qtcode_repo_config_writer_test
+    core/RepoConfigWriterTest.cpp
+)
+
+target_link_libraries(qtcode_repo_config_writer_test
+    PRIVATE
+        qtcode_core
+        Qt6::Test
+)
+
+add_test(
+    NAME repo_config_writer
+    COMMAND qtcode_repo_config_writer_test
+)
+
+set_tests_properties(repo_config_writer PROPERTIES
+    LABELS "unit;core;settings"
+    TIMEOUT 30
+)
+
 qtcode_add_executable(qtcode_file_operation_service_test
     core/FileOperationServiceTest.cpp
 )

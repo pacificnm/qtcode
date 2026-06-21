@@ -3,6 +3,7 @@
 #include "core/AppConfigService.h"
 #include "core/ProjectManager.h"
 #include "core/RepoConfigLoader.h"
+#include "core/RepoConfigWriter.h"
 #include "settings/RepoConfig.h"
 #include "shared/Logging.h"
 
@@ -48,17 +49,8 @@ void SettingsDialog::configureLayout()
     auto *globalFormLayout = new QFormLayout(m_globalGroupBox);
     globalFormLayout->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);
 
-    auto *globalDescription = new QLabel(
-        i18n("These settings apply to all repositories and are stored in QTCode's system configuration."),
-        m_globalGroupBox);
-    globalDescription->setWordWrap(true);
-    globalFormLayout->addRow(globalDescription);
-
     m_restoreLastProjectCheckbox = new QCheckBox(i18n("Restore last active project on startup"), m_globalGroupBox);
     m_startMaximizedCheckbox = new QCheckBox(i18n("Start main window maximized"), m_globalGroupBox);
-    m_repoHelpPathLineEdit = new QLineEdit(m_globalGroupBox);
-    m_repoHelpPathLineEdit->setPlaceholderText(
-        QString::fromLatin1(qtcode::settings::kAppConfigDefaultRepoHelpPath));
 
     m_leftPanelWidthSpinBox = new QSpinBox(m_globalGroupBox);
     m_leftPanelWidthSpinBox->setRange(
@@ -76,25 +68,12 @@ void SettingsDialog::configureLayout()
     globalFormLayout->addRow(QString(), m_startMaximizedCheckbox);
     globalFormLayout->addRow(i18n("Left panel width"), m_leftPanelWidthSpinBox);
     globalFormLayout->addRow(i18n("Right panel width"), m_rightPanelWidthSpinBox);
-    globalFormLayout->addRow(i18n("Default repo help entry"), m_repoHelpPathLineEdit);
-
-    auto *defaultHelpHint = new QLabel(
-        i18n("Used when a repository does not define its own help entry in .qtcode/config.yaml."),
-        m_globalGroupBox);
-    defaultHelpHint->setWordWrap(true);
-    globalFormLayout->addRow(QString(), defaultHelpHint);
 
     m_repositoryGroupBox = new QGroupBox(i18n("Repository"), this);
     auto *repositoryLayout = new QVBoxLayout(m_repositoryGroupBox);
 
-    auto *repositoryDescription = new QLabel(
-        i18n("These settings apply only to the active repository and are stored in .qtcode/config.yaml inside the project."),
-        m_repositoryGroupBox);
-    repositoryDescription->setWordWrap(true);
-    repositoryLayout->addWidget(repositoryDescription);
-
     m_noActiveRepositoryLabel = new QLabel(
-        i18n("No active repository. Select or open a project to view repository-specific settings."),
+        i18n("No active repository. Select or open a project to edit repository settings."),
         m_repositoryGroupBox);
     m_noActiveRepositoryLabel->setWordWrap(true);
     repositoryLayout->addWidget(m_noActiveRepositoryLabel);
@@ -107,21 +86,12 @@ void SettingsDialog::configureLayout()
     m_activeRepositoryLabel = new QLabel(repositoryDetailsWidget);
     m_activeRepositoryLabel->setWordWrap(true);
 
-    m_repoHelpOverrideLabel = new QLabel(repositoryDetailsWidget);
-    m_repoHelpOverrideLabel->setWordWrap(true);
-
-    m_repoHelpEffectiveLabel = new QLabel(repositoryDetailsWidget);
-    m_repoHelpEffectiveLabel->setWordWrap(true);
-
-    m_repositoryConfigHintLabel = new QLabel(
-        i18n("Edit .qtcode/config.yaml in the project to change repository settings."),
-        repositoryDetailsWidget);
-    m_repositoryConfigHintLabel->setWordWrap(true);
+    m_repoHelpEntryLineEdit = new QLineEdit(repositoryDetailsWidget);
+    m_repoHelpEntryLineEdit->setPlaceholderText(
+        QString::fromLatin1(qtcode::settings::kAppConfigDefaultRepoHelpPath));
 
     repositoryFormLayout->addRow(i18n("Active repository"), m_activeRepositoryLabel);
-    repositoryFormLayout->addRow(i18n("Help entry override"), m_repoHelpOverrideLabel);
-    repositoryFormLayout->addRow(i18n("Effective help entry"), m_repoHelpEffectiveLabel);
-    repositoryFormLayout->addRow(QString(), m_repositoryConfigHintLabel);
+    repositoryFormLayout->addRow(i18n("Repo help entry"), m_repoHelpEntryLineEdit);
 
     m_repositoryDetailsWidget = repositoryDetailsWidget;
     repositoryLayout->addWidget(repositoryDetailsWidget);
@@ -148,9 +118,6 @@ void SettingsDialog::loadCurrentValues()
     }
     if (m_startMaximizedCheckbox != nullptr) {
         m_startMaximizedCheckbox->setChecked(config.startMaximized);
-    }
-    if (m_repoHelpPathLineEdit != nullptr) {
-        m_repoHelpPathLineEdit->setText(config.repoHelpPath);
     }
     if (m_leftPanelWidthSpinBox != nullptr) {
         m_leftPanelWidthSpinBox->setValue(
@@ -190,32 +157,29 @@ void SettingsDialog::refreshRepositorySection()
                                       : qtcode::settings::AppConfig::defaults();
     const qtcode::settings::RepoConfig repoConfig =
         qtcode::core::RepoConfigLoader::loadFromProjectRoot(activeProject.rootPath);
-    const QString effectiveHelpPath = qtcode::settings::effectiveRepoHelpPath(appConfig, repoConfig);
 
     if (m_activeRepositoryLabel != nullptr) {
         m_activeRepositoryLabel->setText(activeProject.name);
     }
-    if (m_repoHelpOverrideLabel != nullptr) {
-        m_repoHelpOverrideLabel->setText(
-            repoConfig.hasRepoHelpPath()
-                ? repoConfig.repoHelpPath
-                : i18n("None (using global default)"));
-    }
-    if (m_repoHelpEffectiveLabel != nullptr) {
-        m_repoHelpEffectiveLabel->setText(effectiveHelpPath);
+    if (m_repoHelpEntryLineEdit != nullptr) {
+        m_repoHelpEntryLineEdit->setText(
+            repoConfig.hasRepoHelpPath() ? repoConfig.repoHelpPath : QString());
+        m_repoHelpEntryLineEdit->setPlaceholderText(appConfig.repoHelpPath);
     }
 }
 
 qtcode::settings::AppConfig SettingsDialog::currentConfig() const
 {
+    const qtcode::settings::AppConfig existingConfig =
+        m_appConfigService != nullptr ? m_appConfigService->config()
+                                      : qtcode::settings::AppConfig::defaults();
+
     qtcode::settings::AppConfig config;
     config.restoreLastProjectOnStartup =
         m_restoreLastProjectCheckbox != nullptr ? m_restoreLastProjectCheckbox->isChecked() : true;
     config.startMaximized =
         m_startMaximizedCheckbox != nullptr ? m_startMaximizedCheckbox->isChecked() : false;
-    config.repoHelpPath = qtcode::settings::normalizedRepoHelpPath(
-        m_repoHelpPathLineEdit != nullptr ? m_repoHelpPathLineEdit->text()
-                                          : QString::fromLatin1(qtcode::settings::kAppConfigDefaultRepoHelpPath));
+    config.repoHelpPath = existingConfig.repoHelpPath;
     config.leftPanelWidth = qtcode::settings::clampLeftPanelWidth(
         m_leftPanelWidthSpinBox != nullptr ? m_leftPanelWidthSpinBox->value()
                                            : qtcode::settings::kLeftColumnDefaultWidth);
@@ -223,6 +187,26 @@ qtcode::settings::AppConfig SettingsDialog::currentConfig() const
         m_rightPanelWidthSpinBox != nullptr ? m_rightPanelWidthSpinBox->value()
                                             : qtcode::settings::kRightColumnDefaultWidth);
     return config;
+}
+
+bool SettingsDialog::saveRepositorySettings(QString *errorMessage) const
+{
+    if (m_projectManager == nullptr || !m_projectManager->hasActiveProject()) {
+        return true;
+    }
+
+    qtcode::settings::ProjectRecord activeProject;
+    if (!m_projectManager->activeProject(&activeProject)) {
+        return true;
+    }
+
+    const QString repoHelpPath =
+        m_repoHelpEntryLineEdit != nullptr ? m_repoHelpEntryLineEdit->text() : QString();
+
+    return qtcode::core::RepoConfigWriter::saveRepoHelpPath(
+        activeProject.rootPath,
+        repoHelpPath,
+        errorMessage);
 }
 
 void SettingsDialog::setStatusMessage(const QString &message)
@@ -238,8 +222,13 @@ void SettingsDialog::saveSettings()
         return;
     }
 
-    const qtcode::settings::AppConfig config = currentConfig();
     QString errorMessage;
+    if (!saveRepositorySettings(&errorMessage)) {
+        setStatusMessage(errorMessage);
+        return;
+    }
+
+    const qtcode::settings::AppConfig config = currentConfig();
     if (!m_appConfigService->save(config, &errorMessage)) {
         setStatusMessage(errorMessage);
         return;
