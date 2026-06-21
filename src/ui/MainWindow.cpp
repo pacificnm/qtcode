@@ -152,6 +152,20 @@ void MainWindow::configureLayout()
     m_rootHorizontalSplitter->setCollapsible(0, false);
     m_rootHorizontalSplitter->setCollapsible(1, false);
     m_rootHorizontalSplitter->setCollapsible(2, false);
+    connect(
+        m_rootHorizontalSplitter,
+        &QSplitter::splitterMoved,
+        this,
+        [this](int /*pos*/, int /*index*/) {
+            if (m_rootHorizontalSplitter == nullptr || m_rightColumnCollapsed) {
+                return;
+            }
+
+            const QList<int> sizes = m_rootHorizontalSplitter->sizes();
+            if (sizes.size() >= 3 && sizes.at(2) > 120) {
+                m_storedRightColumnWidth = sizes.at(2);
+            }
+        });
 
     if (m_controller != nullptr && m_controller->agentManager() != nullptr) {
         connect(
@@ -572,17 +586,28 @@ void MainWindow::syncRightColumnVisibility()
         return;
     }
 
+    const int leftWidth = sizes.at(0);
+    const int minCenterWidth = m_workspaceTabs != nullptr ? m_workspaceTabs->minimumWidth() : 320;
+    const int splitterWidth = m_rootHorizontalSplitter->width();
+
     if (m_rightColumnCollapsed) {
         if (sizes.at(2) > 0) {
             m_storedRightColumnWidth = sizes.at(2);
+            sizes[1] += sizes.at(2);
+            sizes[2] = 0;
         }
-        sizes[2] = 0;
+        sizes[0] = leftWidth;
         m_rightPanelStack->setVisible(false);
     } else {
-        if (sizes.at(2) < 120) {
-            sizes[2] = m_storedRightColumnWidth > 120 ? m_storedRightColumnWidth : 320;
-        }
         m_rightPanelStack->setVisible(true);
+        if (sizes.at(2) < 120) {
+            const int restoreWidth = m_storedRightColumnWidth > 120 ? m_storedRightColumnWidth : 320;
+            const int availableForRight = qMax(0, splitterWidth - leftWidth - minCenterWidth);
+            const int appliedWidth = qMin(restoreWidth, availableForRight);
+            sizes[0] = leftWidth;
+            sizes[2] = appliedWidth;
+            sizes[1] = qMax(minCenterWidth, splitterWidth - leftWidth - appliedWidth);
+        }
     }
 
     m_rootHorizontalSplitter->setSizes(sizes);
@@ -676,13 +701,17 @@ qtcode::settings::PanelLayoutSettings MainWindow::currentPanelLayout() const
 
     if (m_rootHorizontalSplitter != nullptr) {
         layout.columnSizes = m_rootHorizontalSplitter->sizes();
-        if (layout.columnSizes.size() >= 3 && m_rightColumnCollapsed) {
-            layout.columnSizes[2] = 0;
-        }
-    }
+        if (layout.columnSizes.size() >= 3) {
+            if (m_rightColumnCollapsed) {
+                layout.columnSizes[2] = 0;
+            }
 
-    if (m_rightColumnCollapsed && m_storedRightColumnWidth > 120) {
-        layout.storedRightColumnWidth = m_storedRightColumnWidth;
+            if (m_storedRightColumnWidth > 120) {
+                layout.storedRightColumnWidth = m_storedRightColumnWidth;
+            } else if (!m_rightColumnCollapsed && layout.columnSizes.at(2) > 120) {
+                layout.storedRightColumnWidth = layout.columnSizes.at(2);
+            }
+        }
     }
 
     if (m_mainVerticalSplitter != nullptr) {
