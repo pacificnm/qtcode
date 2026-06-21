@@ -34,6 +34,14 @@ if(NOT KF6I18n_FOUND)
         "On Ubuntu/Debian: sudo apt install libkf6i18n-dev")
 endif()
 
+find_package(KF6XmlGui QUIET)
+if(NOT KF6XmlGui_FOUND)
+    qtcode_report_missing_dependency(
+        "KF6XmlGui"
+        "KDE action collections, menus, and standard help dialogs"
+        "On Ubuntu/Debian: sudo apt install libkf6xmlgui-dev")
+endif()
+
 find_package(PkgConfig QUIET)
 if(NOT PkgConfig_FOUND)
     qtcode_report_missing_dependency(
@@ -86,6 +94,7 @@ target_link_libraries(QtCodeExternalDependencies INTERFACE
     Qt6::Concurrent
     KF6::CoreAddons
     KF6::I18n
+    KF6::XmlGui
     PkgConfig::QTermWidget
     SQLite::SQLite3
     PkgConfig::LibGit2
@@ -96,6 +105,7 @@ message(STATUS "QTCode dependencies:")
 message(STATUS "  Qt6 Core/Widgets ${Qt6Core_VERSION}")
 message(STATUS "  KF6CoreAddons ${KF6CoreAddons_VERSION}")
 message(STATUS "  KF6I18n ${KF6I18n_VERSION}")
+message(STATUS "  KF6XmlGui ${KF6XmlGui_VERSION}")
 message(STATUS "  QTermWidget ${QTermWidget_VERSION}")
 message(STATUS "  SQLite3 ${SQLite3_VERSION}")
 message(STATUS "  libgit2 ${libgit2_VERSION}")

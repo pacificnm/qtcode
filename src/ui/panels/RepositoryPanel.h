@@ -55,6 +55,7 @@ public:
 
 public slots:
     void refreshStatus();
+    void addRepository();
 
 signals:
     void issueContextSelected(const qtcode::github::GitHubIssueDetail &detail);
@@ -62,7 +63,6 @@ signals:
 
 private slots:
     void onRefreshFinished();
-    void addRepository();
     void onRepositorySelected(const QModelIndex &current, const QModelIndex &previous);
     void syncRepositorySelection();
 
