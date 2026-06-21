@@ -10,6 +10,7 @@
 #include "storage/repositories/ContextRetrievalRepository.h"
 
 #include <QDateTime>
+#include <QTimer>
 #include <QUuid>
 
 namespace qtcode::agents {
@@ -25,7 +26,15 @@ AgentManager::AgentManager(storage::StorageService &storageService, QObject *par
     qRegisterMetaType<qtcode::agents::AgentSessionStatus>("qtcode::agents::AgentSessionStatus");
 }
 
-AgentManager::~AgentManager() = default;
+AgentManager::~AgentManager()
+{
+    for (QTimer *timer : std::as_const(m_messagePersistTimers)) {
+        if (timer != nullptr) {
+            timer->stop();
+            delete timer;
+        }
+    }
+}
 
 bool AgentManager::restoreState(QString *errorMessage)
 {
@@ -474,6 +483,7 @@ void AgentManager::onAdapterRequestFinished(
     if (!persistSessionUpdate(activeSession, &persistError)) {
         qCWarning(qtcodeAgents) << "Failed to persist agent session update:" << persistError;
     }
+    flushPendingMessagePersist(activeSession, &persistError);
 
     emit sessionUpdated(activeSession);
 }
@@ -570,32 +580,82 @@ bool AgentManager::persistMessageUpdate(
     return repository.updateMessage(record, errorMessage);
 }
 
-bool AgentManager::appendOrPersistAssistantOutput(
+bool AgentManager::appendOrPersistOutput(
     AgentSession *session,
     const QString &text,
+    const QString &role,
+    bool startNewMessage,
     QString *errorMessage)
 {
     if (session == nullptr || text.isEmpty()) {
         return false;
     }
 
-    if (session->appendAssistantOutput(text)) {
-        const QList<AgentMessage> messages = session->messages();
-        for (int index = messages.size() - 1; index >= 0; --index) {
-            if (messages.at(index).role == QStringLiteral("assistant")) {
-                return persistMessageUpdate(session, messages.at(index), errorMessage);
-            }
-        }
-        return false;
+    const QString normalizedRole =
+        role.trimmed().isEmpty() ? QStringLiteral("assistant") : role.trimmed();
+
+    if (!startNewMessage && session->appendRoleOutput(normalizedRole, text)) {
+        scheduleMessagePersist(session);
+        return true;
     }
 
-    AgentMessage assistantMessage;
-    assistantMessage.id = createId();
-    assistantMessage.role = QStringLiteral("assistant");
-    assistantMessage.content = text;
-    assistantMessage.createdAt = QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs);
-    session->addMessage(assistantMessage);
-    return persistMessage(session, assistantMessage, errorMessage);
+    AgentMessage outputMessage;
+    outputMessage.id = createId();
+    outputMessage.role = normalizedRole;
+    outputMessage.content = text;
+    outputMessage.createdAt = QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs);
+    session->addMessage(outputMessage);
+    return persistMessage(session, outputMessage, errorMessage);
+}
+
+void AgentManager::scheduleMessagePersist(const AgentSession *session)
+{
+    if (session == nullptr) {
+        return;
+    }
+
+    QTimer *timer = m_messagePersistTimers.value(session->id());
+    if (timer == nullptr) {
+        timer = new QTimer(this);
+        timer->setSingleShot(true);
+        timer->setInterval(250);
+        m_messagePersistTimers.insert(session->id(), timer);
+        connect(timer, &QTimer::timeout, this, [this, sessionId = session->id()]() {
+            AgentSession *activeSession = this->session(sessionId);
+            if (activeSession == nullptr) {
+                return;
+            }
+
+            QString persistError;
+            flushPendingMessagePersist(activeSession, &persistError);
+            if (!persistError.isEmpty()) {
+                qCWarning(qtcodeAgents) << "Failed to persist streamed message:" << persistError;
+            }
+        });
+    }
+
+    timer->start();
+}
+
+void AgentManager::flushPendingMessagePersist(const AgentSession *session, QString *errorMessage)
+{
+    if (session == nullptr) {
+        return;
+    }
+
+    QTimer *timer = m_messagePersistTimers.value(session->id());
+    if (timer != nullptr) {
+        timer->stop();
+    }
+
+    const QList<AgentMessage> messages = session->messages();
+    if (messages.isEmpty()) {
+        return;
+    }
+
+    if (!persistMessageUpdate(session, messages.constLast(), errorMessage)) {
+        return;
+    }
 }
 
 QString AgentManager::createId()
@@ -621,7 +681,12 @@ void AgentManager::connectAdapter(AgentAdapter *adapter)
 
             if (event.type == AgentEventType::OutputText && !event.text.isEmpty()) {
                 QString persistError;
-                if (!appendOrPersistAssistantOutput(activeSession, event.text, &persistError)) {
+                if (!appendOrPersistOutput(
+                        activeSession,
+                        event.text,
+                        event.messageRole,
+                        event.startNewMessage,
+                        &persistError)) {
                     qCWarning(qtcodeAgents) << "Failed to persist assistant output:" << persistError;
                 }
             }

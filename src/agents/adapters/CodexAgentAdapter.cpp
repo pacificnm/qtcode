@@ -130,6 +130,7 @@ bool CodexAgentAdapter::startRequest(const AgentRequest &request, QString *error
     }
 
     m_pendingOutput.clear();
+    m_itemEmittedLengths.clear();
     m_requestInFlight = true;
 
     QStringList arguments;
@@ -270,28 +271,89 @@ void CodexAgentAdapter::emitNormalizedEvent(const QJsonObject &eventObject)
 
     if (type == QStringLiteral("item.completed") || type == QStringLiteral("item.updated")) {
         const QJsonObject item = eventObject.value(QStringLiteral("item")).toObject();
-        if (item.value(QStringLiteral("type")).toString() == QStringLiteral("agent_message")) {
-            const QString text = item.value(QStringLiteral("text")).toString();
-            if (text.isEmpty()) {
-                return;
-            }
+        const QString itemType = item.value(QStringLiteral("type")).toString();
+        if (itemType == QStringLiteral("agent_message")) {
+            emitAgentMessageText(
+                item.value(QStringLiteral("id")).toString(),
+                item.value(QStringLiteral("text")).toString());
+            return;
+        }
 
-            AgentEvent event;
-            event.type = AgentEventType::OutputText;
-            event.text = text;
-            emit eventEmitted(event);
+        if (itemType == QStringLiteral("command_execution") && type == QStringLiteral("item.completed")) {
+            emitCommandExecutionItem(item);
             return;
         }
     }
 
-    if (type == QStringLiteral("thread.started")
-        || type == QStringLiteral("turn.started")
-        || type == QStringLiteral("turn.completed")) {
-        AgentEvent event;
-        event.type = AgentEventType::StatusUpdate;
-        event.text = type;
-        emit eventEmitted(event);
+    if (type == QStringLiteral("thread.started")) {
+        emitStatusText(QStringLiteral("Agent session started…"));
+        return;
     }
+
+    if (type == QStringLiteral("turn.started")) {
+        emitStatusText(QStringLiteral("Thinking…"));
+        return;
+    }
+
+    if (type == QStringLiteral("turn.completed")) {
+        emitStatusText(QStringLiteral("Finishing response…"));
+    }
+}
+
+void CodexAgentAdapter::emitAgentMessageText(const QString &itemId, const QString &fullText)
+{
+    if (fullText.isEmpty()) {
+        return;
+    }
+
+    const int alreadyEmitted = m_itemEmittedLengths.value(itemId);
+    if (fullText.size() <= alreadyEmitted) {
+        return;
+    }
+
+    const QString delta = fullText.mid(alreadyEmitted);
+    m_itemEmittedLengths.insert(itemId, fullText.size());
+
+    AgentEvent event;
+    event.type = AgentEventType::OutputText;
+    event.text = delta;
+    event.startNewMessage = alreadyEmitted == 0;
+    emit eventEmitted(event);
+}
+
+void CodexAgentAdapter::emitCommandExecutionItem(const QJsonObject &item)
+{
+    QString command = item.value(QStringLiteral("command")).toString().trimmed();
+    if (command.isEmpty()) {
+        return;
+    }
+
+    if (command.length() > 120) {
+        command = command.left(117) + QStringLiteral("…");
+    }
+
+    const QString activityText = QStringLiteral("Ran: %1").arg(command);
+
+    AgentEvent activityEvent;
+    activityEvent.type = AgentEventType::OutputText;
+    activityEvent.messageRole = QStringLiteral("activity");
+    activityEvent.startNewMessage = true;
+    activityEvent.text = activityText;
+    emit eventEmitted(activityEvent);
+
+    emitStatusText(QStringLiteral("Running: %1").arg(command));
+}
+
+void CodexAgentAdapter::emitStatusText(const QString &text)
+{
+    if (text.isEmpty()) {
+        return;
+    }
+
+    AgentEvent event;
+    event.type = AgentEventType::StatusUpdate;
+    event.text = text;
+    emit eventEmitted(event);
 }
 
 void CodexAgentAdapter::finishRequest(AgentRequestStatus status, const QString &errorMessage)

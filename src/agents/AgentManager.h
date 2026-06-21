@@ -7,6 +7,7 @@
 #include <QHash>
 #include <QList>
 #include <QString>
+#include <QTimer>
 
 #include <QObject>
 
@@ -119,16 +120,21 @@ private:
         const AgentSession *session,
         const AgentMessage &message,
         QString *errorMessage = nullptr);
-    [[nodiscard]] bool appendOrPersistAssistantOutput(
+    [[nodiscard]] bool appendOrPersistOutput(
         AgentSession *session,
         const QString &text,
+        const QString &role,
+        bool startNewMessage,
         QString *errorMessage = nullptr);
+    void scheduleMessagePersist(const AgentSession *session);
+    void flushPendingMessagePersist(const AgentSession *session, QString *errorMessage = nullptr);
 
     storage::StorageService &m_storageService;
     std::vector<std::unique_ptr<AgentAdapter>> m_adapters;
     std::vector<std::unique_ptr<AgentSession>> m_sessions;
     QHash<QString, AgentAdapter *> m_adaptersByKey;
     QHash<QString, AgentSession *> m_activeSessionByAdapter;
+    QHash<QString, QTimer *> m_messagePersistTimers;
 };
 
 } // namespace qtcode::agents

@@ -97,6 +97,8 @@ struct AgentEvent
     QString text;
     AgentArtifact artifact;
     AgentError error;
+    QString messageRole;
+    bool startNewMessage = false;
 };
 
 [[nodiscard]] QString agentCapabilityLabel(AgentCapability capability);

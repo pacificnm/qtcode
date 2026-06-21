@@ -112,13 +112,15 @@ void AgentSession::clearLastStatusUpdate()
     m_lastStatusUpdate.clear();
 }
 
-bool AgentSession::appendAssistantOutput(const QString &text)
+bool AgentSession::appendRoleOutput(const QString &role, const QString &text)
 {
     if (text.isEmpty() || m_messages.isEmpty()) {
         return false;
     }
 
-    if (m_messages.last().role != QStringLiteral("assistant")) {
+    const QString normalizedRole =
+        role.isEmpty() ? QStringLiteral("assistant") : role.trimmed();
+    if (m_messages.last().role != normalizedRole) {
         return false;
     }
 
