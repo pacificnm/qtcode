@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QElapsedTimer>
+#include <QTimer>
 #include <QWidget>
 
 #include "git/GitCommitSummary.h"
@@ -54,7 +55,7 @@ public:
     ~RepositoryPanel() override;
 
 public slots:
-    void refreshStatus();
+    void refreshStatus(bool showStatusFeedback = true);
     void addRepository();
 
 signals:
@@ -64,12 +65,14 @@ signals:
 private slots:
     void onRefreshFinished();
     void onRepositorySelected(const QModelIndex &current, const QModelIndex &previous);
+    void onActiveProjectChanged();
     void syncRepositorySelection();
+    void onAutoRefreshTimer();
 
 private:
     void configureLayout();
     void startRefresh(const QString &projectId, const QString &repositoryPath);
-    void setRefreshing(bool refreshing);
+    void setRefreshing(bool refreshing, bool showLoadingUi);
     void showEmptyState(const QString &message);
     void showErrorState(const QString &message);
     void applySnapshot(const qtcode::git::RepositoryGitSnapshot &snapshot);
@@ -79,6 +82,7 @@ private:
     void onIssueSelected();
     void onPullRequestSelected();
     void refreshCapabilityState();
+    void updateAutoRefreshTimer();
 
     qtcode::git::GitService *m_gitService = nullptr;
     qtcode::core::ProjectManager *m_projectManager = nullptr;
@@ -96,9 +100,12 @@ private:
     QLabel *m_pullRequestsStateLabel = nullptr;
     QListWidget *m_pullRequestsList = nullptr;
     QFutureWatcher<RepositoryRefreshBundle> *m_refreshWatcher = nullptr;
+    QTimer *m_autoRefreshTimer = nullptr;
     QElapsedTimer m_refreshTimer;
     GitHubDetailView *m_detailView = nullptr;
     QString m_activeProjectId;
+    bool m_showStatusFeedback = true;
+    bool m_hasLoadedSnapshot = false;
 };
 
 } // namespace qtcode::ui

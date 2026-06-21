@@ -16,6 +16,7 @@
 #include <KLocalizedString>
 
 #include <QFileDialog>
+#include <QGuiApplication>
 #include <QLabel>
 #include <QListView>
 #include <QListWidget>
@@ -29,6 +30,8 @@ namespace qtcode::ui {
 
 namespace {
 
+constexpr int kAutoRefreshIntervalMs = 30 * 1000;
+
 qtcode::github::GitHubCacheMetadata cacheMetadataFromListResult(
     bool fromCache,
     bool isStale,
@@ -39,6 +42,102 @@ qtcode::github::GitHubCacheMetadata cacheMetadataFromListResult(
     metadata.isStale = isStale;
     metadata.fetchedAt = fetchedAt;
     return metadata;
+}
+
+struct NumberedListEntry
+{
+    int number = 0;
+    QString text;
+};
+
+bool stringListWidgetMatches(QListWidget *list, const QStringList &items)
+{
+    if (list == nullptr || list->count() != items.size()) {
+        return false;
+    }
+
+    for (int i = 0; i < items.size(); ++i) {
+        if (list->item(i)->text() != items.at(i)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+void syncStringListWidget(QListWidget *list, const QStringList &items)
+{
+    if (stringListWidgetMatches(list, items)) {
+        return;
+    }
+
+    list->clear();
+    for (const QString &item : items) {
+        list->addItem(item);
+    }
+}
+
+bool numberedListWidgetMatches(QListWidget *list, const QList<NumberedListEntry> &entries)
+{
+    if (list == nullptr || list->count() != entries.size()) {
+        return false;
+    }
+
+    for (int i = 0; i < entries.size(); ++i) {
+        if (list->item(i)->data(Qt::UserRole).toInt() != entries.at(i).number
+            || list->item(i)->text() != entries.at(i).text) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+void syncNumberedListWidget(QListWidget *list, const QList<NumberedListEntry> &entries)
+{
+    if (list == nullptr) {
+        return;
+    }
+
+    const int selectedNumber = list->selectedItems().isEmpty()
+        ? -1
+        : list->selectedItems().first()->data(Qt::UserRole).toInt();
+
+    if (numberedListWidgetMatches(list, entries)) {
+        return;
+    }
+
+    list->clear();
+    for (const NumberedListEntry &entry : entries) {
+        auto *item = new QListWidgetItem(entry.text);
+        item->setData(Qt::UserRole, entry.number);
+        list->addItem(item);
+    }
+
+    if (selectedNumber <= 0) {
+        return;
+    }
+
+    for (int i = 0; i < list->count(); ++i) {
+        if (list->item(i)->data(Qt::UserRole).toInt() == selectedNumber) {
+            list->setCurrentRow(i);
+            return;
+        }
+    }
+}
+
+void setLabelTextIfChanged(QLabel *label, const QString &text)
+{
+    if (label != nullptr && label->text() != text) {
+        label->setText(text);
+    }
+}
+
+void setWidgetVisibleIfChanged(QWidget *widget, bool visible)
+{
+    if (widget != nullptr && widget->isVisible() != visible) {
+        widget->setVisible(visible);
+    }
 }
 
 } // namespace
@@ -57,7 +156,11 @@ RepositoryPanel::RepositoryPanel(
     , m_gitHubService(gitHubService)
     , m_statusService(statusService)
     , m_refreshWatcher(new QFutureWatcher<RepositoryRefreshBundle>(this))
+    , m_autoRefreshTimer(new QTimer(this))
 {
+    m_autoRefreshTimer->setInterval(kAutoRefreshIntervalMs);
+    connect(m_autoRefreshTimer, &QTimer::timeout, this, &RepositoryPanel::onAutoRefreshTimer);
+
     configureLayout();
     refreshCapabilityState();
 
@@ -82,7 +185,7 @@ RepositoryPanel::RepositoryPanel(
             m_projectManager,
             &qtcode::core::ProjectManager::activeProjectChanged,
             this,
-            &RepositoryPanel::syncRepositorySelection);
+            &RepositoryPanel::onActiveProjectChanged);
         connect(
             m_projectManager,
             &qtcode::core::ProjectManager::projectsChanged,
@@ -90,6 +193,7 @@ RepositoryPanel::RepositoryPanel(
             &RepositoryPanel::syncRepositorySelection);
 
         syncRepositorySelection();
+        updateAutoRefreshTimer();
     }
 
     connect(m_refreshWatcher, &QFutureWatcher<RepositoryRefreshBundle>::finished, this, &RepositoryPanel::onRefreshFinished);
@@ -101,12 +205,12 @@ RepositoryPanel::RepositoryPanel(
             this,
             [this]() {
                 if (m_projectManager != nullptr && m_projectManager->hasActiveProject()) {
-                    refreshStatus();
+                    refreshStatus(false);
                 }
             });
     }
 
-    QTimer::singleShot(0, this, &RepositoryPanel::refreshStatus);
+    QTimer::singleShot(0, this, [this]() { refreshStatus(true); });
 }
 
 RepositoryPanel::~RepositoryPanel()
@@ -214,11 +318,13 @@ void RepositoryPanel::configureLayout()
     layout->addWidget(m_detailView, 1);
 }
 
-void RepositoryPanel::refreshStatus()
+void RepositoryPanel::refreshStatus(bool showStatusFeedback)
 {
     if (m_refreshWatcher->isRunning()) {
         return;
     }
+
+    m_showStatusFeedback = showStatusFeedback;
 
     if (m_gitService == nullptr || m_projectManager == nullptr) {
         showErrorState(i18n("Repository services are unavailable."));
@@ -227,6 +333,7 @@ void RepositoryPanel::refreshStatus()
 
     if (!m_projectManager->hasActiveProject()) {
         showEmptyState(i18n("Add a local repository to browse branches, changes, and GitHub context."));
+        updateAutoRefreshTimer();
         return;
     }
 
@@ -241,11 +348,17 @@ void RepositoryPanel::refreshStatus()
 
 void RepositoryPanel::startRefresh(const QString &projectId, const QString &repositoryPath)
 {
-    m_projectLabel->setText(i18n("Active project loading…"));
-    setRefreshing(true);
-    m_refreshTimer.start();
+    const bool showLoadingUi = m_showStatusFeedback || !m_hasLoadedSnapshot;
 
-    if (m_statusService != nullptr) {
+    if (showLoadingUi) {
+        m_projectLabel->setText(i18n("Active project loading…"));
+        setRefreshing(true, true);
+    }
+
+    m_refreshTimer.start();
+    m_autoRefreshTimer->stop();
+
+    if (m_showStatusFeedback && m_statusService != nullptr) {
         m_statusService->showProgress(i18n("Refreshing repository status…"));
     }
 
@@ -264,11 +377,12 @@ void RepositoryPanel::startRefresh(const QString &projectId, const QString &repo
 
 void RepositoryPanel::onRefreshFinished()
 {
-    setRefreshing(false);
+    setRefreshing(false, false);
 
     settings::ProjectRecord activeProject;
     if (m_projectManager == nullptr || !m_projectManager->activeProject(&activeProject)) {
         showErrorState(i18n("The active project could not be loaded."));
+        updateAutoRefreshTimer();
         return;
     }
 
@@ -276,14 +390,16 @@ void RepositoryPanel::onRefreshFinished()
     if (!bundle.git.success) {
         qCWarning(qtcodeUi) << "Failed to refresh repository snapshot:" << bundle.git.errorMessage;
         showErrorState(i18n("Could not load repository status: %1", bundle.git.errorMessage));
+        updateAutoRefreshTimer();
         return;
     }
 
     applySnapshot(bundle.git);
     showGitHubIssues(bundle.issues);
     showGitHubPullRequests(bundle.pullRequests);
+    m_hasLoadedSnapshot = true;
     m_activeProjectId = activeProject.id;
-    if (m_detailView != nullptr) {
+    if (m_showStatusFeedback && m_detailView != nullptr) {
         m_detailView->clearDetail();
     }
 
@@ -293,31 +409,36 @@ void RepositoryPanel::onRefreshFinished()
                      << bundle.pullRequests.pullRequests.size() << "pull request(s)"
                      << "in" << m_refreshTimer.elapsed() << "ms";
 
-    if (m_statusService != nullptr) {
+    if (m_showStatusFeedback && m_statusService != nullptr) {
         m_statusService->showMessage(i18n("Repository status refreshed."));
     }
+
+    updateAutoRefreshTimer();
 }
 
-void RepositoryPanel::setRefreshing(bool refreshing)
+void RepositoryPanel::setRefreshing(bool refreshing, bool showLoadingUi)
 {
-    if (refreshing) {
-        m_changedFilesStateLabel->setText(i18n("Loading changed files…"));
-        m_changedFilesStateLabel->show();
-        m_changedFilesList->hide();
-        m_issuesStateLabel->setText(i18n("Loading GitHub issues…"));
-        m_issuesStateLabel->show();
-        m_issuesList->hide();
-        m_pullRequestsStateLabel->setText(i18n("Loading GitHub pull requests…"));
-        m_pullRequestsStateLabel->show();
-        m_pullRequestsList->hide();
+    if (!refreshing || !showLoadingUi) {
+        return;
     }
+
+    setLabelTextIfChanged(m_changedFilesStateLabel, i18n("Loading changed files…"));
+    setWidgetVisibleIfChanged(m_changedFilesStateLabel, true);
+    setWidgetVisibleIfChanged(m_changedFilesList, false);
+    setLabelTextIfChanged(m_issuesStateLabel, i18n("Loading GitHub issues…"));
+    setWidgetVisibleIfChanged(m_issuesStateLabel, true);
+    setWidgetVisibleIfChanged(m_issuesList, false);
+    setLabelTextIfChanged(m_pullRequestsStateLabel, i18n("Loading GitHub pull requests…"));
+    setWidgetVisibleIfChanged(m_pullRequestsStateLabel, true);
+    setWidgetVisibleIfChanged(m_pullRequestsList, false);
 }
 
 void RepositoryPanel::applySnapshot(const qtcode::git::RepositoryGitSnapshot &snapshot)
 {
     settings::ProjectRecord activeProject;
     if (m_projectManager != nullptr && m_projectManager->activeProject(&activeProject)) {
-        m_projectLabel->setText(
+        setLabelTextIfChanged(
+            m_projectLabel,
             i18n("Active project: %1\nBranch: %2", activeProject.name, snapshot.status.branchName));
     }
 
@@ -326,19 +447,24 @@ void RepositoryPanel::applySnapshot(const qtcode::git::RepositoryGitSnapshot &sn
 
 void RepositoryPanel::showEmptyState(const QString &message)
 {
+    m_hasLoadedSnapshot = false;
     m_projectLabel->clear();
-    m_changedFilesStateLabel->setText(message);
-    m_changedFilesStateLabel->show();
+    setLabelTextIfChanged(m_changedFilesStateLabel, message);
+    setWidgetVisibleIfChanged(m_changedFilesStateLabel, true);
     m_changedFilesList->clear();
-    m_changedFilesList->hide();
-    m_issuesStateLabel->setText(i18n("GitHub issues load after a repository is selected."));
-    m_issuesStateLabel->show();
+    setWidgetVisibleIfChanged(m_changedFilesList, false);
+    setLabelTextIfChanged(
+        m_issuesStateLabel,
+        i18n("GitHub issues load after a repository is selected."));
+    setWidgetVisibleIfChanged(m_issuesStateLabel, true);
     m_issuesList->clear();
-    m_issuesList->hide();
-    m_pullRequestsStateLabel->setText(i18n("GitHub pull requests load after a repository is selected."));
-    m_pullRequestsStateLabel->show();
+    setWidgetVisibleIfChanged(m_issuesList, false);
+    setLabelTextIfChanged(
+        m_pullRequestsStateLabel,
+        i18n("GitHub pull requests load after a repository is selected."));
+    setWidgetVisibleIfChanged(m_pullRequestsStateLabel, true);
     m_pullRequestsList->clear();
-    m_pullRequestsList->hide();
+    setWidgetVisibleIfChanged(m_pullRequestsList, false);
     m_activeProjectId.clear();
 }
 
@@ -362,32 +488,39 @@ void RepositoryPanel::showErrorState(const QString &message)
 
 void RepositoryPanel::showChangedFiles(const qtcode::git::GitWorkingTreeStatus &status)
 {
-    m_changedFilesList->clear();
-
     if (status.changedFiles.isEmpty()) {
-        m_changedFilesStateLabel->setText(i18n("No local changes in the working tree."));
-        m_changedFilesStateLabel->show();
-        m_changedFilesList->hide();
-    } else {
-        m_changedFilesStateLabel->hide();
-
-        for (const qtcode::git::ChangedFile &changedFile : status.changedFiles) {
-            m_changedFilesList->addItem(
-                QStringLiteral("%1 — %2").arg(changedFile.path, changedFile.statusLabel));
+        const QString emptyMessage = i18n("No local changes in the working tree.");
+        setLabelTextIfChanged(m_changedFilesStateLabel, emptyMessage);
+        if (m_changedFilesList->isVisible()) {
+            m_changedFilesList->clear();
+            setWidgetVisibleIfChanged(m_changedFilesList, false);
+            setWidgetVisibleIfChanged(m_changedFilesStateLabel, true);
+        } else if (!m_changedFilesStateLabel->isVisible()) {
+            setWidgetVisibleIfChanged(m_changedFilesStateLabel, true);
         }
-
-        m_changedFilesList->show();
+        return;
     }
+
+    QStringList items;
+    items.reserve(status.changedFiles.size());
+    for (const qtcode::git::ChangedFile &changedFile : status.changedFiles) {
+        items.append(QStringLiteral("%1 — %2").arg(changedFile.path, changedFile.statusLabel));
+    }
+
+    syncStringListWidget(m_changedFilesList, items);
+    setWidgetVisibleIfChanged(m_changedFilesStateLabel, false);
+    setWidgetVisibleIfChanged(m_changedFilesList, true);
 }
 
 void RepositoryPanel::showGitHubIssues(const qtcode::github::GitHubIssueListResult &result)
 {
-    m_issuesList->clear();
-
     if (!result.success) {
-        m_issuesStateLabel->setText(result.errorMessage);
-        m_issuesStateLabel->show();
-        m_issuesList->hide();
+        setLabelTextIfChanged(m_issuesStateLabel, result.errorMessage);
+        setWidgetVisibleIfChanged(m_issuesStateLabel, true);
+        if (m_issuesList->isVisible()) {
+            m_issuesList->clear();
+            setWidgetVisibleIfChanged(m_issuesList, false);
+        }
         return;
     }
 
@@ -395,45 +528,52 @@ void RepositoryPanel::showGitHubIssues(const qtcode::github::GitHubIssueListResu
         const QString message = result.fromCache
             ? i18n("No cached GitHub issues are available for this repository.")
             : i18n("No open GitHub issues were returned for this repository.");
-        m_issuesStateLabel->setText(message);
-        m_issuesStateLabel->show();
-        m_issuesList->hide();
+        setLabelTextIfChanged(m_issuesStateLabel, message);
+        setWidgetVisibleIfChanged(m_issuesStateLabel, true);
+        if (m_issuesList->isVisible()) {
+            m_issuesList->clear();
+            setWidgetVisibleIfChanged(m_issuesList, false);
+        }
         return;
     }
 
     if (result.fromCache) {
-        m_issuesStateLabel->setText(
+        setLabelTextIfChanged(
+            m_issuesStateLabel,
             qtcode::github::GitHubCachePolicy::formatStatusLabel(
                 result.fromCache,
                 result.fetchedAt,
                 result.isStale));
-        m_issuesStateLabel->show();
+        setWidgetVisibleIfChanged(m_issuesStateLabel, true);
     } else {
-        m_issuesStateLabel->hide();
+        setWidgetVisibleIfChanged(m_issuesStateLabel, false);
     }
 
+    QList<NumberedListEntry> entries;
+    entries.reserve(result.issues.size());
     for (const qtcode::github::GitHubIssue &issue : result.issues) {
-        auto *item = new QListWidgetItem(
+        entries.append(NumberedListEntry{
+            issue.number,
             i18n("#%1 — %2\n%3, %4",
                  issue.number,
                  issue.title,
                  issue.state,
-                 issue.author));
-        item->setData(Qt::UserRole, issue.number);
-        m_issuesList->addItem(item);
+                 issue.author)});
     }
 
-    m_issuesList->show();
+    syncNumberedListWidget(m_issuesList, entries);
+    setWidgetVisibleIfChanged(m_issuesList, true);
 }
 
 void RepositoryPanel::showGitHubPullRequests(const qtcode::github::GitHubPullRequestListResult &result)
 {
-    m_pullRequestsList->clear();
-
     if (!result.success) {
-        m_pullRequestsStateLabel->setText(result.errorMessage);
-        m_pullRequestsStateLabel->show();
-        m_pullRequestsList->hide();
+        setLabelTextIfChanged(m_pullRequestsStateLabel, result.errorMessage);
+        setWidgetVisibleIfChanged(m_pullRequestsStateLabel, true);
+        if (m_pullRequestsList->isVisible()) {
+            m_pullRequestsList->clear();
+            setWidgetVisibleIfChanged(m_pullRequestsList, false);
+        }
         return;
     }
 
@@ -441,35 +581,41 @@ void RepositoryPanel::showGitHubPullRequests(const qtcode::github::GitHubPullReq
         const QString message = result.fromCache
             ? i18n("No cached GitHub pull requests are available for this repository.")
             : i18n("No open GitHub pull requests were returned for this repository.");
-        m_pullRequestsStateLabel->setText(message);
-        m_pullRequestsStateLabel->show();
-        m_pullRequestsList->hide();
+        setLabelTextIfChanged(m_pullRequestsStateLabel, message);
+        setWidgetVisibleIfChanged(m_pullRequestsStateLabel, true);
+        if (m_pullRequestsList->isVisible()) {
+            m_pullRequestsList->clear();
+            setWidgetVisibleIfChanged(m_pullRequestsList, false);
+        }
         return;
     }
 
     if (result.fromCache) {
-        m_pullRequestsStateLabel->setText(
+        setLabelTextIfChanged(
+            m_pullRequestsStateLabel,
             qtcode::github::GitHubCachePolicy::formatStatusLabel(
                 result.fromCache,
                 result.fetchedAt,
                 result.isStale));
-        m_pullRequestsStateLabel->show();
+        setWidgetVisibleIfChanged(m_pullRequestsStateLabel, true);
     } else {
-        m_pullRequestsStateLabel->hide();
+        setWidgetVisibleIfChanged(m_pullRequestsStateLabel, false);
     }
 
+    QList<NumberedListEntry> entries;
+    entries.reserve(result.pullRequests.size());
     for (const qtcode::github::GitHubPullRequest &pullRequest : result.pullRequests) {
-        auto *item = new QListWidgetItem(
+        entries.append(NumberedListEntry{
+            pullRequest.number,
             i18n("#%1 — %2\n%3, %4",
                  pullRequest.number,
                  pullRequest.title,
                  pullRequest.state,
-                 pullRequest.author));
-        item->setData(Qt::UserRole, pullRequest.number);
-        m_pullRequestsList->addItem(item);
+                 pullRequest.author)});
     }
 
-    m_pullRequestsList->show();
+    syncNumberedListWidget(m_pullRequestsList, entries);
+    setWidgetVisibleIfChanged(m_pullRequestsList, true);
 }
 
 void RepositoryPanel::onPullRequestSelected()
@@ -560,7 +706,52 @@ void RepositoryPanel::addRepository()
         return;
     }
 
-    refreshStatus();
+    refreshStatus(true);
+}
+
+void RepositoryPanel::onActiveProjectChanged()
+{
+    m_hasLoadedSnapshot = false;
+    if (m_detailView != nullptr) {
+        m_detailView->clearDetail();
+    }
+
+    syncRepositorySelection();
+    updateAutoRefreshTimer();
+
+    if (m_projectManager != nullptr && m_projectManager->hasActiveProject()) {
+        refreshStatus(false);
+    }
+}
+
+void RepositoryPanel::onAutoRefreshTimer()
+{
+    if (QGuiApplication::applicationState() != Qt::ApplicationActive) {
+        return;
+    }
+
+    refreshStatus(false);
+}
+
+void RepositoryPanel::updateAutoRefreshTimer()
+{
+    if (m_autoRefreshTimer == nullptr) {
+        return;
+    }
+
+    const bool shouldRun =
+        m_projectManager != nullptr
+        && m_projectManager->hasActiveProject()
+        && !m_refreshWatcher->isRunning();
+
+    if (shouldRun) {
+        if (!m_autoRefreshTimer->isActive()) {
+            m_autoRefreshTimer->start();
+        }
+        return;
+    }
+
+    m_autoRefreshTimer->stop();
 }
 
 void RepositoryPanel::onRepositorySelected(const QModelIndex &current, const QModelIndex &)
@@ -581,7 +772,7 @@ void RepositoryPanel::onRepositorySelected(const QModelIndex &current, const QMo
         return;
     }
 
-    refreshStatus();
+    refreshStatus(true);
 }
 
 void RepositoryPanel::syncRepositorySelection()

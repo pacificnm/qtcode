@@ -151,7 +151,9 @@ void MainWindow::configureLayout()
             m_controller->agentManager(),
             &qtcode::agents::AgentManager::repositoryRefreshRequested,
             m_projectNavigationPanel->repositoryPanel(),
-            &RepositoryPanel::refreshStatus);
+            [panel = m_projectNavigationPanel->repositoryPanel()]() {
+                panel->refreshStatus(false);
+            });
     }
 
     if (m_projectNavigationPanel != nullptr && m_agentPanel != nullptr) {

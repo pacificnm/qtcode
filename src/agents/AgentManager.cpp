@@ -611,6 +611,9 @@ void AgentManager::onAdapterRequestFinished(
     flushPendingMessagePersist(activeSession, &persistError);
 
     emit sessionUpdated(activeSession);
+    if (status == AgentRequestStatus::Succeeded) {
+        emit repositoryRefreshRequested();
+    }
 }
 
 bool AgentManager::persistSessionInsert(const AgentSession *session, QString *errorMessage)

@@ -16,7 +16,6 @@ StatusBar::StatusBar(qtcode::core::StatusService *statusService, QWidget *parent
     , m_statusService(statusService)
 {
     setObjectName(QStringLiteral("GlobalStatusBar"));
-    setAutoFillBackground(true);
 
     auto *layout = new QHBoxLayout(this);
     layout->setContentsMargins(8, 2, 8, 2);
@@ -61,16 +60,18 @@ void StatusBar::onCleared()
 
 void StatusBar::applySeverity(qtcode::core::StatusSeverity severity)
 {
-    QPalette palette = this->palette();
-    palette.setColor(QPalette::Window, palette.color(QPalette::Window).darker(105));
-    palette.setColor(QPalette::WindowText, palette.color(QPalette::Text));
+    if (m_messageLabel == nullptr) {
+        return;
+    }
+
+    QColor textColor = palette().color(QPalette::Text);
 
     switch (severity) {
     case qtcode::core::StatusSeverity::Warning:
-        palette.setColor(QPalette::WindowText, palette.color(QPalette::LinkVisited));
+        textColor = palette().color(QPalette::LinkVisited);
         break;
     case qtcode::core::StatusSeverity::Error:
-        palette.setColor(QPalette::WindowText, palette.color(QPalette::BrightText));
+        textColor = palette().color(QPalette::BrightText);
         break;
     case qtcode::core::StatusSeverity::Progress:
     case qtcode::core::StatusSeverity::Info:
@@ -78,10 +79,9 @@ void StatusBar::applySeverity(qtcode::core::StatusSeverity severity)
         break;
     }
 
-    setPalette(palette);
-    if (m_messageLabel != nullptr) {
-        m_messageLabel->setPalette(palette);
-    }
+    QPalette labelPalette = m_messageLabel->palette();
+    labelPalette.setColor(QPalette::WindowText, textColor);
+    m_messageLabel->setPalette(labelPalette);
 }
 
 } // namespace qtcode::ui
