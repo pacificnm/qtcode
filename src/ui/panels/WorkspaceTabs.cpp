@@ -1,13 +1,17 @@
 #include "ui/panels/WorkspaceTabs.h"
 
+#include "core/AppConfigService.h"
 #include "core/ProjectManager.h"
+#include "core/RepoConfigLoader.h"
 #include "core/StatusModels.h"
 #include "core/StatusService.h"
 #include "shared/Logging.h"
 #include "ui/panels/EditorTab.h"
 #include "ui/views/GitHubDetailView.h"
 #include "ui/views/RepoHelpView.h"
+#include "settings/AppConfig.h"
 #include "settings/ProjectModels.h"
+#include "settings/RepoConfig.h"
 
 #include <KLocalizedString>
 
@@ -30,10 +34,12 @@ constexpr int kBinarySampleSize = 8192;
 WorkspaceTabs::WorkspaceTabs(
     qtcode::core::StatusService *statusService,
     qtcode::core::ProjectManager *projectManager,
+    qtcode::core::AppConfigService *appConfigService,
     QWidget *parent)
     : QWidget(parent)
     , m_statusService(statusService)
     , m_projectManager(projectManager)
+    , m_appConfigService(appConfigService)
 {
     configureLayout();
 
@@ -209,8 +215,8 @@ void WorkspaceTabs::requestOpenRepoHelp()
         return;
     }
 
-    const QString docRootPath = repoDocRootForActiveProject();
-    if (docRootPath.isEmpty()) {
+    const QString entryPath = repoHelpEntryPathForActiveProject();
+    if (entryPath.isEmpty()) {
         if (m_statusService != nullptr) {
             m_statusService->showMessage(
                 i18n("Open a project before viewing repository help."),
@@ -225,7 +231,7 @@ void WorkspaceTabs::requestOpenRepoHelp()
         && *existingIndex < m_tabWidget->count()) {
         RepoHelpView *helpView = repoHelpViewAt(*existingIndex);
         if (helpView != nullptr) {
-            helpView->loadDocRoot(docRootPath);
+            helpView->loadHelpEntry(entryPath);
         }
         m_tabWidget->setCurrentIndex(*existingIndex);
         qCInfo(qtcodeUi) << "Focused existing repository help tab";
@@ -234,7 +240,7 @@ void WorkspaceTabs::requestOpenRepoHelp()
 
     auto *helpView = new RepoHelpView(m_statusService, m_tabWidget);
     helpView->setProperty("repoHelpTabKey", tabKey);
-    helpView->loadDocRoot(docRootPath);
+    helpView->loadHelpEntry(entryPath);
 
     const int tabIndex = m_tabWidget->addTab(helpView, i18n("Repo Help"));
     m_repoHelpTabIndices.insert(tabKey, tabIndex);
@@ -734,7 +740,7 @@ QString WorkspaceTabs::repoHelpTabKey() const
     return QStringLiteral("repo-help");
 }
 
-QString WorkspaceTabs::repoDocRootForActiveProject() const
+QString WorkspaceTabs::repoHelpEntryPathForActiveProject() const
 {
     if (m_projectManager == nullptr) {
         return {};
@@ -745,7 +751,16 @@ QString WorkspaceTabs::repoDocRootForActiveProject() const
         return {};
     }
 
-    return QDir(activeProject.rootPath).absoluteFilePath(QStringLiteral("doc"));
+    qtcode::settings::AppConfig appConfig = qtcode::settings::AppConfig::defaults();
+    if (m_appConfigService != nullptr) {
+        appConfig = m_appConfigService->config();
+    }
+
+    const qtcode::settings::RepoConfig repoConfig =
+        qtcode::core::RepoConfigLoader::loadFromProjectRoot(activeProject.rootPath);
+    const QString repoHelpPath = qtcode::settings::effectiveRepoHelpPath(appConfig, repoConfig);
+
+    return QDir(activeProject.rootPath).absoluteFilePath(repoHelpPath);
 }
 
 QString WorkspaceTabs::githubTabKeyForIssue(int number) const

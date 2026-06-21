@@ -9,6 +9,7 @@
 #include <QDialogButtonBox>
 #include <QFormLayout>
 #include <QLabel>
+#include <QLineEdit>
 #include <QMessageBox>
 #include <QPushButton>
 #include <QVBoxLayout>
@@ -34,7 +35,8 @@ void SettingsDialog::configureLayout()
     layout->setSpacing(8);
 
     auto *headerLabel = new QLabel(
-        i18n("These options are stored in QTCode's KDE configuration file and are loaded before SQLite."),
+        i18n("System defaults are stored in QTCode's KDE configuration file and are loaded before SQLite. "
+             "Per-repository overrides can be set in .qtcode/config.yaml inside each project."),
         this);
     headerLabel->setWordWrap(true);
     layout->addWidget(headerLabel);
@@ -44,9 +46,13 @@ void SettingsDialog::configureLayout()
 
     m_restoreLastProjectCheckbox = new QCheckBox(i18n("Restore last active project on startup"), this);
     m_startMaximizedCheckbox = new QCheckBox(i18n("Start main window maximized"), this);
+    m_repoHelpPathLineEdit = new QLineEdit(this);
+    m_repoHelpPathLineEdit->setPlaceholderText(
+        QString::fromLatin1(qtcode::settings::kAppConfigDefaultRepoHelpPath));
 
     formLayout->addRow(QString(), m_restoreLastProjectCheckbox);
     formLayout->addRow(QString(), m_startMaximizedCheckbox);
+    formLayout->addRow(i18n("Default Repo Help Entry"), m_repoHelpPathLineEdit);
 
     m_buttonBox = new QDialogButtonBox(QDialogButtonBox::Save | QDialogButtonBox::Cancel, this);
     m_buttonBox->button(QDialogButtonBox::Save)->setText(i18n("Save"));
@@ -70,6 +76,9 @@ void SettingsDialog::loadCurrentValues()
     if (m_startMaximizedCheckbox != nullptr) {
         m_startMaximizedCheckbox->setChecked(config.startMaximized);
     }
+    if (m_repoHelpPathLineEdit != nullptr) {
+        m_repoHelpPathLineEdit->setText(config.repoHelpPath);
+    }
 }
 
 qtcode::settings::AppConfig SettingsDialog::currentConfig() const
@@ -79,6 +88,9 @@ qtcode::settings::AppConfig SettingsDialog::currentConfig() const
         m_restoreLastProjectCheckbox != nullptr ? m_restoreLastProjectCheckbox->isChecked() : true;
     config.startMaximized =
         m_startMaximizedCheckbox != nullptr ? m_startMaximizedCheckbox->isChecked() : false;
+    config.repoHelpPath = qtcode::settings::normalizedRepoHelpPath(
+        m_repoHelpPathLineEdit != nullptr ? m_repoHelpPathLineEdit->text()
+                                          : QString::fromLatin1(qtcode::settings::kAppConfigDefaultRepoHelpPath));
     return config;
 }
 

@@ -41,6 +41,9 @@ bool AppConfigService::load(QString *errorMessage)
     m_config.startMaximized = group.readEntry(
         QString::fromLatin1(settings::kAppConfigKeyStartMaximized),
         m_config.startMaximized);
+    m_config.repoHelpPath = settings::normalizedRepoHelpPath(group.readEntry(
+        QString::fromLatin1(settings::kAppConfigKeyRepoHelpPath),
+        m_config.repoHelpPath));
 
     qCInfo(qtcodeCore) << "Loaded application config from" << config->name();
     return true;
@@ -55,6 +58,9 @@ bool AppConfigService::save(const settings::AppConfig &config, QString *errorMes
         QString::fromLatin1(settings::kAppConfigKeyRestoreLastProject),
         config.restoreLastProjectOnStartup);
     group.writeEntry(QString::fromLatin1(settings::kAppConfigKeyStartMaximized), config.startMaximized);
+    group.writeEntry(
+        QString::fromLatin1(settings::kAppConfigKeyRepoHelpPath),
+        settings::normalizedRepoHelpPath(config.repoHelpPath));
 
     if (!sharedConfig->sync()) {
         if (errorMessage != nullptr) {

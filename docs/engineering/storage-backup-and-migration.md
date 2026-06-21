@@ -31,9 +31,11 @@ All durable local settings and metadata are stored in `qtcode.db`, including:
 | GitHub cache | cached issue and pull request summaries |
 | MCP servers | configured memory server records |
 
-Most durable local settings live in SQLite, including panel layout and project selection. If you back up `qtcode.db`, you back up the state that matters for day-to-day use.
+Most durable local settings live in SQLite, including panel layout and project selection. If you back up `qtcode.db`, you back up the state that matters for day-to-day shell restore.
 
-QTCode also keeps a small KDE config file for app-level preferences that must load before SQLite opens, such as startup behavior. That file uses the normal KDE INI-style config format and lives beside the rest of the user's KDE application config data.
+QTCode also keeps a small KDE config file for system app preferences that must load before SQLite opens, such as startup behavior and the default repository help entry path. That file uses the normal KDE INI-style config format and lives beside the rest of the user's KDE application config data.
+
+Repository-specific preference overrides live in each project's `.qtcode/config.yaml`. Those files are repo-native and are backed up with the Git repository, not with `qtcode.db` or the KDE config file.
 
 ## Migration Behavior
 
@@ -114,12 +116,13 @@ Restoring an older schema version is safe only if the backup came from the same 
 
 - PostgreSQL/pgvector project memory used by MCP tooling
 - Git working trees or uncommitted repository changes
+- Per-repository `.qtcode/config.yaml` overrides (back up with the repository itself)
 - External CLI authentication state (`gh auth login`, agent CLI credentials)
 - KDE Wallet or OS keychain entries if added in future releases
 
 Back up those systems separately when they matter to your workflow.
 
-If you want a full QTCode profile backup, include the KDE config file as well. It stores startup-time app preferences separately from SQLite.
+If you want a full QTCode profile backup, include the KDE config file as well. It stores system startup preferences separately from SQLite. Repository overrides remain in each project's `.qtcode/config.yaml`.
 
 ## Verification Commands
 

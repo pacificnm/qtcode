@@ -7,6 +7,7 @@
 
 class QCheckBox;
 class QDialogButtonBox;
+class QLineEdit;
 
 namespace qtcode::core {
 class AppConfigService;
@@ -33,6 +34,7 @@ private:
     qtcode::core::AppConfigService *m_appConfigService = nullptr;
     QCheckBox *m_restoreLastProjectCheckbox = nullptr;
     QCheckBox *m_startMaximizedCheckbox = nullptr;
+    QLineEdit *m_repoHelpPathLineEdit = nullptr;
     QDialogButtonBox *m_buttonBox = nullptr;
 };
 

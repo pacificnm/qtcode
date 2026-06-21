@@ -64,7 +64,7 @@ private slots:
 
 void WorkspaceTabsTest::permanentAiChatTabHasNoCloseButton()
 {
-    qtcode::ui::WorkspaceTabs tabs(nullptr, nullptr);
+    qtcode::ui::WorkspaceTabs tabs(nullptr, nullptr, nullptr);
     auto *chatLabel = new QLabel(QStringLiteral("AI Chat"), &tabs);
     tabs.setPermanentAiChatTab(chatLabel);
 
@@ -88,7 +88,7 @@ void WorkspaceTabsTest::openFileAddsEditorTab()
     QVERIFY(file.write("hello") > 0);
     file.close();
 
-    qtcode::ui::WorkspaceTabs tabs(nullptr, nullptr);
+    qtcode::ui::WorkspaceTabs tabs(nullptr, nullptr, nullptr);
     auto *chatLabel = new QLabel(QStringLiteral("AI Chat"), &tabs);
     tabs.setPermanentAiChatTab(chatLabel);
 
@@ -109,7 +109,7 @@ void WorkspaceTabsTest::reopeningSameFileDoesNotDuplicateTab()
     QVERIFY(file.write("hello") > 0);
     file.close();
 
-    qtcode::ui::WorkspaceTabs tabs(nullptr, nullptr);
+    qtcode::ui::WorkspaceTabs tabs(nullptr, nullptr, nullptr);
     auto *chatLabel = new QLabel(QStringLiteral("AI Chat"), &tabs);
     tabs.setPermanentAiChatTab(chatLabel);
 
@@ -130,7 +130,7 @@ void WorkspaceTabsTest::modifiedEditorTabReportsDirtyState()
     QVERIFY(file.write("before") > 0);
     file.close();
 
-    qtcode::ui::WorkspaceTabs tabs(nullptr, nullptr);
+    qtcode::ui::WorkspaceTabs tabs(nullptr, nullptr, nullptr);
     auto *chatLabel = new QLabel(QStringLiteral("AI Chat"), &tabs);
     tabs.setPermanentAiChatTab(chatLabel);
     tabs.requestOpenFile(filePath);
@@ -161,7 +161,7 @@ void WorkspaceTabsTest::saveCurrentEditorTabWritesToDisk()
     QVERIFY(file.write("before") > 0);
     file.close();
 
-    qtcode::ui::WorkspaceTabs tabs(nullptr, nullptr);
+    qtcode::ui::WorkspaceTabs tabs(nullptr, nullptr, nullptr);
     auto *chatLabel = new QLabel(QStringLiteral("AI Chat"), &tabs);
     tabs.setPermanentAiChatTab(chatLabel);
     tabs.requestOpenFile(filePath);
@@ -201,7 +201,7 @@ void WorkspaceTabsTest::unmodifiedEditorTabPromptCloseReturnsDiscard()
 
 void WorkspaceTabsTest::openIssueAddsGitHubTab()
 {
-    qtcode::ui::WorkspaceTabs tabs(nullptr, nullptr);
+    qtcode::ui::WorkspaceTabs tabs(nullptr, nullptr, nullptr);
     auto *chatLabel = new QLabel(QStringLiteral("AI Chat"), &tabs);
     tabs.setPermanentAiChatTab(chatLabel);
 
@@ -220,7 +220,7 @@ void WorkspaceTabsTest::openIssueAddsGitHubTab()
 
 void WorkspaceTabsTest::reopeningSameIssueDoesNotDuplicateTab()
 {
-    qtcode::ui::WorkspaceTabs tabs(nullptr, nullptr);
+    qtcode::ui::WorkspaceTabs tabs(nullptr, nullptr, nullptr);
     auto *chatLabel = new QLabel(QStringLiteral("AI Chat"), &tabs);
     tabs.setPermanentAiChatTab(chatLabel);
 
@@ -236,7 +236,7 @@ void WorkspaceTabsTest::reopeningSameIssueDoesNotDuplicateTab()
 
 void WorkspaceTabsTest::requestOpenRepoHelpWithoutProjectDoesNotAddTab()
 {
-    qtcode::ui::WorkspaceTabs tabs(nullptr, nullptr);
+    qtcode::ui::WorkspaceTabs tabs(nullptr, nullptr, nullptr);
     auto *chatLabel = new QLabel(QStringLiteral("AI Chat"), &tabs);
     tabs.setPermanentAiChatTab(chatLabel);
 

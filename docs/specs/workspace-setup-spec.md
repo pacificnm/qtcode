@@ -46,6 +46,7 @@ Workspace setup is idempotent. Existing files are never overwritten.
 | Path | Purpose |
 | --- | --- |
 | `.qtcode/workspace.yaml` | Repo manifest and scope key |
+| `.qtcode/config.yaml` | Per-repository QTCode settings that override system defaults |
 | `.env.example` | Local env placeholders |
 | `scripts/*` | Bash wrappers for memory tooling |
 | `tools/*.py` | Python MCP/RAG scripts |
@@ -86,8 +87,27 @@ The MCP panel includes a workspace health summary for the active repository:
 
 Health checks are advisory. Missing `.venv` is a warning, not a hard error.
 
+## Repository Config
+
+Prepared repositories may also contain `.qtcode/config.yaml`. This file holds repository-specific QTCode settings that override system defaults from **File > Settings**. It is separate from `workspace.yaml`, which describes memory tooling and scope metadata.
+
+The installer copies `templates/config.yaml.tpl` to `.qtcode/config.yaml` when that file does not already exist. Existing config files are never modified.
+
+Example:
+
+```yaml
+help:
+  entryPath: docs/README.md
+```
+
+The first supported override is the repository help entry — the markdown file opened by **Help > Repo Help**. QTCode also accepts a top-level `repoHelpPath` key with the same meaning.
+
+If no override is present, QTCode uses the system default from the Settings dialog (`doc/index.md` unless changed). See [settings spec](settings-spec.md) for resolution rules and normalization behavior.
+
 ## Related Docs
 
+- [ADR 0012: Split startup configuration from SQLite-backed settings](../adrs/0012-settings-persistence-and-configuration.md)
+- [Settings spec](settings-spec.md)
 - [ADR 0005: Memory through MCP and RAG](../adrs/0005-memory-through-mcp-rag-system.md)
 - [MCP integration](mcp-integration.md)
 - [Toolchain requirements](../toolchain-requirements.md)

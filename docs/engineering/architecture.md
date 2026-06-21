@@ -34,7 +34,8 @@ Primary widgets:
 Application services own workflows and cross-feature coordination.
 
 - `ApplicationController`: startup and feature wiring.
-- `AppConfigService`: startup-time KDE config file for app preferences that must load before SQLite.
+- `AppConfigService`: startup-time KDE config file for system preferences that must load before SQLite.
+- `RepoConfigLoader`: on-demand read of `.qtcode/config.yaml` repository overrides for the active project.
 - `ProjectManager`: active project and repository lifecycle.
 - `AgentManager`: agent discovery, selection, and session orchestration.
 - `ContextManager`: context gathering before agent calls.

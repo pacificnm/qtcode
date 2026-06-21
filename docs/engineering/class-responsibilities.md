@@ -8,7 +8,11 @@ Owns process-level application setup, metadata, localization hooks, and startup 
 
 ### `AppConfigService`
 
-Loads and saves the KDE config file that contains startup-time app preferences before SQLite is opened.
+Loads and saves the KDE config file that contains system startup preferences before SQLite is opened. Current fields include restore-last-project behavior, start-maximized behavior, and the default repository help entry path.
+
+### `RepoConfigLoader`
+
+Reads `.qtcode/config.yaml` from an active project root and returns repository-specific preference overrides. Uses a minimal YAML line parser; missing or unreadable files yield an empty config so callers can fall back to system defaults.
 
 ### `ApplicationController`
 
@@ -16,7 +20,7 @@ Wires services together, loads app config before storage, initializes storage, r
 
 ### `MainWindow`
 
-Owns top-level layout, `KActionCollection`-backed actions, menus, toolbar, dock/panel arrangement, and major navigation state. Menu and toolbar actions delegate workflow behavior to panels and services. The File menu includes a modal Settings dialog that edits KDE config-backed startup preferences. The left column uses `ProjectNavigationPanel` for repository and file-tree views. The main column uses `WorkspaceTabs` for the permanent AI chat tab and file tabs above the terminal splitter.
+Owns top-level layout, `KActionCollection`-backed actions, menus, toolbar, dock/panel arrangement, and major navigation state. Menu and toolbar actions delegate workflow behavior to panels and services. The File menu includes a modal Settings dialog that edits KDE config-backed system startup preferences. The Help menu includes **Repo Help**, which loads the effective repository help entry for the active project. The left column uses `ProjectNavigationPanel` for repository and file-tree views. The main column uses `WorkspaceTabs` for the permanent AI chat tab and file tabs above the terminal splitter.
 
 ### `ProjectNavigationPanel`
 
@@ -32,7 +36,7 @@ Validates paths against the active repository root and performs create, rename, 
 
 ### `WorkspaceTabs`
 
-Owns the main work-area tab widget. Hosts the permanent, non-closable AI chat tab and closable KTextEditor-backed file tabs opened from the folder tree. Handles deduplicated open requests, dirty-tab close prompts, and closing editor tabs on project switch.
+Owns the main work-area tab widget. Hosts the permanent, non-closable AI chat tab and closable KTextEditor-backed file tabs opened from the folder tree. Resolves the effective repository help entry path by merging `AppConfigService` defaults with `.qtcode/config.yaml` overrides through `RepoConfigLoader`. Handles deduplicated open requests, dirty-tab close prompts, and closing editor tabs on project switch.
 
 ### `EditorTab`
 

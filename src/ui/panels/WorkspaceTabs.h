@@ -9,6 +9,7 @@
 class QTabWidget;
 
 namespace qtcode::core {
+class AppConfigService;
 class ProjectManager;
 class StatusService;
 } // namespace qtcode::core
@@ -27,6 +28,7 @@ public:
     explicit WorkspaceTabs(
         qtcode::core::StatusService *statusService,
         qtcode::core::ProjectManager *projectManager,
+        qtcode::core::AppConfigService *appConfigService,
         QWidget *parent = nullptr);
 
     void setPermanentAiChatTab(QWidget *conversationPanel);
@@ -80,7 +82,7 @@ private:
     [[nodiscard]] bool isGitHubTabIndex(int index) const;
     [[nodiscard]] bool isRepoHelpTabIndex(int index) const;
     [[nodiscard]] QString repoHelpTabKey() const;
-    [[nodiscard]] QString repoDocRootForActiveProject() const;
+    [[nodiscard]] QString repoHelpEntryPathForActiveProject() const;
     [[nodiscard]] QString githubTabKeyForIssue(int number) const;
     [[nodiscard]] QString githubTabKeyForPullRequest(int number) const;
     [[nodiscard]] QString githubTabTitle(const QString &prefix, int number, const QString &title) const;
@@ -89,6 +91,7 @@ private:
 
     qtcode::core::StatusService *m_statusService = nullptr;
     qtcode::core::ProjectManager *m_projectManager = nullptr;
+    qtcode::core::AppConfigService *m_appConfigService = nullptr;
     QTabWidget *m_tabWidget = nullptr;
     QHash<QString, int> m_fileTabIndices;
     QHash<QString, int> m_githubTabIndices;

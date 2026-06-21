@@ -19,7 +19,7 @@ public:
         qtcode::core::StatusService *statusService,
         QWidget *parent = nullptr);
 
-    void loadDocRoot(const QString &docRootPath);
+    void loadHelpEntry(const QString &entryFilePath);
     [[nodiscard]] QString docRootPath() const;
     [[nodiscard]] QString currentFilePath() const;
 

@@ -15,12 +15,13 @@ class RepoHelpViewTest final : public QObject
     Q_OBJECT
 
 private slots:
-    void loadDocRootRendersIndexMarkdown();
-    void loadDocRootShowsMissingIndexMessage();
+    void loadHelpEntryRendersMarkdown();
+    void loadHelpEntryShowsMissingFileMessage();
+    void loadHelpEntryUsesReadmeEntryFile();
     void relativeMarkdownLinkNavigatesWithinDocRoot();
 };
 
-void RepoHelpViewTest::loadDocRootRendersIndexMarkdown()
+void RepoHelpViewTest::loadHelpEntryRendersMarkdown()
 {
     QTemporaryDir tempDir;
     QVERIFY(tempDir.isValid());
@@ -34,7 +35,7 @@ void RepoHelpViewTest::loadDocRootRendersIndexMarkdown()
     indexFile.close();
 
     qtcode::ui::RepoHelpView view(nullptr);
-    view.loadDocRoot(docDir.absolutePath());
+    view.loadHelpEntry(docDir.filePath(QStringLiteral("index.md")));
 
     QCOMPARE(view.docRootPath(), docDir.absolutePath());
     QCOMPARE(view.currentFilePath(), docDir.filePath(QStringLiteral("index.md")));
@@ -45,7 +46,7 @@ void RepoHelpViewTest::loadDocRootRendersIndexMarkdown()
     QVERIFY(browser->document()->toPlainText().contains(QStringLiteral("Repo Help")));
 }
 
-void RepoHelpViewTest::loadDocRootShowsMissingIndexMessage()
+void RepoHelpViewTest::loadHelpEntryShowsMissingFileMessage()
 {
     QTemporaryDir tempDir;
     QVERIFY(tempDir.isValid());
@@ -54,12 +55,34 @@ void RepoHelpViewTest::loadDocRootShowsMissingIndexMessage()
     QVERIFY(docDir.mkpath(QStringLiteral(".")));
 
     qtcode::ui::RepoHelpView view(nullptr);
-    view.loadDocRoot(docDir.absolutePath());
+    view.loadHelpEntry(docDir.filePath(QStringLiteral("index.md")));
 
     const auto *browser = view.findChild<QTextBrowser *>();
     QVERIFY(browser != nullptr);
     QVERIFY(browser->toPlainText().contains(QStringLiteral("index.md")));
     QVERIFY(view.currentFilePath().isEmpty());
+}
+
+void RepoHelpViewTest::loadHelpEntryUsesReadmeEntryFile()
+{
+    QTemporaryDir tempDir;
+    QVERIFY(tempDir.isValid());
+
+    QDir docDir(tempDir.path() + QStringLiteral("/docs"));
+    QVERIFY(docDir.mkpath(QStringLiteral(".")));
+
+    QFile readmeFile(docDir.filePath(QStringLiteral("README.md")));
+    QVERIFY(readmeFile.open(QIODevice::WriteOnly | QIODevice::Text));
+    readmeFile.write("# Project Docs\n\nWelcome.\n");
+    readmeFile.close();
+
+    qtcode::ui::RepoHelpView view(nullptr);
+    view.loadHelpEntry(docDir.filePath(QStringLiteral("README.md")));
+
+    QCOMPARE(view.currentFilePath(), docDir.filePath(QStringLiteral("README.md")));
+    const auto *browser = view.findChild<QTextBrowser *>();
+    QVERIFY(browser != nullptr);
+    QVERIFY(browser->document()->toPlainText().contains(QStringLiteral("Project Docs")));
 }
 
 void RepoHelpViewTest::relativeMarkdownLinkNavigatesWithinDocRoot()
@@ -81,7 +104,7 @@ void RepoHelpViewTest::relativeMarkdownLinkNavigatesWithinDocRoot()
     detailsFile.close();
 
     qtcode::ui::RepoHelpView view(nullptr);
-    view.loadDocRoot(docDir.absolutePath());
+    view.loadHelpEntry(docDir.filePath(QStringLiteral("index.md")));
 
     const auto *browser = view.findChild<QTextBrowser *>();
     QVERIFY(browser != nullptr);

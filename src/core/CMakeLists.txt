@@ -6,6 +6,7 @@ qtcode_add_module_library(qtcode_core STATIC
     FileOperationService.cpp
     McpServerService.cpp
     ProjectManager.cpp
+    RepoConfigLoader.cpp
     SettingsService.cpp
     StatusService.cpp
     WorkspaceInstaller.cpp

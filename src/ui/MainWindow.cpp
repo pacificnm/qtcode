@@ -124,6 +124,7 @@ void MainWindow::configureLayout()
     m_workspaceTabs = new WorkspaceTabs(
         m_controller != nullptr ? m_controller->statusService() : nullptr,
         m_controller != nullptr ? m_controller->projectManager() : nullptr,
+        m_controller != nullptr ? m_controller->appConfigService() : nullptr,
         this);
     m_workspaceTabs->setPermanentAiChatTab(m_agentPanel->conversationPanel());
 

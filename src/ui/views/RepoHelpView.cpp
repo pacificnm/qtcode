@@ -37,28 +37,26 @@ void RepoHelpView::configureLayout()
     layout->addWidget(m_browser, 1);
 }
 
-void RepoHelpView::loadDocRoot(const QString &docRootPath)
+void RepoHelpView::loadHelpEntry(const QString &entryFilePath)
 {
-    const QString normalizedRoot = QDir(docRootPath).absolutePath();
-    if (normalizedRoot.isEmpty()) {
-        showMessage(i18n("The active project does not define a documentation folder."));
+    const QString normalizedEntry = QFileInfo(entryFilePath).absoluteFilePath();
+    if (normalizedEntry.isEmpty()) {
+        showMessage(i18n("The active project does not define a repository help entry file."));
         return;
     }
 
-    m_docRootPath = normalizedRoot;
-    const QString indexPath = indexPathForDocRoot(m_docRootPath);
-    if (!QFileInfo(indexPath).isFile()) {
-        showMessage(
-            i18n("No repository help found at %1.", QDir(m_docRootPath).filePath(QStringLiteral("index.md"))));
+    m_docRootPath = QFileInfo(normalizedEntry).absolutePath();
+    if (!QFileInfo(normalizedEntry).isFile()) {
+        showMessage(i18n("No repository help found at %1.", normalizedEntry));
         if (m_statusService != nullptr) {
             m_statusService->showMessage(
-                i18n("Repository help is missing doc/index.md."),
+                i18n("Repository help entry file is missing."),
                 qtcode::core::StatusSeverity::Warning);
         }
         return;
     }
 
-    loadMarkdownFile(indexPath);
+    loadMarkdownFile(normalizedEntry);
 }
 
 QString RepoHelpView::docRootPath() const
