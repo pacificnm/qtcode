@@ -4,6 +4,7 @@ qtcode_add_module_library(qtcode_ui STATIC
     models/RepositoryListModel.cpp
     panels/RepositoryPanel.cpp
     panels/AgentPanel.cpp
+    panels/WorkspaceTabs.cpp
     panels/McpServerPanel.cpp
     panels/TerminalPanel.cpp
     views/ConversationView.cpp

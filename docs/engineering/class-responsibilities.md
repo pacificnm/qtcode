@@ -12,7 +12,11 @@ Wires services together, initializes storage, loads settings, restores last stat
 
 ### `MainWindow`
 
-Owns top-level layout, `KActionCollection`-backed actions, menus, toolbar, dock/panel arrangement, and major navigation state. Menu and toolbar actions delegate workflow behavior to panels and services.
+Owns top-level layout, `KActionCollection`-backed actions, menus, toolbar, dock/panel arrangement, and major navigation state. Menu and toolbar actions delegate workflow behavior to panels and services. The main column uses `WorkspaceTabs` for the permanent AI chat tab and future editor tabs above the terminal splitter.
+
+### `WorkspaceTabs`
+
+Owns the main work-area tab widget. Hosts the permanent, non-closable AI chat tab and will host closable editor tabs in later milestones.
 
 ## Project And Repository Classes
 
