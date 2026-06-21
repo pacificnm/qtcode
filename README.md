@@ -128,6 +128,7 @@ Start here:
 - [ADR 0007: Use QTermWidget for terminal tabs](docs/adrs/0007-qtermwidget-terminal-integration.md)
 - [ADR 0008: Treat KTextEditor as optional preview and review infrastructure](docs/adrs/0008-optional-ktexteditor-preview.md)
 - [ADR 0009: QTCommands must be repo-native](docs/adrs/0009-qtcommands-repo-native.md)
+- [ADR 0010: Use KF6 XmlGui for application actions, menus, and toolbars](docs/adrs/0010-kf6-xmlgui-action-collections.md)
 
 ## Current Status
 

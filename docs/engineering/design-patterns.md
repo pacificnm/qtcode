@@ -65,6 +65,14 @@ Use for user actions:
 - run build
 - attach context
 
+Implementation:
+
+- Define shared actions once in a `KActionCollection` owned by `MainWindow`.
+- Reuse the same `QAction` instances from menus, toolbars, and future command palettes.
+- Connect actions to existing panel slots or services instead of duplicating workflow logic in widgets.
+
+See [ADR 0010: Use KF6 XmlGui for application actions, menus, and toolbars](../adrs/0010-kf6-xmlgui-action-collections.md).
+
 Why:
 
 - Makes actions reusable from menus, shortcuts, buttons, and command palettes.

@@ -58,6 +58,7 @@ sudo apt install \
   qt6-base-dev \
   libkf6coreaddons-dev \
   libkf6i18n-dev \
+  libkf6xmlgui-dev \
   libqtermwidget6-2-dev \
   libutf8proc-dev \
   libsqlite3-dev \
@@ -65,14 +66,16 @@ sudo apt install \
   libpq5
 ```
 
-`scripts/check-toolchain` validates the same dependency set and accepts either pkg-config or CMake config discovery for `KF6I18n`.
+`scripts/check-toolchain` validates the same dependency set and accepts either pkg-config or CMake config discovery for `KF6I18n` and `KF6XmlGui`.
+
+See [ADR 0010: Use KF6 XmlGui for application actions, menus, and toolbars](../adrs/0010-kf6-xmlgui-action-collections.md) for why XmlGui is required.
 
 ### Runtime Dependencies
 
 After installation or when running from `build/src/app/qtcode`, the host still needs compatible runtime libraries for:
 
 - Qt 6 Core, Widgets, Sql, and Concurrent
-- KF6 CoreAddons and I18n
+- KF6 CoreAddons, I18n, and XmlGui
 - QTermWidget 6
 - SQLite 3
 - libgit2

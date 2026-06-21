@@ -45,9 +45,12 @@ Notes:
 - `libqtermwidget6-2-dev` depends on `libutf8proc` through pkg-config. Install
   `libutf8proc-dev` if `qtermwidget6` is reported missing even after the
   QTermWidget package is installed.
-- Some KDE Frameworks 6 packages, including `KF6I18n`, ship CMake config files
+- Some KDE Frameworks 6 packages, including `KF6I18n` and `KF6XmlGui`, ship CMake config files
   instead of pkg-config modules on current Ubuntu releases. `scripts/check-toolchain`
-  accepts either a `KF6I18n.pc` file or `KF6I18nConfig.cmake`.
+  accepts either a `.pc` file or the installed `KF6*Config.cmake` for those modules.
+- `libkf6xmlgui-dev` provides `KActionCollection`, `KStandardAction`, and `KHelpMenu`
+  used by `MainWindow` for menus, toolbars, and the About dialog. See
+  [ADR 0010: Use KF6 XmlGui for application actions, menus, and toolbars](adrs/0010-kf6-xmlgui-action-collections.md).
 
 ## Recommended Compiler Versions
 
@@ -92,7 +95,7 @@ For MVP GitHub workflows, install and authenticate:
   - validates Git, CMake, Ninja/Make, a C++20 compiler, Qt/KDE/QTermWidget
     dependencies, SQLite, libgit2, GitHub CLI, PostgreSQL memory tooling, and
     the project `.venv`
-  - treats `KF6I18n` as present when either pkg-config or the installed CMake
+  - treats `KF6I18n` and `KF6XmlGui` as present when either pkg-config or the installed CMake
     config is available
   - warns instead of failing when the host `libpq` runtime library is not
     visible, because the memory tools can use `psycopg-binary`

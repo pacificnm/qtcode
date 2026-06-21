@@ -12,7 +12,7 @@ Wires services together, initializes storage, loads settings, restores last stat
 
 ### `MainWindow`
 
-Owns top-level layout, actions, menus, dock/panel arrangement, and major navigation state.
+Owns top-level layout, `KActionCollection`-backed actions, menus, toolbar, dock/panel arrangement, and major navigation state. Menu and toolbar actions delegate workflow behavior to panels and services.
 
 ## Project And Repository Classes
 

@@ -13,7 +13,7 @@ The user can launch QTCode and see the repository panel, AI agent panel, and ter
 - CMake project skeleton.
 - KDE application metadata.
 - `MainWindow` with resizable primary panels.
-- Basic action collection and menus.
+- Basic action collection and menus via `KActionCollection` (`KF6::XmlGui`).
 - Empty state views for repositories, agents, and terminals.
 - SQLite database initialization and migrations.
 - Settings service with app-level defaults.

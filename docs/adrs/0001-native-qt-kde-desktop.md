@@ -28,5 +28,5 @@ Tradeoffs:
 
 ## Follow-Ups
 
-- Confirm required KDE Frameworks modules during CMake skeleton work.
+- Confirm required KDE Frameworks modules during CMake skeleton work. CoreAddons, I18n, and XmlGui are now required; see [ADR 0010](0010-kf6-xmlgui-action-collections.md).
 - Keep UI implementation widget-first unless a specific Qt Quick use case appears.
