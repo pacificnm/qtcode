@@ -83,16 +83,10 @@ void installTerminalContextMenu(QTermWidget *widget)
         &QWidget::customContextMenuRequested,
         widget,
         [widget, copyAction, pasteAction, pasteSelectionAction, clearAction](const QPoint &position) {
+            // Refresh at show time: right-click can emit copyAvailable(false) before the menu opens.
+            copyAction->setEnabled(!widget->selectedText().isEmpty());
+
             QMenu menu(widget);
-
-            const QList<QAction *> urlActions = widget->filterActions(position);
-            for (QAction *action : urlActions) {
-                menu.addAction(action);
-            }
-            if (!urlActions.isEmpty()) {
-                menu.addSeparator();
-            }
-
             menu.addAction(copyAction);
             menu.addAction(pasteAction);
             menu.addAction(pasteSelectionAction);
@@ -508,22 +502,6 @@ bool TerminalManager::syncSessionsToActiveProject(
     }
 
     return true;
-}
-
-void TerminalManager::applyWorkingDirectoryToWidget(
-    QWidget *widget,
-    const QString &workingDirectory) const
-{
-    if (widget == nullptr || workingDirectory.trimmed().isEmpty()) {
-        return;
-    }
-
-    auto *terminalWidget = qobject_cast<QTermWidget *>(widget);
-    if (terminalWidget == nullptr) {
-        return;
-    }
-
-    terminalWidget->changeDir(workingDirectory);
 }
 
 bool TerminalManager::restoreTerminal(

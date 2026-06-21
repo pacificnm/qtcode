@@ -73,6 +73,12 @@ MCP server configuration is stored in SQLite:
 
 Secrets should use KDE Wallet where possible.
 
+MCP server secret values are stored in the KDE Wallet folder `QTCode` under keys
+`mcp/<server-id>/<env-var-name>`. The MCP server settings panel lets users enter
+secret values without persisting them in SQLite. When a wallet entry is missing,
+QTCode falls back to `~/.openAi/key` for `OPENAI_API_KEY` and the default local
+PostgreSQL socket URL for `DATABASE_URL`.
+
 ## Failure Modes
 
 - MCP server unavailable.

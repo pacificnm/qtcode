@@ -185,21 +185,16 @@ void AgentPanel::configureLayout()
         m_sendButton->setIcon(sendIcon);
     }
     m_sendButton->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
-    connect(m_sendButton, &QPushButton::clicked, this, &AgentPanel::sendPrompt);
+    connect(m_sendButton, &QPushButton::clicked, this, &AgentPanel::onComposerActionClicked);
 
     auto *composerRowLayout = new QHBoxLayout();
     composerRowLayout->setSpacing(8);
     composerRowLayout->addWidget(m_promptInput, 1);
     composerRowLayout->addWidget(m_sendButton, 0, Qt::AlignBottom);
 
-    m_cancelButton = new QPushButton(i18n("Cancel request"), m_conversationPanel);
-    m_cancelButton->setVisible(false);
-    connect(m_cancelButton, &QPushButton::clicked, this, &AgentPanel::cancelActiveRequest);
-
     conversationLayout->addWidget(titleLabel);
     conversationLayout->addWidget(m_conversationView, 1);
     conversationLayout->addLayout(composerRowLayout);
-    conversationLayout->addWidget(m_cancelButton);
 
     m_contextPanel = new QWidget(this);
     auto *contextLayout = new QVBoxLayout(m_contextPanel);
@@ -579,10 +574,7 @@ void AgentPanel::onSessionListSelectionChanged()
         m_activeSessionId.clear();
         refreshConversation();
         setPromptEnabled(false);
-        if (m_cancelButton != nullptr) {
-            m_cancelButton->setVisible(false);
-            m_cancelButton->setEnabled(false);
-        }
+        refreshComposerControls();
         return;
     }
 
@@ -806,12 +798,8 @@ void AgentPanel::updateSessionStatusDisplay(const qtcode::agents::AgentSession *
 
 void AgentPanel::updateRequestControls(const qtcode::agents::AgentSession *session)
 {
-    const bool running = session != nullptr
-        && session->status() == qtcode::agents::AgentSessionStatus::Running;
-    if (m_cancelButton != nullptr) {
-        m_cancelButton->setVisible(running);
-        m_cancelButton->setEnabled(running);
-    }
+    Q_UNUSED(session);
+    refreshComposerControls();
 }
 
 void AgentPanel::setPromptEnabled(bool enabled)
@@ -820,19 +808,63 @@ void AgentPanel::setPromptEnabled(bool enabled)
     refreshComposerControls();
 }
 
+bool AgentPanel::isActiveRequestRunning() const
+{
+    if (m_agentManager == nullptr || m_activeSessionId.isEmpty()) {
+        return false;
+    }
+
+    const qtcode::agents::AgentSession *session = m_agentManager->session(m_activeSessionId);
+    return session != nullptr
+        && session->status() == qtcode::agents::AgentSessionStatus::Running;
+}
+
+void AgentPanel::onComposerActionClicked()
+{
+    if (isActiveRequestRunning()) {
+        cancelActiveRequest();
+        return;
+    }
+
+    sendPrompt();
+}
+
 void AgentPanel::refreshComposerControls()
 {
+    const bool running = isActiveRequestRunning();
     const bool hasText = m_promptInput != nullptr
         && !m_promptInput->toPlainText().trimmed().isEmpty();
-    const bool inputEnabled = m_promptComposerEnabled && !m_contextRetrievalInFlight;
+    const bool inputEnabled = m_promptComposerEnabled && !m_contextRetrievalInFlight && !running;
     const bool sendEnabled = inputEnabled && hasText;
 
     if (m_promptInput != nullptr) {
         m_promptInput->setEnabled(inputEnabled);
     }
-    if (m_sendButton != nullptr) {
-        m_sendButton->setEnabled(sendEnabled);
+    if (m_sendButton == nullptr) {
+        return;
     }
+
+    if (running) {
+        const QIcon cancelIcon = QIcon::fromTheme(QStringLiteral("process-stop"));
+        if (!cancelIcon.isNull()) {
+            m_sendButton->setIcon(cancelIcon);
+            m_sendButton->setText({});
+        } else {
+            m_sendButton->setIcon(QIcon());
+            m_sendButton->setText(i18n("Cancel"));
+        }
+        m_sendButton->setToolTip(i18n("Cancel request"));
+        m_sendButton->setEnabled(true);
+        return;
+    }
+
+    const QIcon sendIcon = QIcon::fromTheme(QStringLiteral("document-send"));
+    if (!sendIcon.isNull()) {
+        m_sendButton->setIcon(sendIcon);
+    }
+    m_sendButton->setText(i18n("Send"));
+    m_sendButton->setToolTip(i18n("Send prompt"));
+    m_sendButton->setEnabled(sendEnabled);
 }
 
 bool AgentPanel::eventFilter(QObject *watched, QEvent *event)
@@ -841,7 +873,7 @@ bool AgentPanel::eventFilter(QObject *watched, QEvent *event)
         auto *keyEvent = static_cast<QKeyEvent *>(event);
         if ((keyEvent->key() == Qt::Key_Return || keyEvent->key() == Qt::Key_Enter)
             && !(keyEvent->modifiers() & Qt::ShiftModifier)) {
-            if (m_sendButton != nullptr && m_sendButton->isEnabled()) {
+            if (m_sendButton != nullptr && m_sendButton->isEnabled() && !isActiveRequestRunning()) {
                 sendPrompt();
             }
             return true;

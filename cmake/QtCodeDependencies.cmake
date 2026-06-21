@@ -50,6 +50,14 @@ if(NOT KF6TextEditor_FOUND)
         "On Ubuntu/Debian: sudo apt install libkf6texteditor-dev")
 endif()
 
+find_package(KF6Wallet QUIET)
+if(NOT KF6Wallet_FOUND)
+    qtcode_report_missing_dependency(
+        "KF6Wallet"
+        "secure storage for MCP server secrets through KDE Wallet"
+        "On Ubuntu/Debian: sudo apt install libkf6wallet-dev")
+endif()
+
 find_package(PkgConfig QUIET)
 if(NOT PkgConfig_FOUND)
     qtcode_report_missing_dependency(
@@ -104,6 +112,7 @@ target_link_libraries(QtCodeExternalDependencies INTERFACE
     KF6::I18n
     KF6::XmlGui
     KF6::TextEditor
+    KF6::Wallet
     PkgConfig::QTermWidget
     SQLite::SQLite3
     PkgConfig::LibGit2
@@ -116,6 +125,7 @@ message(STATUS "  KF6CoreAddons ${KF6CoreAddons_VERSION}")
 message(STATUS "  KF6I18n ${KF6I18n_VERSION}")
 message(STATUS "  KF6XmlGui ${KF6XmlGui_VERSION}")
 message(STATUS "  KF6TextEditor ${KF6TextEditor_VERSION}")
+message(STATUS "  KF6Wallet ${KF6Wallet_VERSION}")
 message(STATUS "  QTermWidget ${QTermWidget_VERSION}")
 message(STATUS "  SQLite3 ${SQLite3_VERSION}")
 message(STATUS "  libgit2 ${libgit2_VERSION}")

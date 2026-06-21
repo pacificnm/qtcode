@@ -7,7 +7,6 @@
 
 #include <KLocalizedString>
 
-#include <QHash>
 #include <QHBoxLayout>
 #include <QIcon>
 #include <QLabel>
@@ -139,37 +138,12 @@ void TerminalPanel::onActiveProjectChanged(const QString &projectId)
 
     QString errorMessage;
     if (!m_terminalManager->syncSessionsToActiveProject(projectId, &errorMessage)) {
-        qCWarning(qtcodeTerminal) << "Failed to sync terminal working directories:" << errorMessage;
+        qCWarning(qtcodeTerminal) << "Failed to sync terminal session metadata:" << errorMessage;
         return;
     }
-
-    applyWorkingDirectoriesToOpenTabs();
 
     if (m_tabWidget->count() == 0) {
         addTerminalTabForActiveProject();
-    }
-}
-
-void TerminalPanel::applyWorkingDirectoriesToOpenTabs()
-{
-    if (m_terminalManager == nullptr || m_tabWidget == nullptr) {
-        return;
-    }
-
-    QHash<QString, QString> workingDirectoryBySessionId;
-    for (const qtcode::terminal::TerminalSession &session : m_terminalManager->sessions()) {
-        workingDirectoryBySessionId.insert(session.id, session.workingDirectory);
-    }
-
-    for (int index = 0; index < m_tabWidget->count(); ++index) {
-        QWidget *terminalWidget = m_tabWidget->widget(index);
-        const QString sessionId = sessionIdForWidget(terminalWidget);
-        const QString workingDirectory = workingDirectoryBySessionId.value(sessionId);
-        if (workingDirectory.isEmpty()) {
-            continue;
-        }
-
-        m_terminalManager->applyWorkingDirectoryToWidget(terminalWidget, workingDirectory);
     }
 }
 

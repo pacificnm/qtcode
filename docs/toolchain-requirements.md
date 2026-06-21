@@ -33,6 +33,7 @@ sudo apt install \
   libkf6i18n-dev \
   libkf6xmlgui-dev \
   libkf6texteditor-dev \
+  libkf6wallet-dev \
   libqtermwidget6-2-dev \
   libutf8proc-dev \
   libsqlite3-dev \
@@ -55,6 +56,8 @@ Notes:
 - `libkf6texteditor-dev` provides `KTextEditor::Document`, `KTextEditor::View`, and related
   workspace editing APIs. Runtime package: `libkf6texteditor6`. See
   [ADR 0011: Add KTextEditor workspace tabs for focused file editing](adrs/0011-ktexteditor-workspace-tabs.md).
+- `libkf6wallet-dev` provides KDE Wallet access for MCP server secrets such as
+  `OPENAI_API_KEY` and `DATABASE_URL`. Runtime package: `libkf6wallet6` and `kwallet6`.
 
 ## Recommended Compiler Versions
 

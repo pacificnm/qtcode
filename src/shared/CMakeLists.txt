@@ -8,4 +8,5 @@ qtcode_add_module_library(qtcode_shared STATIC
 target_link_libraries(qtcode_shared
     PUBLIC
         Qt6::Core
+        KF6::Wallet
 )

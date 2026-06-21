@@ -44,7 +44,6 @@ private:
     void restoreOrCreateInitialTabs();
     void addTerminalTabFromSession(const qtcode::terminal::TerminalSession &session, bool restored);
     void addTerminalTabForActiveProject();
-    void applyWorkingDirectoriesToOpenTabs();
     [[nodiscard]] QWidget *currentTerminalWidget() const;
     [[nodiscard]] static QString sessionIdForWidget(QWidget *widget);
 

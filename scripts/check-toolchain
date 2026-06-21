@@ -109,6 +109,25 @@ check_kf6_texteditor() {
   fail "missing KF6TextEditor (install libkf6texteditor-dev)"
 }
 
+check_kf6_wallet() {
+  if pkg-config --exists KF6Wallet 2>/dev/null; then
+    ok "pkg-config module KF6Wallet"
+    return
+  fi
+
+  local cmake_config
+  for cmake_config in \
+    /usr/lib/x86_64-linux-gnu/cmake/KF6Wallet/KF6WalletConfig.cmake \
+    /usr/lib/cmake/KF6Wallet/KF6WalletConfig.cmake; do
+    if [[ -f "$cmake_config" ]]; then
+      ok "KF6Wallet (CMake config at $cmake_config)"
+      return
+    fi
+  done
+
+  fail "missing KF6Wallet (install libkf6wallet-dev)"
+}
+
 check_python_module() {
   local module="$1"
   if "$VENV_PYTHON" -c "import $module" >/dev/null 2>&1; then
@@ -173,6 +192,7 @@ if command_exists pkg-config; then
   check_kf6_i18n
   check_kf6_xmlgui
   check_kf6_texteditor
+  check_kf6_wallet
   check_pkg_config_module qtermwidget6
   check_pkg_config_module sqlite3
   check_pkg_config_module libgit2

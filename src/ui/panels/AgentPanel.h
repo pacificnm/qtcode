@@ -60,6 +60,7 @@ private slots:
     void refreshAgentSelector();
     void refreshSessionList();
     void sendPrompt();
+    void onComposerActionClicked();
     void createNewSession();
     void approveSelectedArtifact(const QString &artifactId);
     void rejectSelectedArtifact(const QString &artifactId);
@@ -79,6 +80,7 @@ private:
     void updateRequestControls(const qtcode::agents::AgentSession *session);
     void setPromptEnabled(bool enabled);
     void refreshComposerControls();
+    [[nodiscard]] bool isActiveRequestRunning() const;
     void selectSession(const QString &sessionId);
     [[nodiscard]] QString selectedAgentKey() const;
     [[nodiscard]] static QString sessionListLabel(const qtcode::agents::AgentSession *session);
@@ -108,7 +110,6 @@ private:
     ConversationView *m_conversationView = nullptr;
     QPlainTextEdit *m_promptInput = nullptr;
     QPushButton *m_sendButton = nullptr;
-    QPushButton *m_cancelButton = nullptr;
     DiffReviewView *m_diffReviewView = nullptr;
     QString m_activeSessionId;
     bool m_refreshingSessionList = false;

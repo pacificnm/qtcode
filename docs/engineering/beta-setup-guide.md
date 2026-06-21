@@ -60,6 +60,7 @@ sudo apt install \
   libkf6i18n-dev \
   libkf6xmlgui-dev \
   libkf6texteditor-dev \
+  libkf6wallet-dev \
   libqtermwidget6-2-dev \
   libutf8proc-dev \
   libsqlite3-dev \

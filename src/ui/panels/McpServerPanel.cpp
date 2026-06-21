@@ -14,6 +14,7 @@
 #include <QCheckBox>
 #include <QComboBox>
 #include <QFormLayout>
+#include <QGroupBox>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
@@ -123,6 +124,10 @@ void McpServerPanel::configureLayout()
     m_secretKeysInput->setPlaceholderText(i18n("Environment variable names, one per line"));
     m_secretKeysInput->setMaximumHeight(72);
 
+    m_secretValuesGroup = new QGroupBox(i18n("Secret values"), this);
+    m_secretValuesLayout = new QFormLayout(m_secretValuesGroup);
+    m_secretValuesLayout->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);
+
     m_enabledCheckbox = new QCheckBox(i18n("Enabled"), this);
     m_enabledCheckbox->setChecked(true);
 
@@ -131,12 +136,13 @@ void McpServerPanel::configureLayout()
     formLayout->addRow(i18n("Transport"), m_transportSelector);
     formLayout->addRow(i18n("Arguments"), m_argsInput);
     formLayout->addRow(i18n("Secret env keys"), m_secretKeysInput);
+    formLayout->addRow(m_secretValuesGroup);
     formLayout->addRow(QString(), m_enabledCheckbox);
 
     auto *walletNote = new QLabel(
         shared::SecretStore::isWalletIntegrationAvailable()
-            ? i18n("Secrets are stored in KDE Wallet.")
-            : i18n("KDE Wallet integration is not available yet. Secret keys are tracked for future wallet storage."),
+            ? i18n("Secret values are stored in KDE Wallet. Leave a field blank when editing to keep the existing value.")
+            : i18n("KDE Wallet is unavailable. Secret keys are tracked, but values cannot be stored securely."),
         this);
     walletNote->setWordWrap(true);
     formLayout->addRow(QString(), walletNote);
@@ -164,6 +170,7 @@ void McpServerPanel::configureLayout()
     layout->addLayout(formLayout);
     layout->addLayout(buttonRow);
 
+    connect(m_secretKeysInput, &QPlainTextEdit::textChanged, this, &McpServerPanel::refreshSecretValueInputs);
     connect(m_serverList, &QListWidget::currentRowChanged, this, &McpServerPanel::onServerSelectionChanged);
     connect(m_newButton, &QPushButton::clicked, this, &McpServerPanel::createNewServer);
     connect(m_saveButton, &QPushButton::clicked, this, &McpServerPanel::saveCurrentServer);
@@ -238,6 +245,7 @@ void McpServerPanel::saveCurrentServer()
     }
 
     m_editingServerId = server.id;
+    storeSecretValuesFromForm(server);
     setStatusMessage(i18n("Saved MCP server \"%1\".", server.name));
     refreshServerList();
     if (m_memoryService != nullptr && server.enabled) {
@@ -250,6 +258,17 @@ void McpServerPanel::deleteCurrentServer()
     if (m_mcpServerService == nullptr || m_editingServerId.isEmpty()) {
         setStatusMessage(i18n("Select an MCP server to delete."));
         return;
+    }
+
+    const QList<qtcode::settings::McpServerRecord> servers = m_mcpServerService->servers();
+    const auto match = std::find_if(
+        servers.cbegin(),
+        servers.cend(),
+        [this](const qtcode::settings::McpServerRecord &server) {
+            return server.id == m_editingServerId;
+        });
+    if (match != servers.cend()) {
+        clearSecretValuesFromWallet(*match);
     }
 
     QString errorMessage;
@@ -301,6 +320,7 @@ void McpServerPanel::loadSelectedServerIntoForm()
     setPlainTextLines(m_argsInput, match->args());
     setPlainTextLines(m_secretKeysInput, match->secretEnvKeys());
     m_enabledCheckbox->setChecked(match->enabled);
+    refreshSecretValueInputs();
     refreshHealthDisplay();
 }
 
@@ -453,11 +473,89 @@ void McpServerPanel::clearForm()
     if (m_secretKeysInput != nullptr) {
         m_secretKeysInput->clear();
     }
+    refreshSecretValueInputs();
     if (m_enabledCheckbox != nullptr) {
         m_enabledCheckbox->setChecked(true);
     }
     if (m_healthStateLabel != nullptr) {
         m_healthStateLabel->clear();
+    }
+}
+
+void McpServerPanel::refreshSecretValueInputs()
+{
+    if (m_secretValuesLayout == nullptr || m_secretKeysInput == nullptr) {
+        return;
+    }
+
+    while (QLayoutItem *item = m_secretValuesLayout->takeAt(0)) {
+        if (QWidget *widget = item->widget()) {
+            widget->deleteLater();
+        }
+        delete item;
+    }
+    m_secretValueInputs.clear();
+
+    const QStringList secretKeys = linesFromPlainText(m_secretKeysInput);
+    if (m_secretValuesGroup != nullptr) {
+        m_secretValuesGroup->setVisible(!secretKeys.isEmpty());
+    }
+
+    for (const QString &secretKey : secretKeys) {
+        auto *valueInput = new QLineEdit(m_secretValuesGroup);
+        valueInput->setEchoMode(QLineEdit::Password);
+        if (!m_editingServerId.isEmpty()
+            && shared::SecretStore::hasServerSecret(m_editingServerId, secretKey)) {
+            valueInput->setPlaceholderText(i18n("Stored in KDE Wallet (leave blank to keep)"));
+        } else {
+            valueInput->setPlaceholderText(i18n("Enter secret value"));
+        }
+        m_secretValuesLayout->addRow(secretKey, valueInput);
+        m_secretValueInputs.insert(secretKey, valueInput);
+    }
+}
+
+void McpServerPanel::storeSecretValuesFromForm(const qtcode::settings::McpServerRecord &server)
+{
+    if (!shared::SecretStore::isWalletIntegrationAvailable()) {
+        return;
+    }
+
+    for (auto it = m_secretValueInputs.cbegin(); it != m_secretValueInputs.cend(); ++it) {
+        const QString secretKey = it.key();
+        QLineEdit *valueInput = it.value();
+        if (valueInput == nullptr) {
+            continue;
+        }
+
+        const QString secretValue = valueInput->text();
+        if (secretValue.isEmpty()) {
+            continue;
+        }
+
+        QString errorMessage;
+        if (!shared::SecretStore::storeServerSecret(server.id, secretKey, secretValue, &errorMessage)) {
+            setStatusMessage(errorMessage);
+            qCWarning(qtcodeUi) << "Failed to store MCP secret:" << errorMessage;
+            continue;
+        }
+
+        valueInput->clear();
+        valueInput->setPlaceholderText(i18n("Stored in KDE Wallet (leave blank to keep)"));
+    }
+}
+
+void McpServerPanel::clearSecretValuesFromWallet(const qtcode::settings::McpServerRecord &server)
+{
+    if (!shared::SecretStore::isWalletIntegrationAvailable()) {
+        return;
+    }
+
+    for (const QString &secretKey : server.secretEnvKeys()) {
+        QString errorMessage;
+        if (!shared::SecretStore::deleteServerSecret(server.id, secretKey, &errorMessage)) {
+            qCWarning(qtcodeUi) << "Failed to remove MCP secret from KDE Wallet:" << errorMessage;
+        }
     }
 }
 

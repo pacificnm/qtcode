@@ -11,6 +11,9 @@ public:
         const QString &serverId,
         const QString &secretName);
     [[nodiscard]] static bool isWalletIntegrationAvailable();
+    [[nodiscard]] static bool hasServerSecret(
+        const QString &serverId,
+        const QString &secretName);
 
     [[nodiscard]] static bool storeServerSecret(
         const QString &serverId,
@@ -21,6 +24,10 @@ public:
         const QString &serverId,
         const QString &secretName,
         QString *secretValue,
+        QString *errorMessage = nullptr);
+    [[nodiscard]] static bool deleteServerSecret(
+        const QString &serverId,
+        const QString &secretName,
         QString *errorMessage = nullptr);
 };
 

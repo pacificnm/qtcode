@@ -1,9 +1,12 @@
 #pragma once
 
+#include <QHash>
 #include <QWidget>
 
 #include "memory/McpHealthResult.h"
 
+class QFormLayout;
+class QGroupBox;
 class QCheckBox;
 class QComboBox;
 class QLabel;
@@ -56,6 +59,9 @@ private:
     [[nodiscard]] qtcode::settings::McpServerRecord currentFormRecord() const;
     void setStatusMessage(const QString &message);
     void clearForm();
+    void refreshSecretValueInputs();
+    void storeSecretValuesFromForm(const qtcode::settings::McpServerRecord &server);
+    void clearSecretValuesFromWallet(const qtcode::settings::McpServerRecord &server);
 
     qtcode::core::McpServerService *m_mcpServerService = nullptr;
     qtcode::memory::MemoryService *m_memoryService = nullptr;
@@ -66,6 +72,9 @@ private:
     QComboBox *m_transportSelector = nullptr;
     QPlainTextEdit *m_argsInput = nullptr;
     QPlainTextEdit *m_secretKeysInput = nullptr;
+    QGroupBox *m_secretValuesGroup = nullptr;
+    QFormLayout *m_secretValuesLayout = nullptr;
+    QHash<QString, QLineEdit *> m_secretValueInputs;
     QCheckBox *m_enabledCheckbox = nullptr;
     QPushButton *m_newButton = nullptr;
     QPushButton *m_saveButton = nullptr;

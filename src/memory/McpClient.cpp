@@ -5,6 +5,8 @@
 #include "shared/SecretStore.h"
 
 #include <QDateTime>
+#include <QDir>
+#include <QFile>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -14,6 +16,43 @@
 namespace qtcode::memory {
 
 namespace {
+
+constexpr auto kDefaultDatabaseUrl = "postgresql:///qtcode_memory?host=/var/run/postgresql";
+
+QString loadOpenAiKeyFromFile()
+{
+    const QString keyPath = QStringLiteral("%1/.openAi/key").arg(QDir::homePath());
+    QFile keyFile(keyPath);
+    if (!keyFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        return {};
+    }
+
+    return QString::fromUtf8(keyFile.readAll()).trimmed();
+}
+
+QString resolveSecretEnvValue(
+    const settings::McpServerRecord &server,
+    const QString &secretKey,
+    QString *errorMessage)
+{
+    QString secretValue;
+    if (shared::SecretStore::loadServerSecret(server.id, secretKey, &secretValue, errorMessage)) {
+        return secretValue;
+    }
+
+    if (secretKey == QStringLiteral("OPENAI_API_KEY")) {
+        const QString fileKey = loadOpenAiKeyFromFile();
+        if (!fileKey.isEmpty()) {
+            return fileKey;
+        }
+    }
+
+    if (secretKey == QStringLiteral("DATABASE_URL")) {
+        return QString::fromUtf8(kDefaultDatabaseUrl);
+    }
+
+    return {};
+}
 
 constexpr auto kInitializeRequestId = 1;
 
@@ -73,9 +112,9 @@ QProcessEnvironment buildProcessEnvironment(const settings::McpServerRecord &ser
             continue;
         }
 
-        QString secretValue;
         QString secretError;
-        if (shared::SecretStore::loadServerSecret(server.id, secretKey, &secretValue, &secretError)) {
+        const QString secretValue = resolveSecretEnvValue(server, secretKey, &secretError);
+        if (!secretValue.isEmpty()) {
             environment.insert(secretKey, secretValue);
         } else {
             qCInfo(qtcodeMemory) << "Secret env key not loaded for MCP client:" << secretKey << secretError;
