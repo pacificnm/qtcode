@@ -85,23 +85,28 @@ void MainWindow::configureLayout()
     m_terminalPanel->setMinimumHeight(120);
 
     m_horizontalSplitter = new QSplitter(Qt::Horizontal, this);
-    m_horizontalSplitter->addWidget(m_repositoryPanel);
     m_horizontalSplitter->addWidget(m_agentPanel);
     m_horizontalSplitter->addWidget(m_mcpServerPanel);
-    m_horizontalSplitter->setStretchFactor(0, 1);
-    m_horizontalSplitter->setStretchFactor(1, 2);
-    m_horizontalSplitter->setStretchFactor(2, 1);
+    m_horizontalSplitter->setStretchFactor(0, 2);
+    m_horizontalSplitter->setStretchFactor(1, 1);
     m_horizontalSplitter->setCollapsible(0, false);
     m_horizontalSplitter->setCollapsible(1, false);
-    m_horizontalSplitter->setCollapsible(2, false);
 
-    m_verticalSplitter = new QSplitter(Qt::Vertical, this);
-    m_verticalSplitter->addWidget(m_horizontalSplitter);
-    m_verticalSplitter->addWidget(m_terminalPanel);
-    m_verticalSplitter->setStretchFactor(0, 3);
-    m_verticalSplitter->setStretchFactor(1, 1);
-    m_verticalSplitter->setCollapsible(0, false);
-    m_verticalSplitter->setCollapsible(1, false);
+    m_rightVerticalSplitter = new QSplitter(Qt::Vertical, this);
+    m_rightVerticalSplitter->addWidget(m_horizontalSplitter);
+    m_rightVerticalSplitter->addWidget(m_terminalPanel);
+    m_rightVerticalSplitter->setStretchFactor(0, 3);
+    m_rightVerticalSplitter->setStretchFactor(1, 1);
+    m_rightVerticalSplitter->setCollapsible(0, false);
+    m_rightVerticalSplitter->setCollapsible(1, false);
+
+    m_rootHorizontalSplitter = new QSplitter(Qt::Horizontal, this);
+    m_rootHorizontalSplitter->addWidget(m_repositoryPanel);
+    m_rootHorizontalSplitter->addWidget(m_rightVerticalSplitter);
+    m_rootHorizontalSplitter->setStretchFactor(0, 1);
+    m_rootHorizontalSplitter->setStretchFactor(1, 3);
+    m_rootHorizontalSplitter->setCollapsible(0, false);
+    m_rootHorizontalSplitter->setCollapsible(1, false);
 
     if (m_controller != nullptr && m_controller->agentManager() != nullptr) {
         connect(
@@ -124,7 +129,7 @@ void MainWindow::configureLayout()
             &AgentPanel::attachPullRequestContext);
     }
 
-    setCentralWidget(m_verticalSplitter);
+    setCentralWidget(m_rootHorizontalSplitter);
 
     qCInfo(qtcodeUi) << "Initialized repository, agent, MCP, and terminal panel layout";
 }
@@ -214,16 +219,16 @@ void MainWindow::applyPanelLayout(const qtcode::settings::PanelLayoutSettings &l
 {
     resize(layout.windowWidth, layout.windowHeight);
 
-    if (m_horizontalSplitter != nullptr && layout.horizontalSizes.size() >= 3) {
-        m_horizontalSplitter->setSizes(layout.horizontalSizes);
-    } else if (m_horizontalSplitter != nullptr && layout.horizontalSizes.size() >= 2) {
-        QList<int> sizes = layout.horizontalSizes;
-        sizes.append(320);
-        m_horizontalSplitter->setSizes(sizes);
+    if (m_rootHorizontalSplitter != nullptr && layout.columnSizes.size() >= 2) {
+        m_rootHorizontalSplitter->setSizes(layout.columnSizes);
     }
 
-    if (m_verticalSplitter != nullptr && layout.verticalSizes.size() >= 2) {
-        m_verticalSplitter->setSizes(layout.verticalSizes);
+    if (m_horizontalSplitter != nullptr && layout.horizontalSizes.size() >= 2) {
+        m_horizontalSplitter->setSizes(layout.horizontalSizes);
+    }
+
+    if (m_rightVerticalSplitter != nullptr && layout.verticalSizes.size() >= 2) {
+        m_rightVerticalSplitter->setSizes(layout.verticalSizes);
     }
 }
 
@@ -233,12 +238,16 @@ qtcode::settings::PanelLayoutSettings MainWindow::currentPanelLayout() const
     layout.windowWidth = width();
     layout.windowHeight = height();
 
+    if (m_rootHorizontalSplitter != nullptr) {
+        layout.columnSizes = m_rootHorizontalSplitter->sizes();
+    }
+
     if (m_horizontalSplitter != nullptr) {
         layout.horizontalSizes = m_horizontalSplitter->sizes();
     }
 
-    if (m_verticalSplitter != nullptr) {
-        layout.verticalSizes = m_verticalSplitter->sizes();
+    if (m_rightVerticalSplitter != nullptr) {
+        layout.verticalSizes = m_rightVerticalSplitter->sizes();
     }
 
     return layout;

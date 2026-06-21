@@ -6,17 +6,12 @@ Primary layout:
 
 ```text
 +----------------------+-----------------------------+
-| Repository Panel     | AI Agent Panel              |
-|                      |                             |
-| Local repositories   | Agent selector              |
-| GitHub repositories  | Session list                |
-| Branches/tags        | Conversation                |
-| Changed files        | Context results             |
-| Issues/PRs           | Diff review                 |
+| Repository Panel     | AI Agent Panel | MCP Panel  |
+|                      | (top-right)                 |
+| (full height)        +-----------------------------+
+|                      | Terminal Panel              |
+|                      | (bottom-right only)         |
 +----------------------+-----------------------------+
-| Terminal Panel                                     |
-| Tabs, shell output, build/test/agent commands      |
-+----------------------------------------------------+
 ```
 
 ## Repository Panel
