@@ -80,8 +80,9 @@ Panel layout settings are saved from `MainWindow` during normal shutdown via `Se
 
 That means:
 
-- a clean app exit persists the latest splitter and window sizes
-- killing the process abruptly may leave the previous saved layout in SQLite
+- a clean app exit persists active right panel, right-column collapse, and terminal collapse state
+- splitter sizes and window geometry are **not** persisted; column widths come from the KDE config file on the next launch
+- killing the process abruptly may leave the previous saved collapse/selection state in SQLite
 - backup/restore should be performed while QTCode is not running
 
 ## Backup Procedure

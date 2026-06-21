@@ -9,7 +9,7 @@ namespace qtcode::settings {
 
 inline constexpr auto kPanelLayoutSettingKey = "app.panel_layout";
 
-inline constexpr auto kPanelLayoutSchemaVersion = 6;
+inline constexpr auto kPanelLayoutSchemaVersion = 7;
 
 inline constexpr auto kRightPanelNone = "none";
 inline constexpr auto kRightPanelSessions = "sessions";

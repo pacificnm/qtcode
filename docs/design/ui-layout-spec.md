@@ -71,7 +71,7 @@ Opening behavior:
 - On startup, QTCode restores persisted terminal sessions from SQLite when they exist; otherwise it creates one tab when an active project is already selected.
 - No terminal tab is created before a repository is active unless the user explicitly requests **File > New Terminal Tab** or clicks the panel **+** button.
 - Switching the active repository updates persisted session cwd/title from `.qtcode/config.yaml` (`project.path`, `project.displayName`) and applies the new directory to open tabs without typing a visible `cd` command.
-- Collapse/expand is controlled from the panel header; collapsed height and splitter size persist in SQLite.
+- Collapse/expand is controlled from the panel header; collapsed state and the height to restore on expand persist in SQLite.
 
 User actions:
 
@@ -165,4 +165,25 @@ Although QTCode is desktop-first, the layout should tolerate:
 - vertical resizing
 - hidden/collapsed panels
 
-Panel sizes, active right-panel selection, and right-column visibility should be persisted per user. Default left and right column widths come from the KDE config file (`AppConfigService`) and apply on launch, after **File > Settings** save, and when resetting panel layout; splitter positions and collapse state come from SQLite.
+## Panel Layout Persistence
+
+QTCode separates **configured column widths** from **session collapse state**.
+
+| What | Where it lives | When it applies |
+| --- | --- | --- |
+| Left column width | KDE config (`leftPanelWidth`, default 240) | Launch, **File > Settings** save, **View > Reset Panel Layout** |
+| Right column width | KDE config (`rightPanelWidth`, default 320) | Launch, **File > Settings** save, **View > Reset Panel Layout** |
+| Active right panel | SQLite `app.panel_layout` | Launch and normal shutdown restore |
+| Right column collapsed | SQLite `app.panel_layout` | Launch and normal shutdown restore |
+| Terminal collapsed / restore height | SQLite `app.panel_layout` | Launch and normal shutdown restore |
+| Runtime splitter drags | Not persisted | Session only; next launch uses configured widths |
+
+Implementation rules (do not regress these without an explicit design change):
+
+- Apply configured column widths only at launch, settings save, and reset panel layout.
+- Persist collapse and selection state to SQLite on normal shutdown; do not save splitter sizes or window geometry.
+- Use rubber-band splitter resize (`setOpaqueResize(false)`) on both horizontal and vertical splitters.
+- Collapse the right column only through the activity-bar toggle, not by dragging the splitter to zero.
+- Default the active right panel to **Agent Sessions** on first run and for unknown legacy values.
+
+See [settings spec](../specs/settings-spec.md) for the full persistence model and schema details.

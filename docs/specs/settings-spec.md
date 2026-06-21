@@ -40,8 +40,9 @@ Out of scope for this feature:
 - The user can set default left and right column widths that apply on launch and after **Reset Panel Layout**.
 - Each repository can override the help entry file, default agent, terminal tab title, and terminal working directory in `.qtcode/config.yaml` so documentation paths, agent choice, and shell context differ per project.
 - When a repository has no prior agent selection, the agent selector uses that repository's default agent from `.qtcode/config.yaml`.
-- The user can resize and collapse the main shell panels and have splitter and collapse state restored later.
-- The user can quit and relaunch QTCode without losing their preferred shell layout or agent sessions.
+- The user can collapse the right column and terminal panel and have that collapse state restored later.
+- The user can drag splitters during a session to adjust layout temporarily; column widths reset to the configured defaults on the next launch.
+- The user can quit and relaunch QTCode without losing collapse state, active right-panel selection, or agent sessions.
 
 ## Settings Types
 
@@ -51,7 +52,7 @@ QTCode uses three persistence tiers. When adding a new setting, choose the tier 
 | --- | --- | --- | --- |
 | System startup | KDE config file via `AppConfigService` | Before SQLite opens | restore last project, start maximized, default column widths, system default repo help entry |
 | Repository | `.qtcode/config.yaml` via `RepoConfigLoader` | When the active project needs the value | default agent, repo help entry override, terminal display name, terminal working directory |
-| Runtime shell | SQLite via `SettingsService` | After storage opens | splitter sizes, window size, collapse state, agent sessions |
+| Runtime shell | SQLite via `SettingsService` | After storage opens | panel collapse state, active right panel, agent sessions |
 
 ### System Startup Preferences
 
@@ -174,18 +175,27 @@ Legacy migration:
 
 Runtime shell state is stored in SQLite through `SettingsService`.
 
-Supported fields:
+Panel layout uses schema version 7 under the `app.panel_layout` key. **Only collapse and selection state is persisted.** Splitter positions and window geometry are intentionally not saved.
 
-- root window width and height
-- left column, center area, and right column splitter sizes
-- terminal panel splitter sizes
-- active right-panel selection
-- right column collapsed state
-- terminal panel collapsed state
+Persisted fields:
+
+| Field | Default | Purpose |
+| --- | --- | --- |
+| `activeRightPanel` | `sessions` | Last active right-panel view (`sessions`, `context`, or `mcp`) |
+| `rightColumnCollapsed` | `false` | Whether the right column is hidden |
+| `terminalCollapsed` | `false` | Whether the terminal panel is collapsed |
+| `storedTerminalHeight` | `240` | Terminal height to restore when expanding after collapse; saved only while collapsed |
+
+Not persisted (session-only):
+
+- window width and height
+- left, center, and right column splitter sizes
+- workspace/terminal vertical splitter sizes
 - stored right column width
-- stored terminal height
 
-The layout payload is serialized under the `app.panel_layout` key.
+Column widths always come from the KDE config file (`leftPanelWidth`, `rightPanelWidth`) and are applied by `MainWindow::applyConfiguredColumnWidths()` on launch, after **File > Settings** save, and when choosing **View > Reset Panel Layout**. Runtime splitter drags are allowed but discarded on exit.
+
+Legacy payloads may still contain older keys such as `columnSizes`, `verticalSizes`, `windowWidth`, or `storedRightColumnWidth`. `PanelLayoutSettings::fromJson()` reads them for migration but `toJson()` no longer writes them.
 
 ## Persistence Model
 
@@ -241,7 +251,7 @@ Behavior:
 7. `CliCapabilityService` schedules background CLI detection; startup does not wait for agent, Git, or `gh` probes to finish.
 8. `ProjectManager` restores the active project unless `restoreLastProjectOnStartup` is disabled.
 9. `TerminalManager` restores terminal metadata from SQLite.
-10. `MainWindow` applies the restored shell layout, configured column widths from `AppConfigService`, and panel collapse state.
+10. `MainWindow` applies configured column widths from `AppConfigService`, then restores SQLite collapse/selection state and re-applies column widths in `finalizeInitialLayout()`.
 
 Repository config is not loaded during application startup. It is read when the active project changes, when **Help > Repo Help** opens, or when another feature resolves an effective repository preference.
 
@@ -291,16 +301,28 @@ When the user saves:
 
 ### Automatic Layout Persistence
 
-`MainWindow` captures its current panel layout when the application shuts down normally and saves it through `SettingsService`.
+`MainWindow` captures collapse and selection state when the application shuts down normally and saves it through `SettingsService`.
 
 This covers:
 
-- window size
-- splitter state
-- collapse state
 - active right panel
+- right column collapsed state
+- terminal collapsed state
+- stored terminal height while collapsed
 
-The current layout is restored on the next launch.
+The current collapse/selection state is restored on the next launch. Column widths always come from the KDE config file, not from SQLite.
+
+### Panel Layout Rules
+
+These rules are intentional and should be preserved when changing the shell:
+
+1. **Column widths are settings, not session state.** Edit them in **File > Settings > Global** or reset them with **View > Reset Panel Layout**.
+2. **SQLite stores collapse/selection only.** Do not reintroduce splitter-size or window-geometry persistence without revisiting resize performance.
+3. **Apply configured widths at stable points only:** launch (`finalizeInitialLayout()`), settings save, and reset panel layout. Do not call `applyConfiguredColumnWidths()` from every panel toggle.
+4. **Right column collapse is explicit.** Hide/show the right column from the activity bar toggle; the root horizontal splitter must not collapse the right column by drag-to-zero.
+5. **Splitters use rubber-band resize.** Both root and main vertical splitters use `setOpaqueResize(false)` so dragging does not relayout chat, editor, and terminal widgets on every pixel.
+6. **Avoid redundant `setSizes()` calls.** Only update splitter sizes when the computed list differs from the current sizes.
+7. **Default active right panel is Agent Sessions.** Unknown or legacy `activeRightPanel` values fall back to `sessions`.
 
 ## Component Responsibilities
 
@@ -323,8 +345,9 @@ The current layout is restored on the next launch.
 - Use defaults when no stored setting exists.
 - Keep the KDE startup config minimal and easy to reason about.
 - Keep repository workflow preferences repo-native in `.qtcode/config.yaml`.
-- Clamp the left column width to a safe range when loading or saving shell layout.
-- Preserve older layout payloads when possible so upgrades do not lose the user's arrangement.
+- Clamp configured left and right column widths to safe ranges when loading from the KDE config file.
+- Preserve older SQLite layout payloads when possible so upgrades do not lose collapse/selection state.
+- Do not persist runtime splitter positions; they caused resize jank and fought configured defaults.
 - Treat missing startup config as recoverable.
 - Treat missing repository config as "use system default".
 - Treat missing SQLite as fatal for the main application shell.
@@ -351,7 +374,8 @@ When adding a new setting:
 - Directory-only help paths normalize to `index.md` inside that directory.
 - Workspace setup scaffolds `.qtcode/config.yaml` without overwriting existing files.
 - Agent sessions restore from SQLite on startup; project switch restores the last active session or creates one with the selected agent.
-- Main-window layout state is restored automatically across launches.
-- Configured column widths from the KDE config file apply on launch and after settings save.
-- Panel layout saves on normal shutdown.
+- Collapse and right-panel selection state restore automatically across launches.
+- Configured column widths from the KDE config file apply on launch, after settings save, and after reset panel layout.
+- Runtime splitter drags do not change the next launch layout.
+- Panel collapse/selection state saves on normal shutdown.
 - The backup story remains coherent: runtime settings and agent sessions in SQLite, system defaults in the KDE config file, repository overrides in Git with the project.

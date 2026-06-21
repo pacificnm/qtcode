@@ -24,11 +24,11 @@ Wires services together, loads app config before storage, initializes storage, r
 
 ### `MainWindow`
 
-Owns top-level layout, `KActionCollection`-backed actions, menus, toolbar, dock/panel arrangement, and major navigation state. Menu and toolbar actions delegate workflow behavior to panels and services. The File menu includes a modal Settings dialog with **Global** and **Repository** groups: global startup preferences and column widths are saved through `AppConfigService`; active-repository default agent and help entry overrides are saved through `RepoConfigWriter`. The Help menu includes **Repo Help**, which loads the effective repository help entry for the active project. The left column uses `ProjectNavigationPanel` for repository and file-tree views. The main column uses `WorkspaceTabs` for the permanent AI chat tab and file tabs above the terminal splitter. Configured column widths from `AppConfigService` apply on launch, after settings save, and when resetting panel layout.
+Owns top-level layout, `KActionCollection`-backed actions, menus, toolbar, dock/panel arrangement, and major navigation state. Menu and toolbar actions delegate workflow behavior to panels and services. The File menu includes a modal Settings dialog with **Global** and **Repository** groups: global startup preferences and column widths are saved through `AppConfigService`; active-repository default agent and help entry overrides are saved through `RepoConfigWriter`. The Help menu includes **Repo Help**, which loads the effective repository help entry for the active project. The left column uses `ProjectNavigationPanel` for repository and file-tree views. The main column uses `WorkspaceTabs` for the permanent AI chat tab and file tabs above the terminal splitter. Applies configured column widths from `AppConfigService` on launch, after settings save, and when resetting panel layout; persists collapse/selection state to SQLite on shutdown but does not persist runtime splitter sizes.
 
 ### `ProjectNavigationPanel`
 
-Hosts the left-column **Repository** and **Files** views in a compact tab bar. Reuses persisted left-column width from the root horizontal splitter.
+Hosts the left-column **Repository** and **Files** views in a compact tab bar. Column width comes from the configured default in `AppConfigService`, not from persisted splitter state.
 
 ### `FileTreePanel`
 

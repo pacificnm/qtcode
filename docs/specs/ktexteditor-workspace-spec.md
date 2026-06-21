@@ -57,7 +57,7 @@ The left column should continue to be the source of project context. Replace the
 - `Repository` view: existing local repositories, changed files, commits, GitHub issues, pull requests, and detail attach flows.
 - `Files` view: active repository folder tree rooted at the active project path.
 
-The selector can be a compact tab bar, segmented control, or stacked view controlled by actions. It must reuse the same left-column width and persisted splitter settings.
+The selector can be a compact tab bar, segmented control, or stacked view controlled by actions. It must reuse the same left-column width configured in **File > Settings**; runtime splitter drags do not persist.
 
 ## Folder Tree Behavior
 

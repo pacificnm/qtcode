@@ -22,4 +22,4 @@ Replace the current chat-over-terminal main-column arrangement with workspace ta
 - [x] The `AI Chat` tab cannot be closed through the tab UI or close-tab actions.
 - [x] The terminal panel remains below the main work area and keeps existing tab behavior.
 - [x] Existing agent session, context attachment, generated changes, right activity panel, and status bar connections continue to work.
-- [x] Layout persistence remains stable for the left, main, right, and terminal splitter sizes.
+- [x] Layout persistence remains stable for collapse/selection state and configured column widths from settings.

@@ -11,6 +11,7 @@ private slots:
     void clampLeftColumnWidthMovesExcessToCenter();
     void clampRightPanelWidthUsesConfiguredRange();
     void defaultsUseAgentSessionsRightPanel();
+    void toJsonPersistsCollapseStateOnly();
 };
 
 void PanelLayoutSettingsTest::clampRightPanelWidthUsesConfiguredRange()
@@ -53,6 +54,33 @@ void PanelLayoutSettingsTest::defaultsUseAgentSessionsRightPanel()
     QCOMPARE(
         layout.activeRightPanel,
         QString::fromLatin1(qtcode::settings::kRightPanelSessions));
+}
+
+void PanelLayoutSettingsTest::toJsonPersistsCollapseStateOnly()
+{
+    qtcode::settings::PanelLayoutSettings layout;
+    layout.activeRightPanel = QString::fromLatin1(qtcode::settings::kRightPanelContext);
+    layout.rightColumnCollapsed = true;
+    layout.terminalCollapsed = true;
+    layout.storedTerminalHeight = 280;
+    layout.verticalSizes = {640, 180};
+    layout.windowWidth = 1600;
+    layout.windowHeight = 900;
+
+    const QJsonObject json = layout.toJson();
+
+    QCOMPARE(
+        json.value(QStringLiteral("layoutSchemaVersion")).toInt(),
+        qtcode::settings::kPanelLayoutSchemaVersion);
+    QVERIFY(json.contains(QStringLiteral("activeRightPanel")));
+    QVERIFY(json.contains(QStringLiteral("rightColumnCollapsed")));
+    QVERIFY(json.contains(QStringLiteral("terminalCollapsed")));
+    QVERIFY(json.contains(QStringLiteral("storedTerminalHeight")));
+    QVERIFY(!json.contains(QStringLiteral("columnSizes")));
+    QVERIFY(!json.contains(QStringLiteral("verticalSizes")));
+    QVERIFY(!json.contains(QStringLiteral("windowWidth")));
+    QVERIFY(!json.contains(QStringLiteral("windowHeight")));
+    QVERIFY(!json.contains(QStringLiteral("storedRightColumnWidth")));
 }
 
 QTEST_MAIN(PanelLayoutSettingsTest)

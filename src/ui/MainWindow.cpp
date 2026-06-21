@@ -76,7 +76,9 @@ MainWindow::MainWindow(qtcode::core::ApplicationController *controller, QWidget 
 
 MainWindow::~MainWindow()
 {
-    persistPanelLayout();
+    if (!m_layoutPersisted) {
+        persistPanelLayout();
+    }
 
     if (m_workspaceTabs != nullptr) {
         (void) m_workspaceTabs->closeAllEditorTabs(false);
@@ -136,12 +138,10 @@ void MainWindow::configureLayout()
     }
 
     m_projectNavigationPanel->setMinimumWidth(qtcode::settings::kLeftColumnMinWidth);
-    m_projectNavigationPanel->setMaximumWidth(qtcode::settings::kLeftColumnMaxWidth);
     m_workspaceTabs->setMinimumWidth(320);
     m_terminalPanel->setMinimumHeight(120);
 
     m_rightPanelStack = new QStackedWidget(this);
-    m_rightPanelStack->setMinimumWidth(240);
     m_rightPanelStack->addWidget(m_agentPanel->sessionPanel());
     m_rightPanelStack->addWidget(m_agentPanel->contextPanel());
     m_rightPanelStack->addWidget(m_mcpServerPanel);
@@ -154,6 +154,7 @@ void MainWindow::configureLayout()
     m_mainVerticalSplitter->setStretchFactor(1, 1);
     m_mainVerticalSplitter->setCollapsible(0, false);
     m_mainVerticalSplitter->setCollapsible(1, false);
+    m_mainVerticalSplitter->setOpaqueResize(false);
 
     m_rootHorizontalSplitter = new QSplitter(Qt::Horizontal, this);
     m_rootHorizontalSplitter->addWidget(m_projectNavigationPanel);
@@ -164,7 +165,8 @@ void MainWindow::configureLayout()
     m_rootHorizontalSplitter->setStretchFactor(2, 0);
     m_rootHorizontalSplitter->setCollapsible(0, false);
     m_rootHorizontalSplitter->setCollapsible(1, false);
-    m_rootHorizontalSplitter->setCollapsible(2, true);
+    m_rootHorizontalSplitter->setCollapsible(2, false);
+    m_rootHorizontalSplitter->setOpaqueResize(false);
 
     if (m_controller != nullptr && m_controller->agentManager() != nullptr) {
         connect(
@@ -570,7 +572,9 @@ void MainWindow::syncTerminalPanelHeight()
 
         sizes[1] = collapsedHeight;
         sizes[0] = qMax(0, splitterHeight - collapsedHeight);
-        m_mainVerticalSplitter->setSizes(sizes);
+        if (sizes != m_mainVerticalSplitter->sizes()) {
+            m_mainVerticalSplitter->setSizes(sizes);
+        }
         return;
     }
 
@@ -581,7 +585,9 @@ void MainWindow::syncTerminalPanelHeight()
     const int terminalHeight = qMin(restoredHeight, qMax(120, splitterHeight - 120));
     sizes[1] = terminalHeight;
     sizes[0] = qMax(0, splitterHeight - terminalHeight);
-    m_mainVerticalSplitter->setSizes(sizes);
+    if (sizes != m_mainVerticalSplitter->sizes()) {
+        m_mainVerticalSplitter->setSizes(sizes);
+    }
 }
 
 void MainWindow::setActiveRightPanelAction(const QString &panelId)
@@ -612,8 +618,6 @@ void MainWindow::applyActiveRightPanel(const QString &panelId)
     } else if (m_agentPanel != nullptr) {
         m_rightPanelStack->setCurrentWidget(m_agentPanel->sessionPanel());
     }
-
-    syncRightColumnVisibility();
 }
 
 QString MainWindow::currentActiveRightPanel() const
@@ -663,7 +667,9 @@ void MainWindow::syncRightColumnVisibility()
         }
     }
 
-    m_rootHorizontalSplitter->setSizes(sizes);
+    if (sizes != m_rootHorizontalSplitter->sizes()) {
+        m_rootHorizontalSplitter->setSizes(sizes);
+    }
 }
 
 void MainWindow::closeEvent(QCloseEvent *event)
@@ -674,6 +680,7 @@ void MainWindow::closeEvent(QCloseEvent *event)
     }
 
     persistPanelLayout();
+    m_layoutPersisted = true;
     QMainWindow::closeEvent(event);
 }
 
@@ -756,19 +763,13 @@ void MainWindow::resetPanelLayout()
         m_settingsService != nullptr ? m_settingsService->defaultPanelLayout()
                                      : qtcode::settings::PanelLayoutSettings::defaults();
     applyPanelLayout(layout);
+    applyConfiguredColumnWidths();
+    syncRightColumnVisibility();
+    syncTerminalPanelHeight();
 }
 
 void MainWindow::applyPanelLayout(const qtcode::settings::PanelLayoutSettings &layout)
 {
-    resize(layout.windowWidth, layout.windowHeight);
-
-    if (m_mainVerticalSplitter != nullptr && layout.verticalSizes.size() >= 2) {
-        m_mainVerticalSplitter->setSizes(layout.verticalSizes);
-        if (!layout.terminalCollapsed && layout.verticalSizes.at(1) > 120) {
-            m_storedTerminalHeight = layout.verticalSizes.at(1);
-        }
-    }
-
     if (layout.storedTerminalHeight > 120) {
         m_storedTerminalHeight = layout.storedTerminalHeight;
     }
@@ -788,21 +789,14 @@ void MainWindow::applyPanelLayout(const qtcode::settings::PanelLayoutSettings &l
     m_rightColumnCollapsed = layout.rightColumnCollapsed;
     updateRightPanelToggleAction();
     setActiveRightPanelAction(activePanel);
-
-    applyConfiguredColumnWidths();
+    syncRightColumnVisibility();
 }
 
 qtcode::settings::PanelLayoutSettings MainWindow::currentPanelLayout() const
 {
     qtcode::settings::PanelLayoutSettings layout;
-    layout.windowWidth = width();
-    layout.windowHeight = height();
     layout.activeRightPanel = currentActiveRightPanel();
     layout.rightColumnCollapsed = m_rightColumnCollapsed;
-
-    if (m_mainVerticalSplitter != nullptr) {
-        layout.verticalSizes = m_mainVerticalSplitter->sizes();
-    }
 
     if (m_terminalPanel != nullptr) {
         layout.terminalCollapsed = m_terminalPanel->isCollapsed();
@@ -869,7 +863,9 @@ void MainWindow::applyConfiguredColumnWidths()
         sizes[1] = qMax(minCenterWidth, splitterWidth - leftWidth - appliedRight);
     }
 
-    m_rootHorizontalSplitter->setSizes(sizes);
+    if (sizes != m_rootHorizontalSplitter->sizes()) {
+        m_rootHorizontalSplitter->setSizes(sizes);
+    }
 }
 
 bool MainWindow::runWorkspaceSmokeChecks(QString *errorMessage)

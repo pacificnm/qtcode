@@ -57,13 +57,12 @@ QJsonObject PanelLayoutSettings::toJson() const
 {
     QJsonObject json;
     json.insert(QStringLiteral("layoutSchemaVersion"), kPanelLayoutSchemaVersion);
-    json.insert(QStringLiteral("verticalSizes"), sizesToJsonArray(verticalSizes));
     json.insert(QStringLiteral("activeRightPanel"), activeRightPanel);
     json.insert(QStringLiteral("rightColumnCollapsed"), rightColumnCollapsed);
-    json.insert(QStringLiteral("windowWidth"), windowWidth);
-    json.insert(QStringLiteral("windowHeight"), windowHeight);
     json.insert(QStringLiteral("terminalCollapsed"), terminalCollapsed);
-    json.insert(QStringLiteral("storedTerminalHeight"), storedTerminalHeight);
+    if (terminalCollapsed && storedTerminalHeight > 120) {
+        json.insert(QStringLiteral("storedTerminalHeight"), storedTerminalHeight);
+    }
     return json;
 }
 

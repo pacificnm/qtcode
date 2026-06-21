@@ -52,6 +52,21 @@ QT_LOGGING_RULES="qtcode.core.info=true;qtcode.ui.info=true" ./build/src/app/qtc
 2. Click **Refresh status** repeatedly and confirm the UI remains interactive while loading labels are shown.
 3. Inspect logs for the timing messages above during startup and refresh.
 
+## Panel Resize
+
+Panel splitters use rubber-band resize (`setOpaqueResize(false)`) so dragging does not relayout chat, editor, and terminal widgets on every pixel.
+
+Column widths are configured in **File > Settings** and applied on launch, settings save, and reset panel layout. Runtime splitter positions are session-only and are not written to SQLite. Persisting splitter sizes caused resize jank and fought configured defaults; collapse/selection state remains in SQLite under `app.panel_layout` (schema v7).
+
+When changing splitter behavior, preserve:
+
+- configured-width application only at launch, settings save, and reset
+- no SQLite persistence of horizontal or vertical splitter sizes
+- explicit right-column collapse via the activity bar, not drag-to-zero
+- `setSizes()` only when computed sizes differ from the current sizes
+
+See [settings spec](../specs/settings-spec.md) and [UI layout spec](../design/ui-layout-spec.md).
+
 ## Out Of Scope
 
 - Profiling every panel and adapter call path.

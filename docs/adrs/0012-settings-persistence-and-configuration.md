@@ -18,7 +18,7 @@ Use three persistence paths for settings:
 
 1. **System startup preferences** — stored in QTCode's KDE config file, loaded through `AppConfigService` before SQLite opens.
 2. **Repository preferences** — stored in `.qtcode/config.yaml` inside each project, loaded on demand when that project is active.
-3. **Runtime shell state** — stored in SQLite through `SettingsService`, including panel layout and window geometry.
+3. **Runtime shell state** — stored in SQLite through `SettingsService`, including panel collapse/selection state and agent sessions. Column widths are **not** stored in SQLite; they come from the KDE config file.
 
 The modal Settings dialog in `MainWindow` edits two groups:
 
@@ -29,7 +29,7 @@ The KDE config file also stores `repoHelpPath` as the system fallback for help r
 
 Per-repository overrides remain repo-native, versioned with the project, and travel through Git with the repository.
 
-Panel layout and window geometry are restored and persisted automatically by the shell.
+Panel collapse state, active right-panel selection, and terminal collapse state are restored and persisted automatically by the shell. Left and right column widths are configured in the KDE config file and applied on launch, settings save, and reset panel layout; runtime splitter drags are session-only.
 
 ### Repository overrides
 
@@ -81,5 +81,5 @@ Tradeoffs:
 - Keep the KDE startup config surface intentionally small.
 - Add new repository-specific workflow preferences to `.qtcode/config.yaml`, not the KDE config path.
 - Document any new settings field in [settings spec](../specs/settings-spec.md) before implementation.
-- Preserve the SQLite-backed layout schema during future shell changes.
+- Preserve the SQLite-backed panel layout schema during future shell changes; keep collapse/selection in SQLite and column widths in the KDE config file.
 - Extend `RepoConfigLoader` or adopt a shared YAML parser only when the repo config surface grows beyond a handful of scalar fields.

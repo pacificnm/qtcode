@@ -14,7 +14,7 @@ QtCodeApplication starts
   -> ProjectManager restores active project (unless disabled in settings)
   -> TerminalManager restores terminal metadata
   -> MainWindow constructs TerminalPanel and restores or creates initial tabs
-  -> MainWindow applies SQLite panel layout and AppConfig column widths
+  -> MainWindow applies AppConfig column widths and SQLite collapse/selection state
   -> AgentPanel restores project session list and default agent selector
   -> CliCapabilityService completes and updates agent/GitHub executable paths
 ```
