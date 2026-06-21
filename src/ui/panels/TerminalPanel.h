@@ -2,8 +2,8 @@
 
 #include <QWidget>
 
-class QPushButton;
 class QTabWidget;
+class QToolButton;
 class QWidget;
 
 namespace qtcode::core {
@@ -36,6 +36,7 @@ protected:
 
 private slots:
     void focusCurrentTerminal();
+    void closeTerminalTab(int index);
 
 private:
     void configureLayout();
@@ -43,11 +44,12 @@ private:
     void addTerminalTabFromSession(const qtcode::terminal::TerminalSession &session, bool restored);
     void addTerminalTabForActiveProject();
     [[nodiscard]] QWidget *currentTerminalWidget() const;
+    [[nodiscard]] static QString sessionIdForWidget(QWidget *widget);
 
     qtcode::terminal::TerminalManager *m_terminalManager = nullptr;
     qtcode::core::ProjectManager *m_projectManager = nullptr;
     QTabWidget *m_tabWidget = nullptr;
-    QPushButton *m_newTerminalButton = nullptr;
+    QToolButton *m_newTerminalButton = nullptr;
 };
 
 } // namespace qtcode::ui
