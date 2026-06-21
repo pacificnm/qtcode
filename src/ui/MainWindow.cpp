@@ -85,35 +85,32 @@ void MainWindow::configureLayout()
 
     m_repositoryPanel->setMinimumWidth(240);
     m_agentPanel->conversationPanel()->setMinimumWidth(320);
-    m_mcpServerPanel->setMinimumWidth(280);
     m_terminalPanel->setMinimumHeight(120);
 
-    m_secondaryPanelStack = new QStackedWidget(this);
-    m_secondaryPanelStack->setMinimumWidth(240);
-    m_secondaryPanelStack->addWidget(m_agentPanel->contextPanel());
-    m_secondaryPanelStack->addWidget(m_agentPanel->changesPanel());
+    m_rightPanelStack = new QStackedWidget(this);
+    m_rightPanelStack->setMinimumWidth(240);
+    m_rightPanelStack->addWidget(m_agentPanel->contextPanel());
+    m_rightPanelStack->addWidget(m_agentPanel->changesPanel());
+    m_rightPanelStack->addWidget(m_mcpServerPanel);
 
-    m_middleVerticalSplitter = new QSplitter(Qt::Vertical, this);
-    m_middleVerticalSplitter->addWidget(m_agentPanel->conversationPanel());
-    m_middleVerticalSplitter->addWidget(m_terminalPanel);
-    m_middleVerticalSplitter->setStretchFactor(0, 3);
-    m_middleVerticalSplitter->setStretchFactor(1, 1);
-    m_middleVerticalSplitter->setCollapsible(0, false);
-    m_middleVerticalSplitter->setCollapsible(1, false);
+    m_mainVerticalSplitter = new QSplitter(Qt::Vertical, this);
+    m_mainVerticalSplitter->addWidget(m_agentPanel->conversationPanel());
+    m_mainVerticalSplitter->addWidget(m_terminalPanel);
+    m_mainVerticalSplitter->setStretchFactor(0, 3);
+    m_mainVerticalSplitter->setStretchFactor(1, 1);
+    m_mainVerticalSplitter->setCollapsible(0, false);
+    m_mainVerticalSplitter->setCollapsible(1, false);
 
     m_rootHorizontalSplitter = new QSplitter(Qt::Horizontal, this);
     m_rootHorizontalSplitter->addWidget(m_repositoryPanel);
-    m_rootHorizontalSplitter->addWidget(m_middleVerticalSplitter);
-    m_rootHorizontalSplitter->addWidget(m_secondaryPanelStack);
-    m_rootHorizontalSplitter->addWidget(m_mcpServerPanel);
+    m_rootHorizontalSplitter->addWidget(m_mainVerticalSplitter);
+    m_rootHorizontalSplitter->addWidget(m_rightPanelStack);
     m_rootHorizontalSplitter->setStretchFactor(0, 1);
     m_rootHorizontalSplitter->setStretchFactor(1, 2);
     m_rootHorizontalSplitter->setStretchFactor(2, 1);
-    m_rootHorizontalSplitter->setStretchFactor(3, 1);
     m_rootHorizontalSplitter->setCollapsible(0, false);
     m_rootHorizontalSplitter->setCollapsible(1, false);
     m_rootHorizontalSplitter->setCollapsible(2, false);
-    m_rootHorizontalSplitter->setCollapsible(3, false);
 
     if (m_controller != nullptr && m_controller->agentManager() != nullptr) {
         connect(
@@ -138,7 +135,7 @@ void MainWindow::configureLayout()
 
     setCentralWidget(m_rootHorizontalSplitter);
 
-    qCInfo(qtcodeUi) << "Initialized repository, agent, MCP, terminal, and secondary panel layout";
+    qCInfo(qtcodeUi) << "Initialized three-column shell with toggleable right panel stack";
 }
 
 void MainWindow::configureActions()
@@ -175,24 +172,23 @@ void MainWindow::configureActions()
         m_terminalPanel,
         &TerminalPanel::addTerminalTab);
 
-    m_agentPanelAction = m_actionCollection->addAction(QStringLiteral("view_agent_panel"));
-    m_agentPanelAction->setText(i18n("AI Agent Panel"));
-    m_agentPanelAction->setIcon(QIcon::fromTheme(QStringLiteral("system-run")));
-    m_agentPanelAction->setCheckable(true);
-    m_agentPanelAction->setChecked(true);
-    connect(m_agentPanelAction, &QAction::toggled, this, &MainWindow::onAgentPanelActionToggled);
-
     m_contextPanelAction = m_actionCollection->addAction(QStringLiteral("view_context_panel"));
-    m_contextPanelAction->setText(i18n("Retrieved Context Panel"));
+    m_contextPanelAction->setText(i18n("Retrieved Context"));
     m_contextPanelAction->setIcon(QIcon::fromTheme(QStringLiteral("bookmarks-organize")));
     m_contextPanelAction->setCheckable(true);
     connect(m_contextPanelAction, &QAction::toggled, this, &MainWindow::onContextPanelActionToggled);
 
     m_changesPanelAction = m_actionCollection->addAction(QStringLiteral("view_changes_panel"));
-    m_changesPanelAction->setText(i18n("Generated Changes Panel"));
+    m_changesPanelAction->setText(i18n("Generated Changes"));
     m_changesPanelAction->setIcon(QIcon::fromTheme(QStringLiteral("document-edit")));
     m_changesPanelAction->setCheckable(true);
     connect(m_changesPanelAction, &QAction::toggled, this, &MainWindow::onChangesPanelActionToggled);
+
+    m_mcpPanelAction = m_actionCollection->addAction(QStringLiteral("view_mcp_panel"));
+    m_mcpPanelAction->setText(i18n("MCP Servers"));
+    m_mcpPanelAction->setIcon(QIcon::fromTheme(QStringLiteral("network-server")));
+    m_mcpPanelAction->setCheckable(true);
+    connect(m_mcpPanelAction, &QAction::toggled, this, &MainWindow::onMcpPanelActionToggled);
 
     auto *resetPanelLayoutAction =
         m_actionCollection->addAction(QStringLiteral("view_reset_panel_layout"));
@@ -214,9 +210,9 @@ void MainWindow::configureMenus()
     fileMenu->addAction(m_actionCollection->action(KStandardAction::name(KStandardAction::Quit)));
 
     auto *viewMenu = menuBar()->addMenu(i18n("&View"));
-    viewMenu->addAction(m_agentPanelAction);
     viewMenu->addAction(m_contextPanelAction);
     viewMenu->addAction(m_changesPanelAction);
+    viewMenu->addAction(m_mcpPanelAction);
     viewMenu->addSeparator();
     viewMenu->addAction(m_actionCollection->action(QStringLiteral("view_reset_panel_layout")));
     viewMenu->addAction(m_toggleToolBarAction);
@@ -244,97 +240,118 @@ void MainWindow::configureActivityBar()
     m_activityToolBar->setMovable(false);
     m_activityToolBar->setOrientation(Qt::Vertical);
     m_activityToolBar->setIconSize(QSize(22, 22));
-    m_activityToolBar->addAction(m_agentPanelAction);
     m_activityToolBar->addAction(m_contextPanelAction);
     m_activityToolBar->addAction(m_changesPanelAction);
+    m_activityToolBar->addAction(m_mcpPanelAction);
     addToolBar(Qt::RightToolBarArea, m_activityToolBar);
-}
-
-void MainWindow::onAgentPanelActionToggled(bool visible)
-{
-    Q_UNUSED(visible);
-    syncAgentPanelVisibility();
 }
 
 void MainWindow::onContextPanelActionToggled(bool visible)
 {
-    if (visible && m_changesPanelAction != nullptr && m_changesPanelAction->isChecked()) {
-        const QSignalBlocker blocker(m_changesPanelAction);
-        m_changesPanelAction->setChecked(false);
+    if (visible) {
+        setActiveRightPanelAction(QString::fromLatin1(qtcode::settings::kRightPanelContext));
+        return;
     }
 
-    if (visible && m_secondaryPanelStack != nullptr && m_agentPanel != nullptr) {
-        m_secondaryPanelStack->setCurrentWidget(m_agentPanel->contextPanel());
+    if (currentActiveRightPanel() == QString::fromLatin1(qtcode::settings::kRightPanelContext)) {
+        applyActiveRightPanel(QString::fromLatin1(qtcode::settings::kRightPanelNone));
     }
-
-    syncSecondaryPanelVisibility();
 }
 
 void MainWindow::onChangesPanelActionToggled(bool visible)
 {
-    if (visible && m_contextPanelAction != nullptr && m_contextPanelAction->isChecked()) {
-        const QSignalBlocker blocker(m_contextPanelAction);
-        m_contextPanelAction->setChecked(false);
-    }
-
-    if (visible && m_secondaryPanelStack != nullptr && m_agentPanel != nullptr) {
-        m_secondaryPanelStack->setCurrentWidget(m_agentPanel->changesPanel());
-    }
-
-    syncSecondaryPanelVisibility();
-}
-
-void MainWindow::syncAgentPanelVisibility()
-{
-    if (m_middleVerticalSplitter == nullptr || m_agentPanelAction == nullptr
-        || m_agentPanel == nullptr) {
+    if (visible) {
+        setActiveRightPanelAction(QString::fromLatin1(qtcode::settings::kRightPanelChanges));
         return;
     }
 
-    QList<int> sizes = m_middleVerticalSplitter->sizes();
-    if (sizes.size() < 2) {
+    if (currentActiveRightPanel() == QString::fromLatin1(qtcode::settings::kRightPanelChanges)) {
+        applyActiveRightPanel(QString::fromLatin1(qtcode::settings::kRightPanelNone));
+    }
+}
+
+void MainWindow::onMcpPanelActionToggled(bool visible)
+{
+    if (visible) {
+        setActiveRightPanelAction(QString::fromLatin1(qtcode::settings::kRightPanelMcp));
         return;
     }
 
-    if (m_agentPanelAction->isChecked()) {
-        if (sizes.at(0) < 120) {
-            sizes[0] = m_storedAgentPanelHeight > 120 ? m_storedAgentPanelHeight : 560;
-        }
-        m_agentPanel->conversationPanel()->setVisible(true);
-    } else {
-        m_storedAgentPanelHeight = sizes.at(0);
-        sizes[0] = 0;
-        m_agentPanel->conversationPanel()->setVisible(false);
+    if (currentActiveRightPanel() == QString::fromLatin1(qtcode::settings::kRightPanelMcp)) {
+        applyActiveRightPanel(QString::fromLatin1(qtcode::settings::kRightPanelNone));
     }
-
-    m_middleVerticalSplitter->setSizes(sizes);
 }
 
-void MainWindow::syncSecondaryPanelVisibility()
+void MainWindow::setActiveRightPanelAction(const QString &panelId)
 {
-    if (m_rootHorizontalSplitter == nullptr || m_secondaryPanelStack == nullptr
-        || m_contextPanelAction == nullptr || m_changesPanelAction == nullptr) {
+    const QSignalBlocker contextBlocker(m_contextPanelAction);
+    const QSignalBlocker changesBlocker(m_changesPanelAction);
+    const QSignalBlocker mcpBlocker(m_mcpPanelAction);
+
+    m_contextPanelAction->setChecked(panelId == QString::fromLatin1(qtcode::settings::kRightPanelContext));
+    m_changesPanelAction->setChecked(panelId == QString::fromLatin1(qtcode::settings::kRightPanelChanges));
+    m_mcpPanelAction->setChecked(panelId == QString::fromLatin1(qtcode::settings::kRightPanelMcp));
+
+    applyActiveRightPanel(panelId);
+}
+
+void MainWindow::applyActiveRightPanel(const QString &panelId)
+{
+    if (m_rightPanelStack == nullptr) {
+        return;
+    }
+
+    if (panelId == QString::fromLatin1(qtcode::settings::kRightPanelContext) && m_agentPanel != nullptr) {
+        m_rightPanelStack->setCurrentWidget(m_agentPanel->contextPanel());
+    } else if (panelId == QString::fromLatin1(qtcode::settings::kRightPanelChanges) && m_agentPanel != nullptr) {
+        m_rightPanelStack->setCurrentWidget(m_agentPanel->changesPanel());
+    } else if (panelId == QString::fromLatin1(qtcode::settings::kRightPanelMcp) && m_mcpServerPanel != nullptr) {
+        m_rightPanelStack->setCurrentWidget(m_mcpServerPanel);
+    }
+
+    syncRightPanelVisibility();
+}
+
+QString MainWindow::currentActiveRightPanel() const
+{
+    if (m_contextPanelAction != nullptr && m_contextPanelAction->isChecked()) {
+        return QString::fromLatin1(qtcode::settings::kRightPanelContext);
+    }
+
+    if (m_changesPanelAction != nullptr && m_changesPanelAction->isChecked()) {
+        return QString::fromLatin1(qtcode::settings::kRightPanelChanges);
+    }
+
+    if (m_mcpPanelAction != nullptr && m_mcpPanelAction->isChecked()) {
+        return QString::fromLatin1(qtcode::settings::kRightPanelMcp);
+    }
+
+    return QString::fromLatin1(qtcode::settings::kRightPanelNone);
+}
+
+void MainWindow::syncRightPanelVisibility()
+{
+    if (m_rootHorizontalSplitter == nullptr || m_rightPanelStack == nullptr) {
         return;
     }
 
     QList<int> sizes = m_rootHorizontalSplitter->sizes();
-    if (sizes.size() < 4) {
+    if (sizes.size() < 3) {
         return;
     }
 
-    const bool showSecondary =
-        m_contextPanelAction->isChecked() || m_changesPanelAction->isChecked();
-    if (showSecondary) {
-        if (sizes.at(2) < 120) {
-            sizes[2] = m_storedSecondaryColumnWidth > 120 ? m_storedSecondaryColumnWidth : 320;
-        }
-        m_secondaryPanelStack->setVisible(true);
-    } else {
+    const QString activePanel = currentActiveRightPanel();
+    if (activePanel == QString::fromLatin1(qtcode::settings::kRightPanelNone)) {
         if (sizes.at(2) > 0) {
-            m_storedSecondaryColumnWidth = sizes.at(2);
+            m_storedRightColumnWidth = sizes.at(2);
         }
         sizes[2] = 0;
-        m_secondaryPanelStack->setVisible(false);
+        m_rightPanelStack->setVisible(false);
+    } else {
+        if (sizes.at(2) < 120) {
+            sizes[2] = m_storedRightColumnWidth > 120 ? m_storedRightColumnWidth : 320;
+        }
+        m_rightPanelStack->setVisible(true);
     }
 
     m_rootHorizontalSplitter->setSizes(sizes);
@@ -348,58 +365,22 @@ void MainWindow::resetPanelLayout()
     applyPanelLayout(layout);
 }
 
-void MainWindow::applyPanelVisibility(const qtcode::settings::PanelLayoutSettings &layout)
-{
-    if (m_agentPanelAction != nullptr) {
-        const QSignalBlocker blocker(m_agentPanelAction);
-        m_agentPanelAction->setChecked(layout.agentPanelVisible);
-    }
-
-    if (m_contextPanelAction != nullptr) {
-        const QSignalBlocker blocker(m_contextPanelAction);
-        m_contextPanelAction->setChecked(layout.contextPanelVisible);
-    }
-
-    if (m_changesPanelAction != nullptr) {
-        const QSignalBlocker blocker(m_changesPanelAction);
-        m_changesPanelAction->setChecked(layout.changesPanelVisible);
-    }
-
-    if (m_secondaryPanelStack != nullptr && m_agentPanel != nullptr) {
-        if (layout.changesPanelVisible) {
-            m_secondaryPanelStack->setCurrentWidget(m_agentPanel->changesPanel());
-        } else if (layout.contextPanelVisible) {
-            m_secondaryPanelStack->setCurrentWidget(m_agentPanel->contextPanel());
-        }
-    }
-
-    syncAgentPanelVisibility();
-    syncSecondaryPanelVisibility();
-}
-
 void MainWindow::applyPanelLayout(const qtcode::settings::PanelLayoutSettings &layout)
 {
     resize(layout.windowWidth, layout.windowHeight);
 
-    if (m_rootHorizontalSplitter != nullptr && layout.columnSizes.size() >= 4) {
+    if (m_rootHorizontalSplitter != nullptr && layout.columnSizes.size() >= 3) {
         m_rootHorizontalSplitter->setSizes(layout.columnSizes);
         if (layout.columnSizes.at(2) > 120) {
-            m_storedSecondaryColumnWidth = layout.columnSizes.at(2);
-        }
-    } else if (m_rootHorizontalSplitter != nullptr && layout.columnSizes.size() >= 3) {
-        QList<int> sizes = layout.columnSizes;
-        sizes.insert(2, 0);
-        m_rootHorizontalSplitter->setSizes(sizes);
-    }
-
-    if (m_middleVerticalSplitter != nullptr && layout.verticalSizes.size() >= 2) {
-        m_middleVerticalSplitter->setSizes(layout.verticalSizes);
-        if (layout.verticalSizes.at(0) > 120) {
-            m_storedAgentPanelHeight = layout.verticalSizes.at(0);
+            m_storedRightColumnWidth = layout.columnSizes.at(2);
         }
     }
 
-    applyPanelVisibility(layout);
+    if (m_mainVerticalSplitter != nullptr && layout.verticalSizes.size() >= 2) {
+        m_mainVerticalSplitter->setSizes(layout.verticalSizes);
+    }
+
+    setActiveRightPanelAction(layout.activeRightPanel);
 }
 
 qtcode::settings::PanelLayoutSettings MainWindow::currentPanelLayout() const
@@ -407,35 +388,18 @@ qtcode::settings::PanelLayoutSettings MainWindow::currentPanelLayout() const
     qtcode::settings::PanelLayoutSettings layout;
     layout.windowWidth = width();
     layout.windowHeight = height();
+    layout.activeRightPanel = currentActiveRightPanel();
 
     if (m_rootHorizontalSplitter != nullptr) {
         layout.columnSizes = m_rootHorizontalSplitter->sizes();
+        if (layout.columnSizes.size() >= 3
+            && layout.activeRightPanel == QString::fromLatin1(qtcode::settings::kRightPanelNone)) {
+            layout.columnSizes[2] = 0;
+        }
     }
 
-    if (m_middleVerticalSplitter != nullptr) {
-        layout.verticalSizes = m_middleVerticalSplitter->sizes();
-    }
-
-    if (m_agentPanelAction != nullptr) {
-        layout.agentPanelVisible = m_agentPanelAction->isChecked();
-    }
-
-    if (m_contextPanelAction != nullptr) {
-        layout.contextPanelVisible = m_contextPanelAction->isChecked();
-    }
-
-    if (m_changesPanelAction != nullptr) {
-        layout.changesPanelVisible = m_changesPanelAction->isChecked();
-    }
-
-    if (layout.columnSizes.size() >= 4
-        && !layout.contextPanelVisible
-        && !layout.changesPanelVisible) {
-        layout.columnSizes[2] = 0;
-    }
-
-    if (layout.verticalSizes.size() >= 2 && !layout.agentPanelVisible) {
-        layout.verticalSizes[0] = 0;
+    if (m_mainVerticalSplitter != nullptr) {
+        layout.verticalSizes = m_mainVerticalSplitter->sizes();
     }
 
     return layout;
