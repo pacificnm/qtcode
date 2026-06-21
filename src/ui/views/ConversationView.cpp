@@ -24,6 +24,17 @@ namespace {
         .arg(message.id, message.role, message.content);
 }
 
+[[nodiscard]] QIcon themeIcon(std::initializer_list<const char *> names)
+{
+    for (const char *name : names) {
+        const QIcon icon = QIcon::fromTheme(QString::fromUtf8(name));
+        if (!icon.isNull()) {
+            return icon;
+        }
+    }
+    return {};
+}
+
 } // namespace
 
 ConversationView::ConversationView(QWidget *parent)
@@ -180,7 +191,7 @@ void ConversationView::renderDocument(
         blocks.append(formatActivityIndicatorHtml(activityText, palette()));
     }
 
-    m_view->setHtml(blocks.join(QStringLiteral("<hr style=\"border:none;height:8px;\"/>")));
+    m_view->setHtml(blocks.join(QStringLiteral("<hr style=\"border:none;height:4px;\"/>")));
     if (forceScrollToBottom || stickToBottom) {
         scrollViewToBottom();
     }
@@ -217,19 +228,10 @@ QString ConversationView::formatMessageHtml(
     const QString senderLabel = isUser
         ? i18n("You")
         : (isActivity ? i18n("Activity") : i18n("Agent"));
-    const QString iconName = isUser
-        ? QStringLiteral("user-identity")
-        : (isActivity ? QStringLiteral("system-run") : QStringLiteral("irc-bot"));
-    const QIcon senderIcon = QIcon::fromTheme(iconName);
-
-    const QColor bubbleBackground = isUser
-        ? palette.color(QPalette::Highlight).lighter(175)
-        : (isActivity ? palette.color(QPalette::AlternateBase).lighter(108)
-                      : palette.color(QPalette::Base));
-    const QColor senderColor = isUser
-        ? palette.color(QPalette::Highlight).darker(130)
-        : (isActivity ? palette.color(QPalette::Mid)
-                      : palette.color(QPalette::Link));
+    const QIcon senderIcon = isUser
+        ? themeIcon({"user-identity", "user", "account"})
+        : (isActivity ? themeIcon({"system-run", "view-refresh"})
+                      : themeIcon({"robot", "irc-bot", "system-run"}));
     const QColor textColor = isActivity
         ? palette.color(QPalette::Mid)
         : palette.color(QPalette::Text);
@@ -240,23 +242,20 @@ QString ConversationView::formatMessageHtml(
         QStringLiteral("<br/>"));
 
     return QStringLiteral(
-               "<div style=\"margin:4px 0;padding:10px 12px;border-radius:8px;"
-               "background-color:%1;color:%2;\">"
+               "<div style=\"margin:2px 0;\">"
                "<table cellspacing=\"0\" cellpadding=\"0\" style=\"border:none;width:100%%;\">"
                "<tr>"
-               "<td style=\"vertical-align:top;padding-right:10px;width:24px;\">%3</td>"
+               "<td style=\"vertical-align:top;padding-right:8px;width:22px;\">%1</td>"
                "<td style=\"vertical-align:top;\">"
-               "<div style=\"font-weight:600;color:%4;margin-bottom:4px;\">%5</div>"
-               "<div style=\"white-space:pre-wrap;%6\">%7</div>"
+               "<div style=\"font-weight:600;color:%2;margin-bottom:2px;\">%3</div>"
+               "<div style=\"white-space:pre-wrap;color:%2;%4\">%5</div>"
                "</td>"
                "</tr>"
                "</table>"
                "</div>")
         .arg(
-            bubbleBackground.name(QColor::HexRgb),
-            textColor.name(QColor::HexRgb),
             iconHtml,
-            senderColor.name(QColor::HexRgb),
+            textColor.name(QColor::HexRgb),
             senderLabel.toHtmlEscaped(),
             isActivity ? QStringLiteral("font-style:italic;") : QString(),
             escapedContent);
@@ -269,17 +268,14 @@ QString ConversationView::formatActivityIndicatorHtml(
     const QString label = activityText.trimmed().isEmpty()
         ? i18n("Agent is working…")
         : activityText.trimmed();
-    const QIcon indicatorIcon = QIcon::fromTheme(QStringLiteral("view-refresh"));
-    const QColor bubbleBackground = palette.color(QPalette::AlternateBase).lighter(104);
+    const QIcon indicatorIcon = themeIcon({"view-refresh", "system-run"});
     const QColor textColor = palette.color(QPalette::Mid);
 
     return QStringLiteral(
-               "<div style=\"margin:4px 0;padding:8px 12px;border-radius:8px;"
-               "background-color:%1;color:%2;font-style:italic;\">"
-               "%3 %4"
+               "<div style=\"margin:2px 0;color:%1;font-style:italic;\">"
+               "%2 %3"
                "</div>")
         .arg(
-            bubbleBackground.name(QColor::HexRgb),
             textColor.name(QColor::HexRgb),
             iconToHtml(indicatorIcon, 16),
             label.toHtmlEscaped());
