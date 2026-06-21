@@ -72,6 +72,9 @@ private:
     void updateRightPanelToggleAction();
     [[nodiscard]] QString currentActiveRightPanel() const;
     [[nodiscard]] qtcode::settings::PanelLayoutSettings currentPanelLayout() const;
+    [[nodiscard]] int configuredLeftPanelWidth() const;
+    [[nodiscard]] int configuredRightPanelWidth() const;
+    void applyConfiguredColumnWidths();
     void persistPanelLayout();
     void finalizeInitialLayout();
 
@@ -102,7 +105,6 @@ private:
     QAction *m_deleteEntryAction = nullptr;
     QObject m_ktextEditorHost;
     KTextEditor::Application *m_ktextEditorApplication = nullptr;
-    int m_storedRightColumnWidth = 320;
     int m_storedTerminalHeight = 240;
     bool m_rightColumnCollapsed = false;
     bool m_needsInitialLayoutSync = true;

@@ -3,12 +3,13 @@
 #include <QJsonObject>
 #include <QList>
 #include <QString>
+#include <QtGlobal>
 
 namespace qtcode::settings {
 
 inline constexpr auto kPanelLayoutSettingKey = "app.panel_layout";
 
-inline constexpr auto kPanelLayoutSchemaVersion = 5;
+inline constexpr auto kPanelLayoutSchemaVersion = 6;
 
 inline constexpr auto kRightPanelNone = "none";
 inline constexpr auto kRightPanelSessions = "sessions";
@@ -18,6 +19,20 @@ inline constexpr auto kRightPanelMcp = "mcp";
 inline constexpr int kLeftColumnDefaultWidth = 240;
 inline constexpr int kLeftColumnMinWidth = 200;
 inline constexpr int kLeftColumnMaxWidth = 320;
+
+inline constexpr int kRightColumnDefaultWidth = 320;
+inline constexpr int kRightColumnMinWidth = 240;
+inline constexpr int kRightColumnMaxWidth = 600;
+
+[[nodiscard]] inline int clampLeftPanelWidth(int width)
+{
+    return qBound(kLeftColumnMinWidth, width, kLeftColumnMaxWidth);
+}
+
+[[nodiscard]] inline int clampRightPanelWidth(int width)
+{
+    return qBound(kRightColumnMinWidth, width, kRightColumnMaxWidth);
+}
 
 struct PanelLayoutSettings
 {

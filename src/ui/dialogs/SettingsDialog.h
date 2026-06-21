@@ -2,15 +2,22 @@
 
 #include "settings/AppConfig.h"
 
+#include "settings/SettingsModels.h"
+
 #include <QDialog>
 #include <QString>
 
 class QCheckBox;
 class QDialogButtonBox;
+class QGroupBox;
+class QLabel;
 class QLineEdit;
+class QSpinBox;
+class QWidget;
 
 namespace qtcode::core {
 class AppConfigService;
+class ProjectManager;
 } // namespace qtcode::core
 
 namespace qtcode::ui {
@@ -20,7 +27,10 @@ class SettingsDialog final : public QDialog
     Q_OBJECT
 
 public:
-    SettingsDialog(qtcode::core::AppConfigService *appConfigService, QWidget *parent = nullptr);
+    SettingsDialog(
+        qtcode::core::AppConfigService *appConfigService,
+        qtcode::core::ProjectManager *projectManager = nullptr,
+        QWidget *parent = nullptr);
 
 private slots:
     void saveSettings();
@@ -28,13 +38,25 @@ private slots:
 private:
     void configureLayout();
     void loadCurrentValues();
+    void refreshRepositorySection();
     [[nodiscard]] qtcode::settings::AppConfig currentConfig() const;
     void setStatusMessage(const QString &message);
 
     qtcode::core::AppConfigService *m_appConfigService = nullptr;
+    qtcode::core::ProjectManager *m_projectManager = nullptr;
+    QGroupBox *m_globalGroupBox = nullptr;
+    QGroupBox *m_repositoryGroupBox = nullptr;
     QCheckBox *m_restoreLastProjectCheckbox = nullptr;
     QCheckBox *m_startMaximizedCheckbox = nullptr;
     QLineEdit *m_repoHelpPathLineEdit = nullptr;
+    QSpinBox *m_leftPanelWidthSpinBox = nullptr;
+    QSpinBox *m_rightPanelWidthSpinBox = nullptr;
+    QLabel *m_activeRepositoryLabel = nullptr;
+    QLabel *m_repoHelpOverrideLabel = nullptr;
+    QLabel *m_repoHelpEffectiveLabel = nullptr;
+    QLabel *m_noActiveRepositoryLabel = nullptr;
+    QLabel *m_repositoryConfigHintLabel = nullptr;
+    QWidget *m_repositoryDetailsWidget = nullptr;
     QDialogButtonBox *m_buttonBox = nullptr;
 };
 

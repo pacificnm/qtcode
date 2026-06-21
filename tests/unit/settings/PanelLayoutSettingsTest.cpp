@@ -9,7 +9,15 @@ class PanelLayoutSettingsTest final : public QObject
 private slots:
     void fromJsonClampsOversizedLeftColumn();
     void clampLeftColumnWidthMovesExcessToCenter();
+    void clampRightPanelWidthUsesConfiguredRange();
 };
+
+void PanelLayoutSettingsTest::clampRightPanelWidthUsesConfiguredRange()
+{
+    QCOMPARE(qtcode::settings::clampRightPanelWidth(120), qtcode::settings::kRightColumnMinWidth);
+    QCOMPARE(qtcode::settings::clampRightPanelWidth(320), 320);
+    QCOMPARE(qtcode::settings::clampRightPanelWidth(900), qtcode::settings::kRightColumnMaxWidth);
+}
 
 void PanelLayoutSettingsTest::fromJsonClampsOversizedLeftColumn()
 {

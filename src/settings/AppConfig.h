@@ -10,6 +10,8 @@ inline constexpr auto kAppConfigGroupGeneral = "General";
 inline constexpr auto kAppConfigKeyRestoreLastProject = "restoreLastProjectOnStartup";
 inline constexpr auto kAppConfigKeyStartMaximized = "startMaximized";
 inline constexpr auto kAppConfigKeyRepoHelpPath = "repoHelpPath";
+inline constexpr auto kAppConfigKeyLeftPanelWidth = "leftPanelWidth";
+inline constexpr auto kAppConfigKeyRightPanelWidth = "rightPanelWidth";
 inline constexpr auto kAppConfigDefaultRepoHelpPath = "doc/index.md";
 
 [[nodiscard]] inline QString normalizedRepoHelpPath(const QString &path)
@@ -31,6 +33,8 @@ struct AppConfig
     bool restoreLastProjectOnStartup = true;
     bool startMaximized = false;
     QString repoHelpPath = QString::fromLatin1(kAppConfigDefaultRepoHelpPath);
+    int leftPanelWidth = 240;
+    int rightPanelWidth = 320;
 
     [[nodiscard]] static AppConfig defaults();
 };

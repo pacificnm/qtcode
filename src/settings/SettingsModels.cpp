@@ -57,11 +57,9 @@ QJsonObject PanelLayoutSettings::toJson() const
 {
     QJsonObject json;
     json.insert(QStringLiteral("layoutSchemaVersion"), kPanelLayoutSchemaVersion);
-    json.insert(QStringLiteral("columnSizes"), sizesToJsonArray(columnSizes));
     json.insert(QStringLiteral("verticalSizes"), sizesToJsonArray(verticalSizes));
     json.insert(QStringLiteral("activeRightPanel"), activeRightPanel);
     json.insert(QStringLiteral("rightColumnCollapsed"), rightColumnCollapsed);
-    json.insert(QStringLiteral("storedRightColumnWidth"), storedRightColumnWidth);
     json.insert(QStringLiteral("windowWidth"), windowWidth);
     json.insert(QStringLiteral("windowHeight"), windowHeight);
     json.insert(QStringLiteral("terminalCollapsed"), terminalCollapsed);
@@ -192,7 +190,7 @@ void PanelLayoutSettings::clampLeftColumnWidth(QList<int> *columnSizes)
     }
 
     const int originalLeft = columnSizes->at(0);
-    const int clampedLeft = qBound(kLeftColumnMinWidth, originalLeft, kLeftColumnMaxWidth);
+    const int clampedLeft = clampLeftPanelWidth(originalLeft);
     if (clampedLeft == originalLeft) {
         return;
     }

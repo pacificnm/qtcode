@@ -1,5 +1,6 @@
 #include "core/AppConfigService.h"
 
+#include "settings/SettingsModels.h"
 #include "shared/Logging.h"
 
 #include <KConfigGroup>
@@ -44,6 +45,12 @@ bool AppConfigService::load(QString *errorMessage)
     m_config.repoHelpPath = settings::normalizedRepoHelpPath(group.readEntry(
         QString::fromLatin1(settings::kAppConfigKeyRepoHelpPath),
         m_config.repoHelpPath));
+    m_config.leftPanelWidth = settings::clampLeftPanelWidth(group.readEntry(
+        QString::fromLatin1(settings::kAppConfigKeyLeftPanelWidth),
+        m_config.leftPanelWidth));
+    m_config.rightPanelWidth = settings::clampRightPanelWidth(group.readEntry(
+        QString::fromLatin1(settings::kAppConfigKeyRightPanelWidth),
+        m_config.rightPanelWidth));
 
     qCInfo(qtcodeCore) << "Loaded application config from" << config->name();
     return true;
@@ -61,6 +68,12 @@ bool AppConfigService::save(const settings::AppConfig &config, QString *errorMes
     group.writeEntry(
         QString::fromLatin1(settings::kAppConfigKeyRepoHelpPath),
         settings::normalizedRepoHelpPath(config.repoHelpPath));
+    group.writeEntry(
+        QString::fromLatin1(settings::kAppConfigKeyLeftPanelWidth),
+        settings::clampLeftPanelWidth(config.leftPanelWidth));
+    group.writeEntry(
+        QString::fromLatin1(settings::kAppConfigKeyRightPanelWidth),
+        settings::clampRightPanelWidth(config.rightPanelWidth));
 
     if (!sharedConfig->sync()) {
         if (errorMessage != nullptr) {
