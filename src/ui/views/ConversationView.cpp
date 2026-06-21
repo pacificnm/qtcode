@@ -11,6 +11,7 @@
 #include <QScrollBar>
 #include <QTextCursor>
 #include <QTextEdit>
+#include <QTimer>
 #include <QVBoxLayout>
 
 namespace qtcode::ui {
@@ -78,16 +79,29 @@ void ConversationView::syncMessages(
         && m_cachedMessageCount > 0
         && lastSignature != m_cachedLastMessageSignature;
     const bool canAppendMessage = messages.size() == m_cachedMessageCount + 1;
+    const bool sameMessageSet = messages.size() == m_cachedMessageCount
+        && m_cachedMessageCount > 0
+        && lastSignature == m_cachedLastMessageSignature;
 
-    if (canIncrementalUpdate || canAppendMessage) {
+    if (messages.size() < m_cachedMessageCount) {
+        rebuildAllMessages(messages);
+        renderDocument(messages, showActivityIndicator, activityText, true);
+        return;
+    }
+
+    if (canIncrementalUpdate || canAppendMessage || sameMessageSet) {
         m_cachedMessageCount = messages.size();
         m_cachedLastMessageSignature = lastSignature;
-        renderDocument(messages, showActivityIndicator, activityText);
+        renderDocument(
+            messages,
+            showActivityIndicator,
+            activityText,
+            canAppendMessage);
         return;
     }
 
     rebuildAllMessages(messages);
-    renderDocument(messages, showActivityIndicator, activityText);
+    renderDocument(messages, showActivityIndicator, activityText, true);
 }
 
 void ConversationView::rebuildAllMessages(const QList<qtcode::agents::AgentMessage> &messages)
@@ -106,10 +120,32 @@ void ConversationView::rebuildAllMessages(const QList<qtcode::agents::AgentMessa
     }
 }
 
+void ConversationView::scrollViewToBottom()
+{
+    if (m_view == nullptr) {
+        return;
+    }
+
+    const auto applyScroll = [this]() {
+        if (m_view == nullptr) {
+            return;
+        }
+
+        m_view->moveCursor(QTextCursor::End);
+        if (QScrollBar *scrollBar = m_view->verticalScrollBar()) {
+            scrollBar->setValue(scrollBar->maximum());
+        }
+    };
+
+    applyScroll();
+    QTimer::singleShot(0, this, applyScroll);
+}
+
 void ConversationView::renderDocument(
     const QList<qtcode::agents::AgentMessage> &messages,
     bool showActivityIndicator,
-    const QString &activityText)
+    const QString &activityText,
+    bool forceScrollToBottom)
 {
     if (m_view == nullptr) {
         return;
@@ -145,8 +181,8 @@ void ConversationView::renderDocument(
     }
 
     m_view->setHtml(blocks.join(QStringLiteral("<hr style=\"border:none;height:8px;\"/>")));
-    if (stickToBottom) {
-        m_view->moveCursor(QTextCursor::End);
+    if (forceScrollToBottom || stickToBottom) {
+        scrollViewToBottom();
     }
 }
 

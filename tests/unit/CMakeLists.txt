@@ -170,6 +170,29 @@ set_tests_properties(workspace_tabs PROPERTIES
     TIMEOUT 60
 )
 
+qtcode_add_executable(qtcode_conversation_view_test
+    ui/ConversationViewTest.cpp
+)
+
+target_link_libraries(qtcode_conversation_view_test
+    PRIVATE
+        qtcode_ui
+        Qt6::Test
+        Qt6::Widgets
+        KF6::CoreAddons
+        KF6::I18n
+)
+
+add_test(
+    NAME conversation_view
+    COMMAND qtcode_conversation_view_test
+)
+
+set_tests_properties(conversation_view PROPERTIES
+    LABELS "unit;ui"
+    TIMEOUT 30
+)
+
 qtcode_add_executable(qtcode_terminal_manager_working_directory_test
     terminal/TerminalManagerWorkingDirectoryTest.cpp
 )

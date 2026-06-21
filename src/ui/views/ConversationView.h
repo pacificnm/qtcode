@@ -29,7 +29,9 @@ private:
     void renderDocument(
         const QList<qtcode::agents::AgentMessage> &messages,
         bool showActivityIndicator,
-        const QString &activityText);
+        const QString &activityText,
+        bool forceScrollToBottom = false);
+    void scrollViewToBottom();
     [[nodiscard]] static QString iconToHtml(const QIcon &icon, int size);
     [[nodiscard]] static QString formatMessageHtml(
         const qtcode::agents::AgentMessage &message,
