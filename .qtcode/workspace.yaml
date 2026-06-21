@@ -1,0 +1,22 @@
+templateVersion: 1
+projectName: qtcode
+rootPath: /home/jaimie/qtcode
+scopeKey: /home/jaimie/qtcode
+installedAt: 2026-06-21T06:44:57.335Z
+installedBy: qtcode
+
+memory:
+  databaseUrl: postgresql:///qtcode_memory
+  pythonVenv: .venv/bin/python
+
+index:
+  includeGlobs:
+    - "docs/**"
+    - "*.md"
+    - "AGENTS.md"
+    - ".cursor/rules/**"
+  excludeGlobs:
+    - ".git/**"
+    - ".venv/**"
+    - "build/**"
+    - "node_modules/**"
