@@ -48,7 +48,6 @@ private:
     void configureActivityBar();
     void applyPanelLayout(const qtcode::settings::PanelLayoutSettings &layout);
     void applyActiveRightPanel(const QString &panelId);
-    void syncAgentSessionsPanelVisibility();
     void syncRightPanelVisibility();
     void setActiveRightPanelAction(const QString &panelId);
     [[nodiscard]] QString currentActiveRightPanel() const;
@@ -71,7 +70,6 @@ private:
     QAction *m_contextPanelAction = nullptr;
     QAction *m_changesPanelAction = nullptr;
     QAction *m_mcpPanelAction = nullptr;
-    int m_storedAgentSessionsColumnWidth = 240;
     int m_storedRightColumnWidth = 320;
 };
 

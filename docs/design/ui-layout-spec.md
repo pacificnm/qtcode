@@ -5,31 +5,20 @@
 Primary layout:
 
 ```text
-+------+----------+----------------------+--------------+---+
-| Repo | Agent    | AI Chat Panel        | Right Panel  |Act|
-|      | Sessions |                      | (one view)   |Bar|
-|      | (toggle) +----------------------+              |   |
-|      |          | Terminal Panel       |              |   |
-|      |          | (main)               |              |   |
-+------+----------+----------------------+--------------+---+
++----------------------+----------------------+--------------+---+
+| Repository Panel     | AI Chat Panel        | Right Panel  |Act|
+| (left)               |                      | (one view)   |Bar|
+|                      +----------------------+              |   |
+|                      | Terminal Panel       |              |   |
+|                      | (main)               |              |   |
++----------------------+----------------------+--------------+---+
 ```
 
-The shell exposes repository on the left, a toggleable agent sessions column, AI chat plus terminal in the main column, and one shared right column. The activity bar toggles the agent sessions column and which right-panel view is active.
-
-Agent sessions column:
-
-- Agent selector
-- Session list
-- New session control
-
-Main column:
-
-- Conversation transcript
-- Prompt composer and request controls
-- Terminal tabs beneath the chat surface
+The shell exposes exactly three content columns: repository on the left, AI chat plus terminal in the main column, and one shared right column. The activity bar toggles which right-panel view is active.
 
 Right-panel views:
 
+- Agent Sessions
 - Retrieved Context
 - Generated Changes
 - MCP Servers
@@ -56,19 +45,6 @@ Expected sections:
 - Pull requests.
 - Repository search.
 
-## Agent Sessions Panel
-
-Purpose:
-
-- Choose the active agent.
-- Switch between saved conversations for the active project.
-
-Expected sections:
-
-- Agent selector.
-- Session list.
-- New session control.
-
 ## Main Column
 
 Purpose:
@@ -88,10 +64,11 @@ Purpose:
 
 Expected surfaces:
 
+- **Agent Sessions** — agent selector, session list, and new session control.
 - **Retrieved Context** — context result viewer and attach/detach controls.
 - **Generated Changes** — diff review area and approve/reject controls.
 - **MCP Servers** — MCP server configuration and memory tooling.
-- **Activity bar** — right-edge icon buttons that toggle agent sessions, switch the active right-panel view, or hide the right column.
+- **Activity bar** — right-edge icon buttons that switch the active right-panel view or hide the right column.
 
 ## Visual Direction
 
@@ -111,4 +88,4 @@ Although QTCode is desktop-first, the layout should tolerate:
 - vertical resizing
 - hidden/collapsed panels
 
-Panel sizes, agent sessions visibility, active right-panel selection, and right-column visibility should be persisted per user.
+Panel sizes, active right-panel selection, and right-column visibility should be persisted per user.
