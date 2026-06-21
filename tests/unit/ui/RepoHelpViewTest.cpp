@@ -19,6 +19,7 @@ private slots:
     void loadHelpEntryShowsMissingFileMessage();
     void loadHelpEntryUsesReadmeEntryFile();
     void relativeMarkdownLinkNavigatesWithinDocRoot();
+    void mainReadmeLinkNavigatesBackToEntry();
 };
 
 void RepoHelpViewTest::loadHelpEntryRendersMarkdown()
@@ -114,6 +115,45 @@ void RepoHelpViewTest::relativeMarkdownLinkNavigatesWithinDocRoot()
 
     QCOMPARE(view.currentFilePath(), docDir.filePath(QStringLiteral("details.md")));
     QVERIFY(browser->document()->toPlainText().contains(QStringLiteral("Details")));
+}
+
+void RepoHelpViewTest::mainReadmeLinkNavigatesBackToEntry()
+{
+    QTemporaryDir tempDir;
+    QVERIFY(tempDir.isValid());
+
+    QDir docDir(tempDir.path() + QStringLiteral("/docs"));
+    QVERIFY(docDir.mkpath(QStringLiteral("plans")));
+
+    QFile readmeFile(docDir.filePath(QStringLiteral("README.md")));
+    QVERIFY(readmeFile.open(QIODevice::WriteOnly | QIODevice::Text));
+    readmeFile.write("# Project Docs\n\nWelcome.\n");
+    readmeFile.close();
+
+    QFile roadmapFile(docDir.filePath(QStringLiteral("plans/roadmap.md")));
+    QVERIFY(roadmapFile.open(QIODevice::WriteOnly | QIODevice::Text));
+    roadmapFile.write("# Roadmap\n\nFuture work.\n");
+    roadmapFile.close();
+
+    qtcode::ui::RepoHelpView view(nullptr);
+    view.loadHelpEntry(docDir.filePath(QStringLiteral("README.md")));
+
+    const auto *browser = view.findChild<QTextBrowser *>();
+    QVERIFY(browser != nullptr);
+
+    const QUrl roadmapUrl = QUrl(QStringLiteral("plans/roadmap.md"));
+    QMetaObject::invokeMethod(&view, "onAnchorClicked", Q_ARG(QUrl, roadmapUrl));
+
+    QCOMPARE(view.currentFilePath(), docDir.filePath(QStringLiteral("plans/roadmap.md")));
+    QVERIFY(browser->document()->toPlainText().contains(QStringLiteral("Main Readme")));
+    QVERIFY(browser->document()->toPlainText().contains(QStringLiteral("Roadmap")));
+
+    const QUrl mainReadmeUrl = QUrl(QStringLiteral("../README.md"));
+    QMetaObject::invokeMethod(&view, "onAnchorClicked", Q_ARG(QUrl, mainReadmeUrl));
+
+    QCOMPARE(view.currentFilePath(), docDir.filePath(QStringLiteral("README.md")));
+    QVERIFY(browser->document()->toPlainText().contains(QStringLiteral("Project Docs")));
+    QVERIFY(!browser->document()->toPlainText().contains(QStringLiteral("Main Readme")));
 }
 
 QObject *buildRepoHelpViewTest()

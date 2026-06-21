@@ -33,9 +33,12 @@ private:
     [[nodiscard]] bool isPathInsideDocRoot(const QString &absolutePath) const;
     [[nodiscard]] static QString indexPathForDocRoot(const QString &docRootPath);
 
+    [[nodiscard]] QString mainReadmeLinkMarkdown(const QString &absolutePath) const;
+
     qtcode::core::StatusService *m_statusService = nullptr;
     QTextBrowser *m_browser = nullptr;
     QString m_docRootPath;
+    QString m_entryFilePath;
     QString m_currentFilePath;
 };
 

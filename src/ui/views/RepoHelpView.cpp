@@ -46,6 +46,7 @@ void RepoHelpView::loadHelpEntry(const QString &entryFilePath)
     }
 
     m_docRootPath = QFileInfo(normalizedEntry).absolutePath();
+    m_entryFilePath = normalizedEntry;
     if (!QFileInfo(normalizedEntry).isFile()) {
         showMessage(i18n("No repository help found at %1.", normalizedEntry));
         if (m_statusService != nullptr) {
@@ -88,19 +89,48 @@ void RepoHelpView::loadMarkdownFile(const QString &absolutePath)
         return;
     }
 
-    const QString markdown = QString::fromUtf8(file.readAll());
+    QString markdown = QString::fromUtf8(file.readAll());
     m_currentFilePath = normalizedPath;
 
     const QUrl baseUrl = QUrl::fromLocalFile(QFileInfo(normalizedPath).absolutePath() + QDir::separator());
     m_browser->document()->setBaseUrl(baseUrl);
+
+    const QString mainReadmeLink = mainReadmeLinkMarkdown(normalizedPath);
+    if (!mainReadmeLink.isEmpty()) {
+        markdown = mainReadmeLink + QStringLiteral("\n\n---\n\n") + markdown;
+    }
+
     m_browser->setMarkdown(markdown);
 }
 
 void RepoHelpView::showMessage(const QString &message)
 {
     m_currentFilePath.clear();
+    m_entryFilePath.clear();
     m_browser->clear();
     m_browser->setPlainText(message);
+}
+
+QString RepoHelpView::mainReadmeLinkMarkdown(const QString &absolutePath) const
+{
+    if (m_entryFilePath.isEmpty()) {
+        return {};
+    }
+
+    const QString normalizedPath = QFileInfo(absolutePath).absoluteFilePath();
+    const QString normalizedEntry = QFileInfo(m_entryFilePath).absoluteFilePath();
+    if (normalizedPath.isEmpty() || normalizedPath == normalizedEntry) {
+        return {};
+    }
+
+    const QString relativePath =
+        QDir(QFileInfo(normalizedPath).absolutePath()).relativeFilePath(normalizedEntry);
+    if (relativePath.isEmpty() || relativePath == QLatin1String(".")) {
+        return {};
+    }
+
+    return QStringLiteral("[") + i18n("Main Readme") + QStringLiteral("](") + relativePath
+        + QStringLiteral(")");
 }
 
 void RepoHelpView::onAnchorClicked(const QUrl &url)
