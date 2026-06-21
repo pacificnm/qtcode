@@ -417,6 +417,9 @@ void RepositoryPanel::configureLayout()
 void RepositoryPanel::refreshStatus(bool showStatusFeedback)
 {
     if (m_refreshWatcher->isRunning()) {
+        if (!showStatusFeedback) {
+            m_pendingRefreshAfterGitOperation = true;
+        }
         return;
     }
 
@@ -508,6 +511,11 @@ void RepositoryPanel::onRefreshFinished()
     }
 
     updateAutoRefreshTimer();
+
+    if (m_pendingRefreshAfterGitOperation) {
+        m_pendingRefreshAfterGitOperation = false;
+        refreshStatus(false);
+    }
 }
 
 void RepositoryPanel::setRefreshing(bool refreshing, bool showLoadingUi)
@@ -1151,6 +1159,7 @@ void RepositoryPanel::onGitOperationFinished()
 {
     const qtcode::git::GitOperationResult result = m_gitOperationWatcher->result();
     if (result.success && m_clearCommitMessageOnSuccess) {
+        const QSignalBlocker blocker(m_commitMessageEdit);
         m_commitMessageEdit->clear();
         m_clearCommitMessageOnSuccess = false;
     }

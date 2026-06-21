@@ -233,6 +233,26 @@ set_tests_properties(git_cli_client PROPERTIES
     TIMEOUT 60
 )
 
+qtcode_add_executable(qtcode_git_service_test
+    git/GitServiceTest.cpp
+)
+
+target_link_libraries(qtcode_git_service_test
+    PRIVATE
+        qtcode_git
+        Qt6::Test
+)
+
+add_test(
+    NAME git_service
+    COMMAND qtcode_git_service_test
+)
+
+set_tests_properties(git_service PROPERTIES
+    LABELS "unit;git"
+    TIMEOUT 60
+)
+
 qtcode_add_executable(qtcode_terminal_manager_working_directory_test
     terminal/TerminalManagerWorkingDirectoryTest.cpp
 )

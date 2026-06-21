@@ -164,44 +164,50 @@ bool populateBranchTracking(git_repository *repository, GitWorkingTreeStatus *st
         return true;
     }
 
-    git_reference *head = nullptr;
-    if (git_repository_head(&head, repository) != 0) {
+    if (status->branchName.isEmpty() || status->branchName.startsWith(QStringLiteral("HEAD"))
+        || status->branchName.startsWith(QStringLiteral("("))) {
         return true;
     }
 
-    const char *branchName = nullptr;
-    if (git_branch_name(&branchName, head) != 0 || branchName == nullptr) {
-        git_reference_free(head);
-        return true;
-    }
-
-    git_buf upstreamName = {};
-    if (git_branch_upstream_name(&upstreamName, repository, branchName) != 0) {
-        git_reference_free(head);
-        return true;
-    }
+    const QByteArray branchNameBytes = status->branchName.toUtf8();
+    const QByteArray localRefBytes =
+        QStringLiteral("refs/heads/%1").arg(status->branchName).toUtf8();
 
     git_oid localOid {};
-    git_oid upstreamOid {};
-    const char *localRef = git_reference_name(head);
-    if (localRef == nullptr
-        || git_reference_name_to_id(&localOid, repository, localRef) != 0
-        || git_reference_name_to_id(&upstreamOid, repository, upstreamName.ptr) != 0) {
-        git_buf_dispose(&upstreamName);
-        git_reference_free(head);
+    if (git_reference_name_to_id(&localOid, repository, localRefBytes.constData()) != 0) {
         return true;
     }
 
-    size_t ahead = 0;
-    size_t behind = 0;
-    if (git_graph_ahead_behind(&ahead, &behind, repository, &localOid, &upstreamOid) == 0) {
+    auto applyAheadBehind = [&](const char *upstreamRef) -> bool {
+        git_oid upstreamOid {};
+        if (git_reference_name_to_id(&upstreamOid, repository, upstreamRef) != 0) {
+            return false;
+        }
+
+        size_t ahead = 0;
+        size_t behind = 0;
+        if (git_graph_ahead_behind(&ahead, &behind, repository, &localOid, &upstreamOid) != 0) {
+            return false;
+        }
+
         status->hasUpstream = true;
         status->commitsAhead = static_cast<int>(ahead);
         status->commitsBehind = static_cast<int>(behind);
-    }
+        return true;
+    };
 
+    git_buf upstreamName = {};
+    if (git_branch_upstream_name(&upstreamName, repository, branchNameBytes.constData()) == 0) {
+        if (applyAheadBehind(upstreamName.ptr)) {
+            git_buf_dispose(&upstreamName);
+            return true;
+        }
+    }
     git_buf_dispose(&upstreamName);
-    git_reference_free(head);
+
+    const QByteArray originRefBytes =
+        QStringLiteral("refs/remotes/origin/%1").arg(status->branchName).toUtf8();
+    applyAheadBehind(originRefBytes.constData());
     return true;
 }
 

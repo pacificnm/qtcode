@@ -156,6 +156,7 @@ private:
     int m_commitsAhead = 0;
     QString m_pendingGitSuccessMessage;
     bool m_clearCommitMessageOnSuccess = false;
+    bool m_pendingRefreshAfterGitOperation = false;
 };
 
 } // namespace qtcode::ui
