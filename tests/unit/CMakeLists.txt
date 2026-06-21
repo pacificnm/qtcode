@@ -20,6 +20,26 @@ set_tests_properties(migration_runner PROPERTIES
     TIMEOUT 30
 )
 
+qtcode_add_executable(qtcode_context_result_test
+    memory/ContextResultTest.cpp
+)
+
+target_link_libraries(qtcode_context_result_test
+    PRIVATE
+        qtcode_memory
+        Qt6::Test
+)
+
+add_test(
+    NAME context_result
+    COMMAND qtcode_context_result_test
+)
+
+set_tests_properties(context_result PROPERTIES
+    LABELS "unit;memory"
+    TIMEOUT 30
+)
+
 qtcode_add_executable(qtcode_codex_agent_adapter_test
     agents/CodexAgentAdapterTest.cpp
 )

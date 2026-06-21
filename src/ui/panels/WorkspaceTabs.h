@@ -44,6 +44,7 @@ signals:
     void activeEditorStateChanged(bool hasActiveEditor, bool isModified);
     void issueContextSelected(const qtcode::github::GitHubIssueDetail &detail);
     void pullRequestContextSelected(const qtcode::github::GitHubPullRequestDetail &detail);
+    void fileContextSelected(const QString &absolutePath, const QString &contentOverride);
 
 public slots:
     void requestOpenFile(const QString &absolutePath);
@@ -64,6 +65,7 @@ private slots:
     void onTabCloseRequested(int index);
     void onActiveProjectChanged();
     void onCurrentTabChanged(int index);
+    void showTabContextMenu(const QPoint &position);
 
 private:
     void configureLayout();

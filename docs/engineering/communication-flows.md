@@ -51,25 +51,24 @@ User selects repository
 
 ```text
 User submits prompt
-  -> AgentPanel creates draft request
-  -> ContextManager collects project state
-  -> MemoryService retrieves context
-  -> AgentPanel shows selected context
-  -> AgentManager dispatches request
+  -> AgentPanel starts async ContextManager retrieval
+  -> ContextResultsView shows deduplicated results (manual SourceFile entries preserved)
+  -> AgentPanel dispatches with attachedContextExcerpts() from checked rows
+  -> AgentManager persists retrieval metadata (live view not replaced)
   -> AgentAdapter streams events
   -> AgentSessionRepository persists messages
-  -> DiffReviewView shows artifacts
+  -> RepositoryPanel git status reflects agent file changes
 ```
 
-## Approve Agent Diff
+See [retrieved context spec](../specs/retrieved-context-spec.md).
+
+## Review Agent File Changes
 
 ```text
-User approves diff
-  -> DiffReviewView emits approval
-  -> AgentManager validates artifact
-  -> GitService or file patch service applies changes
-  -> GitService refreshes status
-  -> AgentSession records approval
+Agent modifies files externally
+  -> GitService refreshes repository status
+  -> User inspects changed files in RepositoryPanel
+  -> User opens files in WorkspaceTabs for review
 ```
 
 ## List GitHub Issues

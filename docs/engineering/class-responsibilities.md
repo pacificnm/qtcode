@@ -86,7 +86,15 @@ Normalized input sent to an adapter: user prompt, project metadata, selected con
 
 ### `ContextManager`
 
-Coordinates context collection from repository state, GitHub state, and project memory before an agent request.
+Coordinates context collection from repository state, GitHub state, and project memory before an agent request. Dedupes memory results with `memory::dedupeContextResultsBySource()` and builds excerpt strings for dispatch.
+
+### `ContextResult`
+
+Normalized memory/file context record and helpers: source-type labels, dedupe-by-source, MCP output parsing, and manual file loading (`contextResultFromFilePath`).
+
+### `ContextResultsView`
+
+Right-panel list UI for retrieved context. Shows deduplicated results with checkboxes and attach/detach controls, preserves attachment by source key across retrievals, supports **Add to Context** file entries, opens file-backed rows in workspace tabs, and exposes `attachedResults()` / `attachedContextExcerpts()` to `AgentPanel`.
 
 ### `MemoryService`
 

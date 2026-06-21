@@ -48,7 +48,7 @@ Target shell:
 
 `AI Chat*` is permanent and non-closable. File tabs are closable.
 
-The existing right activity panel may stay unchanged for agent sessions, retrieved context, generated changes, and MCP servers.
+The existing right activity panel may stay unchanged for agent sessions, retrieved context, and MCP servers.
 
 ## Left Project Space
 

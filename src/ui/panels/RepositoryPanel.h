@@ -74,6 +74,7 @@ signals:
         const qtcode::github::GitHubPullRequestDetail &detail,
         const qtcode::github::GitHubCacheMetadata &cacheMetadata);
     void fileOpenRequested(const QString &absolutePath);
+    void fileContextRequested(const QString &absolutePath);
 
 private slots:
     void onChangedFileClicked(QListWidgetItem *item);

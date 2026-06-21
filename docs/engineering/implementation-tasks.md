@@ -19,7 +19,7 @@
 17. Define `AgentAdapter`, `AgentManager`, and `AgentSession` interfaces.
 18. Implement the first CLI agent adapter.
 19. Persist agent sessions and messages.
-20. Add a basic diff review surface with approve/reject states.
+20. ~~Add a basic diff review surface with approve/reject states.~~ Superseded: agent file changes are reviewed through git status, the repository changed-files list, and KTextEditor workspace tabs. Retrieved Context attach/detach is documented in [retrieved context spec](../specs/retrieved-context-spec.md).
 
 ## Next Tasks After The First 20
 

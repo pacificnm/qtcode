@@ -53,6 +53,7 @@ public:
 public slots:
     void attachIssueContext(const qtcode::github::GitHubIssueDetail &detail);
     void attachPullRequestContext(const qtcode::github::GitHubPullRequestDetail &detail);
+    void attachFileContext(const QString &absolutePath, const QString &contentOverride = {});
     void reloadAgentSelector();
 
 private slots:

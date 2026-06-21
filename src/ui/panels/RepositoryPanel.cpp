@@ -1207,6 +1207,27 @@ void RepositoryPanel::showUnstagedFilesContextMenu(const QPoint &position)
             }
         });
 
+    QStringList addablePaths;
+    addablePaths.reserve(relativePaths.size());
+    for (const QString &relativePath : relativePaths) {
+        const QString absolutePath = resolveChangedFilePath(relativePath);
+        if (!absolutePath.isEmpty() && QFileInfo(absolutePath).isFile()) {
+            addablePaths.append(absolutePath);
+        }
+    }
+
+    if (!addablePaths.isEmpty()) {
+        menu.addAction(
+            QIcon::fromTheme(QStringLiteral("bookmark-new")),
+            i18n("Add to Context"),
+            this,
+            [this, addablePaths]() {
+                for (const QString &absolutePath : addablePaths) {
+                    emit fileContextRequested(absolutePath);
+                }
+            });
+    }
+
     menu.exec(m_unstagedFilesList->viewport()->mapToGlobal(position));
 }
 

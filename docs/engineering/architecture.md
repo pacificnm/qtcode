@@ -27,7 +27,6 @@ Primary widgets:
 - `AgentPanel`
 - `TerminalPanel`
 - `ContextResultsView`
-- `DiffReviewView`
 
 ## Application Layer
 

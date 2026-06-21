@@ -34,6 +34,7 @@ public:
     [[nodiscard]] bool isLoadSuccessful() const;
     [[nodiscard]] QString loadErrorMessage() const;
     [[nodiscard]] bool isModified() const;
+    [[nodiscard]] QString documentText() const;
     [[nodiscard]] bool save(QString *errorMessage = nullptr);
     [[nodiscard]] EditorCloseChoice promptClose(QWidget *parentWidget);
     void repathTo(const QString &newAbsolutePath);

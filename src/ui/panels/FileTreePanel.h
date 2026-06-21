@@ -35,6 +35,7 @@ public slots:
 
 signals:
     void fileOpenRequested(const QString &absolutePath);
+    void fileContextRequested(const QString &absolutePath);
     void pathRenamed(const QString &oldPath, const QString &newPath);
     void pathDeleted(const QString &path, bool isDirectory);
 

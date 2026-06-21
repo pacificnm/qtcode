@@ -19,11 +19,12 @@ QTCode is a lightweight native KDE/Linux developer cockpit for AI-assisted devel
 11. [specs/qtcommands-spec.md](specs/qtcommands-spec.md)
 12. [specs/settings-spec.md](specs/settings-spec.md)
 13. [specs/ktexteditor-workspace-spec.md](specs/ktexteditor-workspace-spec.md)
-14. [design/qtcommands-design.md](design/qtcommands-design.md)
-15. [engineering/beta-setup-guide.md](engineering/beta-setup-guide.md)
-16. [engineering/packaging-notes.md](engineering/packaging-notes.md)
-17. [milestones/](milestones/)
-18. [adrs/](adrs/)
+14. [specs/retrieved-context-spec.md](specs/retrieved-context-spec.md)
+15. [design/qtcommands-design.md](design/qtcommands-design.md)
+16. [engineering/beta-setup-guide.md](engineering/beta-setup-guide.md)
+17. [engineering/packaging-notes.md](engineering/packaging-notes.md)
+18. [milestones/](milestones/)
+19. [adrs/](adrs/)
 
 ## Folder Guide
 

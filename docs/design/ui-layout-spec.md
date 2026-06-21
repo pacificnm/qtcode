@@ -104,7 +104,7 @@ Interaction:
 
 - **Enter** sends when the prompt is non-empty and sending is allowed; **Shift+Enter** inserts a newline.
 - While a request is running, the Send control becomes Stop/Cancel for the active session.
-- After project memory retrieval completes, the prompt dispatches automatically with all retrieved results attached by default. Users can attach or detach excerpts in **Retrieved Context** to control what is included in later prompts.
+- After project memory retrieval completes, the prompt dispatches automatically with all retrieved results attached by default. Users can attach or detach excerpts in **Retrieved Context** to control what is included in the **next** prompt. Attachment choices persist across subsequent retrievals by source key.
 
 Request options:
 
@@ -122,7 +122,7 @@ Purpose:
 Expected surfaces:
 
 - **Agent Sessions** — agent selector, session list, and new session control. The selector preselects the repository default agent from `.qtcode/config.yaml` when opening a project that has no prior selector value; session restore and auto-create behavior are described in [settings spec](../specs/settings-spec.md).
-- **Retrieved Context** — context result viewer and attach/detach controls.
+- **Retrieved Context** — deduplicated context result list with checkboxes and attach/detach controls. Shows automatic memory hits plus manual `[source_file]` entries from **Add to Context** actions in the repository changed-files list, folder tree, and editor tab bar. Clicking a file-backed row opens the file in a workspace tab. No inline excerpt preview. See [retrieved context spec](../specs/retrieved-context-spec.md).
 - **MCP Servers** — MCP server configuration and memory tooling.
 - **Activity bar** — right-edge icon buttons that switch the active right-panel view or hide the right column.
 

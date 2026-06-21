@@ -17,13 +17,15 @@ When a user selects a repository:
 1. User selects active repository.
 2. User selects agent.
 3. User writes prompt.
-4. QTCode retrieves relevant context when enabled.
-5. QTCode retrieves relevant context when enabled.
-6. User can open the Retrieved Context panel from the activity bar to inspect attached context.
-7. User sends request.
-8. Response streams into conversation.
-9. Diffs or artifacts appear in the Generated Changes panel.
-10. User approves or rejects generated changes.
+4. User may attach manual file context with **Add to Context** from the repository changed-files list, folder tree, or an editor tab.
+5. User sends the prompt.
+6. QTCode retrieves relevant project memory asynchronously when enabled.
+7. Retrieved results appear in the **Retrieved Context** panel (deduplicated by source). All results attach by default unless the user previously detached that source.
+8. The prompt dispatches with checked excerpts. Users can adjust attach/detach before the next send.
+9. Response streams into the conversation.
+10. User reviews agent file changes through git status and the repository changed-files list (open in workspace tabs as needed).
+
+See [retrieved context spec](../specs/retrieved-context-spec.md) for panel behavior and recent fixes.
 
 ## Terminal Flow
 
@@ -41,13 +43,14 @@ When a user selects a repository:
 4. User selects an issue or pull request.
 5. Selected content can be attached to an agent request.
 
-## Diff Approval Flow
+## Agent Change Review Flow
 
-1. Agent produces change artifact.
-2. QTCode shows diff before applying or accepting changes.
-3. User approves or rejects.
-4. Approved changes update repository state.
-5. Rejected changes remain recorded in the session but are not applied.
+1. Agent modifies files through its own tooling.
+2. QTCode refreshes repository git status.
+3. User inspects changed files in the repository panel and opens them in workspace tabs.
+4. User validates changes with git diff, terminal commands, or external review workflows.
+
+QTCode does not provide a dedicated in-app diff approval panel. Session history retains conversation context; file review is repository-native.
 
 ## Keyboard And Actions
 

@@ -18,6 +18,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QMessageBox>
+#include <QMenu>
 #include <QDir>
 #include <QTabBar>
 #include <QTabWidget>
@@ -63,6 +64,12 @@ void WorkspaceTabs::configureLayout()
     m_tabWidget->setTabsClosable(true);
     connect(m_tabWidget, &QTabWidget::tabCloseRequested, this, &WorkspaceTabs::onTabCloseRequested);
     connect(m_tabWidget, &QTabWidget::currentChanged, this, &WorkspaceTabs::onCurrentTabChanged);
+    m_tabWidget->tabBar()->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(
+        m_tabWidget->tabBar(),
+        &QTabBar::customContextMenuRequested,
+        this,
+        &WorkspaceTabs::showTabContextMenu);
 
     layout->addWidget(m_tabWidget, 1);
 }
@@ -781,6 +788,34 @@ QString WorkspaceTabs::githubTabTitle(const QString &prefix, int number, const Q
     }
 
     return i18n("%1 #%2 — %3", prefix, number, elidedTitle);
+}
+
+void WorkspaceTabs::showTabContextMenu(const QPoint &position)
+{
+    if (m_tabWidget == nullptr) {
+        return;
+    }
+
+    const int tabIndex = m_tabWidget->tabBar()->tabAt(position);
+    if (tabIndex < 0 || tabIndex == m_aiChatTabIndex) {
+        return;
+    }
+
+    EditorTab *editorTab = editorTabAt(tabIndex);
+    if (editorTab == nullptr) {
+        return;
+    }
+
+    QMenu menu(this);
+    menu.addAction(
+        QIcon::fromTheme(QStringLiteral("bookmark-new")),
+        i18n("Add to Context"),
+        this,
+        [this, editorTab]() {
+            const QString contentOverride = editorTab->isModified() ? editorTab->documentText() : QString();
+            emit fileContextSelected(editorTab->filePath(), contentOverride);
+        });
+    menu.exec(m_tabWidget->tabBar()->mapToGlobal(position));
 }
 
 } // namespace qtcode::ui

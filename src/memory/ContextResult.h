@@ -13,6 +13,7 @@ enum class ContextSourceType
     Documentation,
     ArchitectureDecision,
     CodingStandard,
+    SourceFile,
 };
 
 struct ContextResult
@@ -27,8 +28,15 @@ struct ContextResult
 };
 
 [[nodiscard]] QString contextSourceTypeLabel(ContextSourceType sourceType);
+[[nodiscard]] QString contextResultSourceKey(const ContextResult &result);
+[[nodiscard]] QList<ContextResult> dedupeContextResultsBySource(const QList<ContextResult> &results);
 [[nodiscard]] QList<ContextResult> parseProjectMemoryToolOutput(
     const QString &toolOutput,
     const QString &retrievedAt);
+[[nodiscard]] ContextResult contextResultFromFilePath(
+    const QString &absolutePath,
+    const QString &projectRoot = {},
+    const QString &contentOverride = {},
+    int maxContentLength = 65536);
 
 } // namespace qtcode::memory

@@ -95,7 +95,7 @@ Detailed responsibilities are in `engineering/class-responsibilities.md`.
 | Local repos          | Sessions                    |
 | GitHub repos         | Conversation                |
 | Branches/tags        | Retrieved context           |
-| Changes/commits      | Diffs and approvals         |
+| Changes/commits      | (review via git / workspace tabs) |
 | Issues/PRs           |                             |
 +----------------------+-----------------------------+
 | TerminalPanel                                      |

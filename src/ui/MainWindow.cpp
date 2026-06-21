@@ -213,10 +213,29 @@ void MainWindow::configureLayout()
             m_workspaceTabs,
             &WorkspaceTabs::requestOpenFile);
         connect(
+            m_projectNavigationPanel->repositoryPanel(),
+            &RepositoryPanel::fileContextRequested,
+            m_agentPanel,
+            [agentPanel = m_agentPanel](const QString &absolutePath) {
+                agentPanel->attachFileContext(absolutePath);
+            });
+        connect(
             m_projectNavigationPanel->fileTreePanel(),
             &FileTreePanel::fileOpenRequested,
             m_workspaceTabs,
             &WorkspaceTabs::requestOpenFile);
+        connect(
+            m_projectNavigationPanel->fileTreePanel(),
+            &FileTreePanel::fileContextRequested,
+            m_agentPanel,
+            [agentPanel = m_agentPanel](const QString &absolutePath) {
+                agentPanel->attachFileContext(absolutePath);
+            });
+        connect(
+            m_workspaceTabs,
+            &WorkspaceTabs::fileContextSelected,
+            m_agentPanel,
+            &AgentPanel::attachFileContext);
         connect(
             m_projectNavigationPanel->fileTreePanel(),
             &FileTreePanel::pathRenamed,

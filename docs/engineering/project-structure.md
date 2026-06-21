@@ -30,7 +30,6 @@ qtcode/
         TerminalTabModel.h
       views/
         ContextResultsView.h
-        DiffReviewView.h
     core/
       ApplicationController.h
       AppConfigService.h

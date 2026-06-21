@@ -33,6 +33,10 @@ public:
 
     [[nodiscard]] QList<memory::ContextResult> attachedResults() const;
     [[nodiscard]] QStringList attachedContextExcerpts() const;
+    [[nodiscard]] bool addFileContext(
+        const QString &absolutePath,
+        const QString &contentOverride = {},
+        QString *errorMessage = nullptr);
 
 signals:
     void attachmentChanged();
@@ -50,6 +54,9 @@ private:
     void setControlsEnabled(bool enabled);
     void setResultAttached(int row, bool attached);
     void setStatusMessage(const QString &message);
+    void rebuildResultList();
+    [[nodiscard]] QList<memory::ContextResult> manualFileResults() const;
+    [[nodiscard]] QString projectRootPath() const;
     [[nodiscard]] QString resolveSourcePath(const memory::ContextResult &result) const;
     [[nodiscard]] static QString resultListLabel(const memory::ContextResult &result, bool attached);
 
@@ -64,7 +71,6 @@ private:
     QPushButton *m_detachSelectedButton = nullptr;
     QString m_statusMessage;
     bool m_memoryUnavailable = false;
-    bool m_auditMode = false;
 };
 
 } // namespace qtcode::ui

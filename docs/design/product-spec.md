@@ -18,7 +18,7 @@ QTCode is a native KDE/Linux developer cockpit for AI-assisted coding, terminal 
 - Run terminal commands in the correct project context.
 - Ask an AI agent to work on a project with relevant memory attached.
 - Inspect what context was retrieved before or during an agent session.
-- Review and approve generated changes.
+- Review agent file changes through git status and workspace tabs.
 - Track related GitHub issues and pull requests.
 - Save conversations and return to them later.
 - Reuse approved repo-native commands for repeatable AI and developer workflows.
@@ -43,8 +43,8 @@ QTCode is a native KDE/Linux developer cockpit for AI-assisted coding, terminal 
 - QTermWidget terminal tabs.
 - One CLI-based agent adapter.
 - Agent session persistence.
-- Basic context retrieval architecture.
-- Basic diff review.
+- Basic context retrieval architecture and attach/detach controls.
+- Repository-native review of agent file changes.
 - GitHub CLI status and summary integration.
 
 ## Success Criteria
@@ -53,5 +53,5 @@ QTCode is a native KDE/Linux developer cockpit for AI-assisted coding, terminal 
 - Common flows do not block the UI.
 - The user can move from repository context to terminal or agent work with little friction.
 - Agent sessions are recoverable.
-- Generated changes are reviewable before approval.
+- Generated changes are reviewable through git and the repository changed-files list.
 - Missing external tools are understandable, not mysterious.

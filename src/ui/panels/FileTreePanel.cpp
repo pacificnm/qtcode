@@ -480,7 +480,31 @@ void FileTreePanel::showContextMenu(const QPoint &position)
         return;
     }
 
+    const QModelIndex index = m_treeView->indexAt(position);
+    const QString contextPath =
+        index.isValid() && m_fileModel != nullptr ? m_fileModel->filePath(index) : QString();
+    const QFileInfo contextInfo(contextPath);
+    const bool isContextFile = contextInfo.isFile();
+
     QMenu menu(this);
+    if (isContextFile && isOpenableTextFile(contextPath)) {
+        menu.addAction(
+            QIcon::fromTheme(QStringLiteral("document-open")),
+            i18n("Open"),
+            this,
+            [this, contextPath]() {
+                emit fileOpenRequested(contextPath);
+            });
+        menu.addAction(
+            QIcon::fromTheme(QStringLiteral("bookmark-new")),
+            i18n("Add to Context"),
+            this,
+            [this, contextPath]() {
+                emit fileContextRequested(contextPath);
+            });
+        menu.addSeparator();
+    }
+
     menu.addAction(i18n("New File"), this, &FileTreePanel::createNewFile);
     menu.addAction(i18n("New Folder"), this, &FileTreePanel::createNewFolder);
     menu.addSeparator();

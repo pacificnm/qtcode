@@ -120,7 +120,7 @@ ContextRetrievalOutcome ContextManager::retrieveForAgentRequest(
         return outcome;
     }
 
-    outcome.results = searchOutcome.results;
+    outcome.results = memory::dedupeContextResultsBySource(searchOutcome.results);
     outcome.contextExcerpts = contextExcerptsFromResults(outcome.results);
     if (outcome.results.isEmpty()) {
         outcome.statusMessage = QStringLiteral("No matching project memory found.");

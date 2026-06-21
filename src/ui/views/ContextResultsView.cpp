@@ -2,12 +2,14 @@
 
 #include "core/ContextManager.h"
 #include "core/ProjectManager.h"
+#include "memory/ContextResult.h"
 #include "settings/ProjectModels.h"
 
 #include <KLocalizedString>
 
 #include <QDir>
 #include <QFileInfo>
+#include <QHash>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QListWidget>
@@ -40,9 +42,13 @@ void ContextResultsView::configureLayout()
     m_resultList->setSelectionMode(QAbstractItemView::SingleSelection);
 
     m_attachAllButton = new QPushButton(i18n("Attach all"), this);
+    m_attachAllButton->setToolTip(i18n("Include every retrieved excerpt in the next agent prompt."));
     m_detachAllButton = new QPushButton(i18n("Detach all"), this);
+    m_detachAllButton->setToolTip(i18n("Exclude every retrieved excerpt from the next agent prompt."));
     m_attachSelectedButton = new QPushButton(i18n("Attach selected"), this);
+    m_attachSelectedButton->setToolTip(i18n("Include the highlighted excerpt in the next agent prompt."));
     m_detachSelectedButton = new QPushButton(i18n("Detach selected"), this);
+    m_detachSelectedButton->setToolTip(i18n("Exclude the highlighted excerpt from the next agent prompt."));
 
     auto *buttonLayout = new QHBoxLayout();
     buttonLayout->addWidget(m_attachAllButton);
@@ -53,7 +59,7 @@ void ContextResultsView::configureLayout()
 
     connect(m_resultList, &QListWidget::itemClicked, this, &ContextResultsView::onResultItemClicked);
     connect(m_resultList, &QListWidget::itemChanged, this, [this](QListWidgetItem *item) {
-        if (m_auditMode || item == nullptr || m_resultList == nullptr) {
+        if (item == nullptr || m_resultList == nullptr) {
             return;
         }
 
@@ -82,15 +88,34 @@ void ContextResultsView::configureLayout()
 
 void ContextResultsView::setRetrievalOutcome(const qtcode::core::ContextRetrievalOutcome &outcome)
 {
-    m_auditMode = false;
+    QHash<QString, bool> previousAttachment;
+    for (int index = 0; index < m_results.size(); ++index) {
+        const QString key = memory::contextResultSourceKey(m_results.at(index));
+        if (key.isEmpty()) {
+            continue;
+        }
+
+        const bool attached = index < m_attachedStates.size() ? m_attachedStates.at(index) : true;
+        previousAttachment.insert(key, attached);
+    }
+
+    const QList<memory::ContextResult> manualResults = manualFileResults();
+
     setControlsEnabled(true);
     m_statusMessage = outcome.statusMessage;
     m_memoryUnavailable = outcome.memoryUnavailable;
-    m_results = outcome.results;
-    m_attachedStates = QList<bool>(m_results.size(), true);
+    m_results = memory::dedupeContextResultsBySource(outcome.results);
+    if (!manualResults.isEmpty()) {
+        m_results.append(manualResults);
+        m_results = memory::dedupeContextResultsBySource(m_results);
+    }
+    m_attachedStates.clear();
+    m_attachedStates.reserve(m_results.size());
 
-    const QSignalBlocker blocker(m_resultList);
-    m_resultList->clear();
+    for (const memory::ContextResult &result : m_results) {
+        const QString key = memory::contextResultSourceKey(result);
+        m_attachedStates.append(previousAttachment.value(key, true));
+    }
 
     if (m_results.isEmpty()) {
         if (outcome.memoryUnavailable) {
@@ -107,15 +132,7 @@ void ContextResultsView::setRetrievalOutcome(const qtcode::core::ContextRetrieva
 
     setStatusMessage({});
     setEnabled(true);
-    for (int index = 0; index < m_results.size(); ++index) {
-        auto *item = new QListWidgetItem(resultListLabel(m_results.at(index), true), m_resultList);
-        item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
-        item->setCheckState(Qt::Checked);
-    }
-
-    if (m_resultList->count() > 0) {
-        m_resultList->setCurrentRow(0);
-    }
+    rebuildResultList();
     emit attachmentChanged();
 }
 
@@ -123,15 +140,12 @@ void ContextResultsView::setPersistedRetrieval(
     const storage::PersistedContextRetrieval &retrieval,
     const QList<storage::PersistedContextResult> &results)
 {
-    m_auditMode = true;
-    setControlsEnabled(false);
+    setControlsEnabled(true);
     m_statusMessage = retrieval.metadataJson.value(QStringLiteral("status_message")).toString();
     m_memoryUnavailable = retrieval.metadataJson.value(QStringLiteral("memory_unavailable")).toBool();
 
-    m_results.clear();
-    m_attachedStates.clear();
-    m_results.reserve(results.size());
-    m_attachedStates.reserve(results.size());
+    QList<memory::ContextResult> loadedResults;
+    loadedResults.reserve(results.size());
 
     for (const storage::PersistedContextResult &persisted : results) {
         memory::ContextResult result;
@@ -141,9 +155,11 @@ void ContextResultsView::setPersistedRetrieval(
         result.excerpt = persisted.excerpt;
         result.score = persisted.score;
         result.retrievedAt = persisted.metadataJson.value(QStringLiteral("retrieved_at")).toString();
-        m_results.append(result);
-        m_attachedStates.append(true);
+        loadedResults.append(result);
     }
+
+    m_results = memory::dedupeContextResultsBySource(loadedResults);
+    m_attachedStates = QList<bool>(m_results.size(), true);
 
     const QSignalBlocker blocker(m_resultList);
     m_resultList->clear();
@@ -161,21 +177,121 @@ void ContextResultsView::setPersistedRetrieval(
 
     setStatusMessage({});
     setEnabled(true);
-    for (int index = 0; index < m_results.size(); ++index) {
-        auto *item = new QListWidgetItem(resultListLabel(m_results.at(index), true), m_resultList);
-        item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
-        item->setCheckState(Qt::Checked);
+    rebuildResultList();
+    emit attachmentChanged();
+}
+
+bool ContextResultsView::addFileContext(
+    const QString &absolutePath,
+    const QString &contentOverride,
+    QString *errorMessage)
+{
+    const QFileInfo fileInfo(absolutePath);
+    if (!fileInfo.isFile()) {
+        if (errorMessage != nullptr) {
+            *errorMessage = i18n("Select a file to add to context.");
+        }
+        return false;
     }
 
-    if (m_resultList->count() > 0) {
+    const memory::ContextResult fileResult = memory::contextResultFromFilePath(
+        fileInfo.absoluteFilePath(),
+        projectRootPath(),
+        contentOverride);
+    if (fileResult.sourceUri.isEmpty()) {
+        if (errorMessage != nullptr) {
+            *errorMessage = i18n("Could not read %1 for context.", fileInfo.fileName());
+        }
+        return false;
+    }
+
+    const QString sourceKey = memory::contextResultSourceKey(fileResult);
+    int existingIndex = -1;
+    for (int index = 0; index < m_results.size(); ++index) {
+        if (memory::contextResultSourceKey(m_results.at(index)) == sourceKey) {
+            existingIndex = index;
+            break;
+        }
+    }
+
+    if (existingIndex >= 0) {
+        m_results[existingIndex] = fileResult;
+        if (existingIndex >= m_attachedStates.size()) {
+            m_attachedStates.resize(m_results.size(), true);
+        }
+        m_attachedStates[existingIndex] = true;
+    } else {
+        m_results.append(fileResult);
+        m_attachedStates.append(true);
+    }
+
+    setControlsEnabled(true);
+    setStatusMessage({});
+    setEnabled(true);
+    rebuildResultList();
+
+    for (int index = 0; index < m_results.size(); ++index) {
+        if (memory::contextResultSourceKey(m_results.at(index)) == sourceKey) {
+            m_resultList->setCurrentRow(index);
+            break;
+        }
+    }
+
+    emit attachmentChanged();
+    return true;
+}
+
+QList<memory::ContextResult> ContextResultsView::manualFileResults() const
+{
+    QList<memory::ContextResult> manualResults;
+    manualResults.reserve(m_results.size());
+
+    for (const memory::ContextResult &result : m_results) {
+        if (result.sourceType == memory::ContextSourceType::SourceFile) {
+            manualResults.append(result);
+        }
+    }
+
+    return manualResults;
+}
+
+QString ContextResultsView::projectRootPath() const
+{
+    if (m_projectManager == nullptr) {
+        return {};
+    }
+
+    qtcode::settings::ProjectRecord project;
+    if (!m_projectManager->activeProject(&project)) {
+        return {};
+    }
+
+    return project.rootPath.trimmed();
+}
+
+void ContextResultsView::rebuildResultList()
+{
+    if (m_resultList == nullptr) {
+        return;
+    }
+
+    const QSignalBlocker blocker(m_resultList);
+    m_resultList->clear();
+
+    for (int index = 0; index < m_results.size(); ++index) {
+        const bool attached = m_attachedStates.value(index, true);
+        auto *item = new QListWidgetItem(resultListLabel(m_results.at(index), attached), m_resultList);
+        item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
+        item->setCheckState(attached ? Qt::Checked : Qt::Unchecked);
+    }
+
+    if (m_resultList->count() > 0 && m_resultList->currentRow() < 0) {
         m_resultList->setCurrentRow(0);
     }
-    emit attachmentChanged();
 }
 
 void ContextResultsView::clearResults()
 {
-    m_auditMode = false;
     setControlsEnabled(true);
     m_results.clear();
     m_attachedStates.clear();

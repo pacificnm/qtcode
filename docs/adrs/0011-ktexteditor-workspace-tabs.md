@@ -67,7 +67,7 @@ Tradeoffs:
 ## Follow-Ups
 
 - Update the UI layout spec after the implementation settles the exact widget names.
-- Decide whether generated-change review should reuse KTextEditor tabs or stay in `DiffReviewView`.
+- ~~Decide whether generated-change review should reuse KTextEditor tabs or stay in `DiffReviewView`.~~ Resolved (2026-06): the Generated Changes / `DiffReviewView` panel was removed. Agent file changes are reviewed through git status, the repository changed-files list, and KTextEditor workspace tabs.
 - Consider adding external-editor handoff later for workflows that exceed the cockpit's editing scope.
 
 ## Related Documents

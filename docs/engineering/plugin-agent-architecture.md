@@ -5,7 +5,7 @@
 - Support multiple agents without coupling the UI to any provider.
 - Support CLI, API, and MCP-enabled agents.
 - Let future agents be added with isolated adapter work.
-- Preserve common session, context, and diff review flows.
+- Preserve common session, context, and repository-native file review flows.
 
 ## Core Interfaces
 
@@ -88,7 +88,7 @@ AgentPanel
   -> AgentAdapter
   -> AgentEvent stream
   -> AgentSessionRepository
-  -> DiffReviewView
+  -> ConversationView / RepositoryPanel (file review via git status)
 ```
 
 ## Error Handling

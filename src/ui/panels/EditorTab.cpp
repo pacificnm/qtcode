@@ -97,6 +97,15 @@ bool EditorTab::isModified() const
     return m_document != nullptr && m_document->isModified();
 }
 
+QString EditorTab::documentText() const
+{
+    if (m_document == nullptr) {
+        return {};
+    }
+
+    return m_document->text();
+}
+
 bool EditorTab::save(QString *errorMessage)
 {
     if (m_document == nullptr) {

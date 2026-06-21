@@ -24,6 +24,7 @@
 #include <KLocalizedString>
 
 #include <QComboBox>
+#include <QFileInfo>
 #include <QHBoxLayout>
 #include <QIcon>
 #include <QKeyEvent>
@@ -533,8 +534,6 @@ void AgentPanel::dispatchPromptWithContext(
             statusMessage.isEmpty() ? m_lastRetrievalStatusMessage : statusMessage,
             &persistError)) {
         qCWarning(qtcodeUi) << "Failed to persist context retrieval metadata:" << persistError;
-    } else {
-        refreshSavedContextRetrieval();
     }
 
     if (memoryUnavailable) {
@@ -571,6 +570,23 @@ void AgentPanel::attachPullRequestContext(const qtcode::github::GitHubPullReques
     m_attachedPullRequestNumber = detail.number;
     showStatus(
         i18n("Attached GitHub pull request #%1 to the next agent prompt.", detail.number));
+}
+
+void AgentPanel::attachFileContext(const QString &absolutePath, const QString &contentOverride)
+{
+    if (m_contextResultsView == nullptr) {
+        return;
+    }
+
+    QString errorMessage;
+    if (!m_contextResultsView->addFileContext(absolutePath, contentOverride, &errorMessage)) {
+        showStatus(
+            errorMessage.isEmpty() ? i18n("Could not add the file to context.") : errorMessage,
+            qtcode::core::StatusSeverity::Error);
+        return;
+    }
+
+    showStatus(i18n("Added %1 to retrieved context.", QFileInfo(absolutePath).fileName()));
 }
 
 void AgentPanel::createNewSession()
