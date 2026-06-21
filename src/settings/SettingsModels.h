@@ -8,18 +8,19 @@ namespace qtcode::settings {
 
 inline constexpr auto kPanelLayoutSettingKey = "app.panel_layout";
 
-inline constexpr auto kPanelLayoutSchemaVersion = 2;
+inline constexpr auto kPanelLayoutSchemaVersion = 3;
 
 inline constexpr auto kRightPanelNone = "none";
+inline constexpr auto kRightPanelSessions = "sessions";
 inline constexpr auto kRightPanelContext = "context";
 inline constexpr auto kRightPanelChanges = "changes";
 inline constexpr auto kRightPanelMcp = "mcp";
 
 struct PanelLayoutSettings
 {
-    QList<int> columnSizes {280, 240, 640, 320};
+    QList<int> columnSizes {280, 640, 320};
     QList<int> verticalSizes {560, 240};
-    QString activeRightPanel = QString::fromLatin1(kRightPanelMcp);
+    QString activeRightPanel = QString::fromLatin1(kRightPanelSessions);
     int windowWidth = 1280;
     int windowHeight = 800;
 

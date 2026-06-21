@@ -37,7 +37,8 @@ QJsonArray sizesToJsonArray(const QList<int> &sizes)
 
 QString normalizeRightPanelId(const QString &panelId, const QString &fallback)
 {
-    if (panelId == QLatin1String(kRightPanelContext)
+    if (panelId == QLatin1String(kRightPanelSessions)
+        || panelId == QLatin1String(kRightPanelContext)
         || panelId == QLatin1String(kRightPanelChanges)
         || panelId == QLatin1String(kRightPanelMcp)
         || panelId == QLatin1String(kRightPanelNone)) {
@@ -86,24 +87,27 @@ PanelLayoutSettings PanelLayoutSettings::fromJson(const QJsonObject &json)
             defaults.verticalSizes);
     }
 
-    if (layout.columnSizes.size() == 4
-        && json.value(QStringLiteral("layoutSchemaVersion")).toInt(0) < kPanelLayoutSchemaVersion) {
-        const int rightWidth = layout.columnSizes.at(2) > 0 ? layout.columnSizes.at(2)
-                                                            : layout.columnSizes.at(3);
-        layout.columnSizes = {
-            layout.columnSizes.at(0),
-            layout.columnSizes.at(1),
-            rightWidth,
-        };
+    if (layout.columnSizes.size() == 4) {
+        const int schemaVersion = json.value(QStringLiteral("layoutSchemaVersion")).toInt(0);
+        if (schemaVersion >= kPanelLayoutSchemaVersion - 1) {
+            layout.columnSizes = {
+                layout.columnSizes.at(0),
+                layout.columnSizes.at(2),
+                layout.columnSizes.at(3),
+            };
+        } else {
+            const int rightWidth = layout.columnSizes.at(2) > 0 ? layout.columnSizes.at(2)
+                                                                : layout.columnSizes.at(3);
+            layout.columnSizes = {
+                layout.columnSizes.at(0),
+                layout.columnSizes.at(1),
+                rightWidth,
+            };
+        }
     }
 
     if (layout.columnSizes.size() == 3) {
-        layout.columnSizes = {
-            layout.columnSizes.at(0),
-            240,
-            layout.columnSizes.at(1),
-            layout.columnSizes.at(2),
-        };
+        // Preserve three-column layouts.
     } else if (layout.columnSizes.size() == 2 && legacyHorizontalSizes.size() >= 2) {
         layout.columnSizes = {
             layout.columnSizes.at(0),
@@ -112,7 +116,7 @@ PanelLayoutSettings PanelLayoutSettings::fromJson(const QJsonObject &json)
         };
     } else if (layout.columnSizes.size() == 3 && legacyHorizontalSizes.empty()
                && json.contains(QStringLiteral("columnSizes"))) {
-        // Handled above by inserting the agent sessions column.
+        // Preserve three-column layouts from the current shell topology.
     } else if (!json.contains(QStringLiteral("columnSizes")) && legacyHorizontalSizes.size() >= 3) {
         layout.columnSizes = {
             legacyHorizontalSizes.at(0),
