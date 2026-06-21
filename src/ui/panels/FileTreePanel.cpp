@@ -20,6 +20,7 @@
 #include <QTreeView>
 #include <QVBoxLayout>
 #include <QFileSystemModel>
+#include <QHeaderView>
 
 namespace qtcode::ui {
 
@@ -105,6 +106,14 @@ void FileTreePanel::configureLayout()
     m_treeView = new QTreeView(m_contentStack);
     m_treeView->setModel(m_fileModel);
     m_treeView->setHeaderHidden(true);
+    for (int column = 1; column < m_fileModel->columnCount(); ++column) {
+        m_treeView->setColumnHidden(column, true);
+    }
+    if (auto *header = m_treeView->header()) {
+        header->setStretchLastSection(false);
+        header->setSectionResizeMode(0, QHeaderView::Stretch);
+    }
+    m_treeView->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     m_treeView->setEditTriggers(QAbstractItemView::NoEditTriggers);
     m_treeView->setSelectionMode(QAbstractItemView::SingleSelection);
     m_treeView->setUniformRowHeights(true);
