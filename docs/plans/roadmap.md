@@ -29,7 +29,7 @@ Core outcomes:
 - Add commit history, tags, branch actions, and diff navigation.
 - Add GitHub issue and pull request actions through `gh`.
 - Add build/test command profiles per project.
-- Add optional read-only KTextEditor preview.
+- Add focused KTextEditor workspace tabs for small in-cockpit edits (see [ADR 0011](../adrs/0011-ktexteditor-workspace-tabs.md)).
 
 ## Phase 3
 

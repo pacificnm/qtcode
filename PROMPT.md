@@ -50,7 +50,7 @@ The editor should be optional and secondary.
 
 * KDE Frameworks
 * QTermWidget
-* KTextEditor (optional)
+* KTextEditor (required for workspace file editing; see ADR 0011)
 
 ## Data
 
@@ -276,16 +276,15 @@ The memory system should be reusable across all supported agents.
 
 # Optional Editor Features
 
-The editor is not a priority.
+The editor is not the product center, but QTCode now includes focused workspace file editing through KTextEditor (see ADR 0011).
 
-If included:
+If included beyond that slice:
 
-* KTextEditor
-* File preview
+* KTextEditor workspace tabs for small edits
 * Diff viewer
-* Read-only code browsing
+* Read-only code browsing for review
 
-Avoid building a full IDE.
+Avoid building a full IDE. See [KTextEditor workspace spec](docs/specs/ktexteditor-workspace-spec.md) for non-goals.
 
 ---
 

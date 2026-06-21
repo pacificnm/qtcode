@@ -25,6 +25,7 @@
 #include <QAction>
 #include <QApplication>
 #include <QCloseEvent>
+#include <QFileInfo>
 #include <QIcon>
 #include <QMenuBar>
 #include <QSignalBlocker>
@@ -582,6 +583,67 @@ qtcode::settings::PanelLayoutSettings MainWindow::currentPanelLayout() const
     }
 
     return layout;
+}
+
+bool MainWindow::runWorkspaceSmokeChecks(QString *errorMessage)
+{
+    if (m_workspaceTabs == nullptr) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("Workspace tabs are unavailable.");
+        }
+        return false;
+    }
+
+    if (m_workspaceTabs->aiChatTabIndex() < 0) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("Permanent AI Chat tab is missing.");
+        }
+        return false;
+    }
+
+    const int initialTabCount = m_workspaceTabs->tabCount();
+    if (initialTabCount < 1) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("Workspace has no tabs.");
+        }
+        return false;
+    }
+
+    const QByteArray workspaceFile = qgetenv("QTCODE_WORKSPACE_FILE");
+    if (!workspaceFile.isEmpty()) {
+        const QString filePath = QString::fromUtf8(workspaceFile);
+        if (!QFileInfo::exists(filePath)) {
+            if (errorMessage != nullptr) {
+                *errorMessage = QStringLiteral("Workspace smoke file is missing.");
+            }
+            return false;
+        }
+
+        m_workspaceTabs->requestOpenFile(filePath);
+        if (m_workspaceTabs->tabCount() <= initialTabCount) {
+            if (errorMessage != nullptr) {
+                *errorMessage = QStringLiteral("Editor tab did not open.");
+            }
+            return false;
+        }
+
+        if (!m_workspaceTabs->hasActiveEditorTab()) {
+            if (errorMessage != nullptr) {
+                *errorMessage = QStringLiteral("Active editor tab unavailable after open.");
+            }
+            return false;
+        }
+
+        if (!m_workspaceTabs->saveCurrentEditorTab()) {
+            if (errorMessage != nullptr) {
+                *errorMessage = QStringLiteral("Save failed for workspace smoke file.");
+            }
+            return false;
+        }
+    }
+
+    qCInfo(qtcodeUi) << "Workspace smoke check passed";
+    return true;
 }
 
 void MainWindow::persistPanelLayout()

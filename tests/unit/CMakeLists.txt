@@ -123,3 +123,27 @@ set_tests_properties(file_operation_service PROPERTIES
     LABELS "unit;core"
     TIMEOUT 30
 )
+
+qtcode_add_executable(qtcode_workspace_tabs_test
+    ui/WorkspaceTabsTest.cpp
+)
+
+target_link_libraries(qtcode_workspace_tabs_test
+    PRIVATE
+        qtcode_ui
+        Qt6::Test
+        Qt6::Widgets
+        KF6::CoreAddons
+        KF6::I18n
+        KF6::TextEditor
+)
+
+add_test(
+    NAME workspace_tabs
+    COMMAND qtcode_workspace_tabs_test
+)
+
+set_tests_properties(workspace_tabs PROPERTIES
+    LABELS "unit;ui;editor"
+    TIMEOUT 60
+)

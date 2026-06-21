@@ -64,6 +64,18 @@ Expected surfaces:
 - **Workspace tabs** — main work-area tab control owned by `WorkspaceTabs`. The permanent **AI Chat** tab hosts `AgentPanel::conversationPanel()` and cannot be closed. File tabs use KTextEditor via `EditorTab` when opened from the folder tree.
 - **Terminal panel** — shell tabs and project-aware command output beneath the workspace tabs.
 
+### Editor non-goals
+
+The workspace editing slice is intentionally narrow. QTCode is still a developer cockpit, not a full IDE.
+
+- No Electron, browser UI, Monaco, or VS Code compatibility layer.
+- No language server, debugger, extension host, or project-wide refactoring system.
+- No multi-root workspace model in the first slice.
+- No binary-file editing in workspace tabs.
+- No automatic agent edits through the editor surface; agent mutations continue through existing artifact/diff flows.
+
+See [KTextEditor workspace spec](../specs/ktexteditor-workspace-spec.md) for the full non-goals list.
+
 ### Prompt composer
 
 - Multi-line input (`QPlainTextEdit`) with a minimum height suitable for longer prompts.

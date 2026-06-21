@@ -70,6 +70,14 @@ int QtCodeApplication::run()
             qCWarning(qtcodeApp) << "Smoke-test memory search failed:" << memorySmokeError;
         }
 
+        if (qEnvironmentVariableIsSet("QTCODE_WORKSPACE_SMOKE")) {
+            QString workspaceSmokeError;
+            if (!mainWindow.runWorkspaceSmokeChecks(&workspaceSmokeError)) {
+                qCCritical(qtcodeApp) << "Workspace smoke check failed:" << workspaceSmokeError;
+                return 1;
+            }
+        }
+
         if (qEnvironmentVariableIsSet("QTCODE_AUTO_QUIT")) {
             const int fallbackDelayMs = smokeTestSessionId.isEmpty() ? 200 : 120000;
             QTimer::singleShot(fallbackDelayMs, &mainWindow, &QWidget::close);
