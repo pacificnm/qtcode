@@ -3,9 +3,11 @@
 #include "core/StatusModels.h"
 #include "core/StatusService.h"
 
+#include <QFrame>
 #include <QLabel>
 #include <QHBoxLayout>
 #include <QPalette>
+#include <QVBoxLayout>
 
 #include <algorithm>
 
@@ -17,11 +19,22 @@ StatusBar::StatusBar(qtcode::core::StatusService *statusService, QWidget *parent
 {
     setObjectName(QStringLiteral("GlobalStatusBar"));
 
-    auto *layout = new QHBoxLayout(this);
+    auto *outerLayout = new QVBoxLayout(this);
+    outerLayout->setContentsMargins(0, 0, 0, 0);
+    outerLayout->setSpacing(0);
+
+    auto *separator = new QFrame(this);
+    separator->setFrameShape(QFrame::HLine);
+    separator->setFrameShadow(QFrame::Plain);
+    separator->setLineWidth(1);
+    outerLayout->addWidget(separator);
+
+    auto *contentRow = new QWidget(this);
+    auto *layout = new QHBoxLayout(contentRow);
     layout->setContentsMargins(8, 2, 8, 2);
     layout->setSpacing(4);
 
-    m_messageLabel = new QLabel(this);
+    m_messageLabel = new QLabel(contentRow);
     m_messageLabel->setWordWrap(true);
     m_messageLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
     m_messageLabel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
@@ -31,8 +44,9 @@ StatusBar::StatusBar(qtcode::core::StatusService *statusService, QWidget *parent
     m_messageLabel->setFont(messageFont);
 
     layout->addWidget(m_messageLabel, 1);
+    outerLayout->addWidget(contentRow);
 
-    setMinimumHeight(24);
+    setMinimumHeight(25);
     setMaximumHeight(48);
     applySeverity(qtcode::core::StatusSeverity::Info);
 
