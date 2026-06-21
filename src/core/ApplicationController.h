@@ -15,6 +15,7 @@ class ProjectManager;
 class CliCapabilityService;
 class McpServerService;
 class ContextManager;
+class WorkspaceInstaller;
 
 } // namespace qtcode::core
 
@@ -64,6 +65,7 @@ public:
     [[nodiscard]] memory::MemoryService *memoryService() const;
     [[nodiscard]] ContextManager *contextManager() const;
     [[nodiscard]] github::GitHubService *gitHubService() const;
+    [[nodiscard]] WorkspaceInstaller *workspaceInstaller() const;
     [[nodiscard]] bool runSmokeTestAgentPromptIfRequested(
         QString *errorMessage = nullptr,
         QString *sessionId = nullptr);
@@ -85,6 +87,7 @@ private:
     std::unique_ptr<memory::MemoryService> m_memoryService;
     std::unique_ptr<ContextManager> m_contextManager;
     std::unique_ptr<github::GitHubService> m_gitHubService;
+    std::unique_ptr<WorkspaceInstaller> m_workspaceInstaller;
 };
 
 } // namespace qtcode::core

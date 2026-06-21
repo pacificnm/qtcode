@@ -16,6 +16,7 @@ ProjectNavigationPanel::ProjectNavigationPanel(
     qtcode::core::CliCapabilityService *cliCapabilityService,
     qtcode::github::GitHubService *gitHubService,
     qtcode::core::StatusService *statusService,
+    qtcode::core::WorkspaceInstaller *workspaceInstaller,
     QWidget *parent)
     : QWidget(parent)
 {
@@ -25,6 +26,7 @@ ProjectNavigationPanel::ProjectNavigationPanel(
         cliCapabilityService,
         gitHubService,
         statusService,
+        workspaceInstaller,
         this);
     m_fileTreePanel = new FileTreePanel(projectManager, statusService, this);
 

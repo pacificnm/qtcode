@@ -12,6 +12,7 @@ namespace qtcode::core {
 class ProjectManager;
 class CliCapabilityService;
 class StatusService;
+class WorkspaceInstaller;
 } // namespace qtcode::core
 
 namespace qtcode::github {
@@ -34,6 +35,7 @@ public:
         qtcode::core::CliCapabilityService *cliCapabilityService,
         qtcode::github::GitHubService *gitHubService,
         qtcode::core::StatusService *statusService,
+        qtcode::core::WorkspaceInstaller *workspaceInstaller,
         QWidget *parent = nullptr);
 
     [[nodiscard]] RepositoryPanel *repositoryPanel() const;

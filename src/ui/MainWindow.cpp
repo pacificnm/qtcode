@@ -91,6 +91,7 @@ void MainWindow::configureLayout()
         m_controller != nullptr ? m_controller->cliCapabilityService() : nullptr,
         m_controller != nullptr ? m_controller->gitHubService() : nullptr,
         m_controller != nullptr ? m_controller->statusService() : nullptr,
+        m_controller != nullptr ? m_controller->workspaceInstaller() : nullptr,
         this);
     m_agentPanel = new AgentPanel(
         m_controller != nullptr ? m_controller->cliCapabilityService() : nullptr,
@@ -103,6 +104,7 @@ void MainWindow::configureLayout()
         m_controller != nullptr ? m_controller->mcpServerService() : nullptr,
         m_controller != nullptr ? m_controller->memoryService() : nullptr,
         m_controller != nullptr ? m_controller->projectManager() : nullptr,
+        m_controller != nullptr ? m_controller->workspaceInstaller() : nullptr,
         this);
     m_terminalPanel = new TerminalPanel(
         m_controller != nullptr ? m_controller->terminalManager() : nullptr,

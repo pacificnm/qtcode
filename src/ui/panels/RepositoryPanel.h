@@ -26,6 +26,7 @@ namespace qtcode::core {
 class ProjectManager;
 class CliCapabilityService;
 class StatusService;
+class WorkspaceInstaller;
 } // namespace qtcode::core
 
 namespace qtcode::github {
@@ -57,6 +58,7 @@ public:
         qtcode::core::CliCapabilityService *cliCapabilityService,
         qtcode::github::GitHubService *gitHubService,
         qtcode::core::StatusService *statusService,
+        qtcode::core::WorkspaceInstaller *workspaceInstaller,
         QWidget *parent = nullptr);
     ~RepositoryPanel() override;
 
@@ -87,6 +89,8 @@ private slots:
     void onPushClicked();
     void onStageAllClicked();
     void onUnstageAllClicked();
+    void onInstallWorkspaceClicked();
+    void refreshWorkspaceSetupState();
 
 private:
     void configureLayout();
@@ -134,10 +138,14 @@ private:
     qtcode::core::CliCapabilityService *m_cliCapabilityService = nullptr;
     qtcode::github::GitHubService *m_gitHubService = nullptr;
     qtcode::core::StatusService *m_statusService = nullptr;
+    qtcode::core::WorkspaceInstaller *m_workspaceInstaller = nullptr;
     RepositoryListModel *m_repositoryModel = nullptr;
     QListView *m_repositoryList = nullptr;
     QLabel *m_projectLabel = nullptr;
     QLabel *m_capabilityStateLabel = nullptr;
+    QWidget *m_workspaceSetupWidget = nullptr;
+    QLabel *m_workspaceSetupLabel = nullptr;
+    QPushButton *m_installWorkspaceButton = nullptr;
     QLabel *m_sourceControlStateLabel = nullptr;
     QPlainTextEdit *m_commitMessageEdit = nullptr;
     QPushButton *m_commitButton = nullptr;

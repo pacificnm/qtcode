@@ -18,6 +18,7 @@ class QPushButton;
 namespace qtcode::core {
 class McpServerService;
 class ProjectManager;
+class WorkspaceInstaller;
 } // namespace qtcode::core
 
 namespace qtcode::memory {
@@ -39,6 +40,7 @@ public:
         qtcode::core::McpServerService *mcpServerService,
         qtcode::memory::MemoryService *memoryService,
         qtcode::core::ProjectManager *projectManager,
+        qtcode::core::WorkspaceInstaller *workspaceInstaller,
         QWidget *parent = nullptr);
 
 private slots:
@@ -49,6 +51,7 @@ private slots:
     void deleteCurrentServer();
     void testSelectedServerHealth();
     void onServerHealthUpdated(const QString &serverId, const qtcode::memory::McpHealthResult &result);
+    void refreshWorkspaceHealth();
 
 private:
     void configureLayout();
@@ -66,6 +69,7 @@ private:
     qtcode::core::McpServerService *m_mcpServerService = nullptr;
     qtcode::memory::MemoryService *m_memoryService = nullptr;
     qtcode::core::ProjectManager *m_projectManager = nullptr;
+    qtcode::core::WorkspaceInstaller *m_workspaceInstaller = nullptr;
     QListWidget *m_serverList = nullptr;
     QLineEdit *m_nameInput = nullptr;
     QLineEdit *m_endpointInput = nullptr;
@@ -82,6 +86,9 @@ private:
     QPushButton *m_testHealthButton = nullptr;
     QLabel *m_statusLabel = nullptr;
     QLabel *m_healthStateLabel = nullptr;
+    QGroupBox *m_workspaceHealthGroup = nullptr;
+    QLabel *m_workspaceHealthSummaryLabel = nullptr;
+    QPushButton *m_refreshWorkspaceHealthButton = nullptr;
     QString m_editingServerId;
 };
 

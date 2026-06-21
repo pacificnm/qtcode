@@ -188,6 +188,26 @@ set_tests_properties(file_operation_service PROPERTIES
     TIMEOUT 30
 )
 
+qtcode_add_executable(qtcode_workspace_installer_test
+    core/WorkspaceInstallerTest.cpp
+)
+
+target_link_libraries(qtcode_workspace_installer_test
+    PRIVATE
+        qtcode_core
+        Qt6::Test
+)
+
+add_test(
+    NAME workspace_installer
+    COMMAND qtcode_workspace_installer_test
+)
+
+set_tests_properties(workspace_installer PROPERTIES
+    LABELS "unit;core"
+    TIMEOUT 30
+)
+
 qtcode_add_executable(qtcode_workspace_tabs_test
     ui/WorkspaceTabsTest.cpp
 )

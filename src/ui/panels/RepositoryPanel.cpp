@@ -5,6 +5,8 @@
 #include "core/CliCapabilityModels.h"
 #include "core/StatusModels.h"
 #include "core/StatusService.h"
+#include "core/WorkspaceInstaller.h"
+#include "core/WorkspaceModels.h"
 #include "git/GitService.h"
 #include "github/GitHubService.h"
 #include "github/GitHubCachePolicy.h"
@@ -181,6 +183,7 @@ RepositoryPanel::RepositoryPanel(
     qtcode::core::CliCapabilityService *cliCapabilityService,
     qtcode::github::GitHubService *gitHubService,
     qtcode::core::StatusService *statusService,
+    qtcode::core::WorkspaceInstaller *workspaceInstaller,
     QWidget *parent)
     : QWidget(parent)
     , m_gitService(gitService)
@@ -188,6 +191,7 @@ RepositoryPanel::RepositoryPanel(
     , m_cliCapabilityService(cliCapabilityService)
     , m_gitHubService(gitHubService)
     , m_statusService(statusService)
+    , m_workspaceInstaller(workspaceInstaller)
     , m_refreshWatcher(new QFutureWatcher<RepositoryRefreshBundle>(this))
     , m_gitOperationWatcher(new QFutureWatcher<qtcode::git::GitOperationResult>(this))
     , m_autoRefreshTimer(new QTimer(this))
@@ -229,6 +233,16 @@ RepositoryPanel::RepositoryPanel(
         syncRepositorySelection();
         updateAutoRefreshTimer();
     }
+
+    if (m_workspaceInstaller != nullptr) {
+        connect(
+            m_workspaceInstaller,
+            &qtcode::core::WorkspaceInstaller::workspaceInstalled,
+            this,
+            &RepositoryPanel::refreshWorkspaceSetupState);
+    }
+
+    refreshWorkspaceSetupState();
 
     connect(m_refreshWatcher, &QFutureWatcher<RepositoryRefreshBundle>::finished, this, &RepositoryPanel::onRefreshFinished);
     connect(m_gitOperationWatcher, &QFutureWatcher<qtcode::git::GitOperationResult>::finished, this, &RepositoryPanel::onGitOperationFinished);
@@ -277,6 +291,28 @@ void RepositoryPanel::configureLayout()
     m_capabilityStateLabel = new QLabel(this);
     m_capabilityStateLabel->setWordWrap(true);
     m_capabilityStateLabel->setAlignment(Qt::AlignTop | Qt::AlignLeft);
+
+    m_workspaceSetupWidget = new QWidget(this);
+    auto *workspaceSetupLayout = new QVBoxLayout(m_workspaceSetupWidget);
+    workspaceSetupLayout->setContentsMargins(0, 0, 0, 0);
+    workspaceSetupLayout->setSpacing(6);
+
+    m_workspaceSetupLabel = new QLabel(m_workspaceSetupWidget);
+    m_workspaceSetupLabel->setWordWrap(true);
+    m_workspaceSetupLabel->setAlignment(Qt::AlignTop | Qt::AlignLeft);
+    m_workspaceSetupLabel->setText(
+        i18n("This repository does not have QTCode memory scripts yet. Install the workspace bundle to add scripts, tools, and Cursor MCP config."));
+
+    m_installWorkspaceButton = new QPushButton(i18n("Set up QTCode workspace"), m_workspaceSetupWidget);
+    connect(
+        m_installWorkspaceButton,
+        &QPushButton::clicked,
+        this,
+        &RepositoryPanel::onInstallWorkspaceClicked);
+
+    workspaceSetupLayout->addWidget(m_workspaceSetupLabel);
+    workspaceSetupLayout->addWidget(m_installWorkspaceButton);
+    m_workspaceSetupWidget->hide();
 
     QFont sectionFont = m_projectLabel->font();
     sectionFont.setBold(true);
@@ -398,6 +434,7 @@ void RepositoryPanel::configureLayout()
 
     layout->addWidget(titleLabel);
     layout->addWidget(m_capabilityStateLabel);
+    layout->addWidget(m_workspaceSetupWidget);
     layout->addWidget(m_projectLabel);
     layout->addWidget(localRepositoriesTitle);
     layout->addWidget(m_repositoryList);
@@ -926,6 +963,7 @@ void RepositoryPanel::onActiveProjectChanged()
 
     syncRepositorySelection();
     updateAutoRefreshTimer();
+    refreshWorkspaceSetupState();
 
     if (m_projectManager != nullptr && m_projectManager->hasActiveProject()) {
         refreshStatus(false);
@@ -1038,6 +1076,73 @@ void RepositoryPanel::refreshCapabilityState()
 
     m_capabilityStateLabel->setText(messages.join(QStringLiteral("\n\n")));
     m_capabilityStateLabel->show();
+}
+
+void RepositoryPanel::refreshWorkspaceSetupState()
+{
+    if (m_workspaceSetupWidget == nullptr || m_workspaceInstaller == nullptr || m_projectManager == nullptr) {
+        if (m_workspaceSetupWidget != nullptr) {
+            m_workspaceSetupWidget->hide();
+        }
+        return;
+    }
+
+    if (!m_projectManager->hasActiveProject()) {
+        m_workspaceSetupWidget->hide();
+        return;
+    }
+
+    qtcode::settings::ProjectRecord activeProject;
+    if (!m_projectManager->activeProject(&activeProject)) {
+        m_workspaceSetupWidget->hide();
+        return;
+    }
+
+    const bool installed = m_workspaceInstaller->isInstalled(activeProject.rootPath);
+    m_workspaceSetupWidget->setVisible(!installed);
+    if (m_installWorkspaceButton != nullptr) {
+        m_installWorkspaceButton->setEnabled(true);
+    }
+}
+
+void RepositoryPanel::onInstallWorkspaceClicked()
+{
+    if (m_workspaceInstaller == nullptr || m_projectManager == nullptr || !m_projectManager->hasActiveProject()) {
+        return;
+    }
+
+    qtcode::settings::ProjectRecord activeProject;
+    if (!m_projectManager->activeProject(&activeProject)) {
+        return;
+    }
+
+    if (m_installWorkspaceButton != nullptr) {
+        m_installWorkspaceButton->setEnabled(false);
+    }
+
+    qtcode::core::WorkspaceInstallContext context;
+    context.projectName = activeProject.name;
+    context.rootPath = activeProject.rootPath;
+    context.scopeKey = activeProject.rootPath;
+
+    qtcode::core::WorkspaceInstallResult result;
+    QString errorMessage;
+    if (!m_workspaceInstaller->install(context, &result, &errorMessage)) {
+        if (m_statusService != nullptr) {
+            m_statusService->showMessage(errorMessage, qtcode::core::StatusSeverity::Error);
+        }
+        QMessageBox::warning(this, i18n("Workspace setup failed"), errorMessage);
+        if (m_installWorkspaceButton != nullptr) {
+            m_installWorkspaceButton->setEnabled(true);
+        }
+        return;
+    }
+
+    refreshWorkspaceSetupState();
+    if (m_statusService != nullptr) {
+        m_statusService->showMessage(result.message);
+    }
+    QMessageBox::information(this, i18n("Workspace setup complete"), result.message);
 }
 
 void RepositoryPanel::updateSourceControlActions(const qtcode::git::GitWorkingTreeStatus &status)

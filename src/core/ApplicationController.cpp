@@ -8,6 +8,7 @@
 #include "git/GitService.h"
 #include "github/GitHubService.h"
 #include "core/ContextManager.h"
+#include "core/WorkspaceInstaller.h"
 #include "memory/MemoryService.h"
 #include "settings/ProjectModels.h"
 #include "settings/ProjectModels.h"
@@ -102,6 +103,7 @@ bool ApplicationController::initialize(QString *errorMessage)
         m_memoryService.get(),
         m_mcpServerService.get());
     m_gitHubService = std::make_unique<github::GitHubService>(*m_storageService);
+    m_workspaceInstaller = std::make_unique<WorkspaceInstaller>();
     applyIntegrationPathsFromCapabilities();
 
     if (!m_projectManager->restoreState(errorMessage)) {
@@ -287,6 +289,11 @@ ContextManager *ApplicationController::contextManager() const
 github::GitHubService *ApplicationController::gitHubService() const
 {
     return m_gitHubService.get();
+}
+
+WorkspaceInstaller *ApplicationController::workspaceInstaller() const
+{
+    return m_workspaceInstaller.get();
 }
 
 bool ApplicationController::runSmokeTestAgentPromptIfRequested(

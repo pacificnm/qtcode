@@ -23,3 +23,19 @@ if(QTcode_BUILD_TESTS)
         add_subdirectory(tests)
     endif()
 endif()
+
+install(
+    DIRECTORY resources/workspace-bundle/
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/qtcode/workspace-bundle
+)
+install(
+    DIRECTORY scripts/
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/qtcode/workspace-bundle/scripts
+    USE_SOURCE_PERMISSIONS
+)
+install(
+    DIRECTORY tools/
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/qtcode/workspace-bundle/tools
+    USE_SOURCE_PERMISSIONS
+    FILES_MATCHING PATTERN "*.py"
+)

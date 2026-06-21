@@ -3,6 +3,8 @@
 #include "memory/McpHealthResult.h"
 #include "core/McpServerService.h"
 #include "core/ProjectManager.h"
+#include "core/WorkspaceInstaller.h"
+#include "core/WorkspaceModels.h"
 #include "memory/MemoryService.h"
 #include "settings/McpServerModels.h"
 #include "settings/ProjectModels.h"
@@ -62,13 +64,31 @@ McpServerPanel::McpServerPanel(
     qtcode::core::McpServerService *mcpServerService,
     qtcode::memory::MemoryService *memoryService,
     qtcode::core::ProjectManager *projectManager,
+    qtcode::core::WorkspaceInstaller *workspaceInstaller,
     QWidget *parent)
     : QWidget(parent)
     , m_mcpServerService(mcpServerService)
     , m_memoryService(memoryService)
     , m_projectManager(projectManager)
+    , m_workspaceInstaller(workspaceInstaller)
 {
     configureLayout();
+
+    if (m_projectManager != nullptr) {
+        connect(
+            m_projectManager,
+            &qtcode::core::ProjectManager::activeProjectChanged,
+            this,
+            &McpServerPanel::refreshWorkspaceHealth);
+    }
+
+    if (m_workspaceInstaller != nullptr) {
+        connect(
+            m_workspaceInstaller,
+            &qtcode::core::WorkspaceInstaller::workspaceInstalled,
+            this,
+            &McpServerPanel::refreshWorkspaceHealth);
+    }
 
     if (m_mcpServerService != nullptr) {
         connect(
@@ -156,6 +176,25 @@ void McpServerPanel::configureLayout()
     m_healthStateLabel->setWordWrap(true);
     m_healthStateLabel->setAlignment(Qt::AlignTop | Qt::AlignLeft);
 
+    m_workspaceHealthGroup = new QGroupBox(i18n("Workspace health"), this);
+    auto *workspaceHealthLayout = new QVBoxLayout(m_workspaceHealthGroup);
+    workspaceHealthLayout->setContentsMargins(8, 8, 8, 8);
+    workspaceHealthLayout->setSpacing(6);
+
+    m_workspaceHealthSummaryLabel = new QLabel(m_workspaceHealthGroup);
+    m_workspaceHealthSummaryLabel->setWordWrap(true);
+    m_workspaceHealthSummaryLabel->setAlignment(Qt::AlignTop | Qt::AlignLeft);
+
+    m_refreshWorkspaceHealthButton = new QPushButton(i18n("Re-check workspace"), m_workspaceHealthGroup);
+    connect(
+        m_refreshWorkspaceHealthButton,
+        &QPushButton::clicked,
+        this,
+        &McpServerPanel::refreshWorkspaceHealth);
+
+    workspaceHealthLayout->addWidget(m_workspaceHealthSummaryLabel);
+    workspaceHealthLayout->addWidget(m_refreshWorkspaceHealthButton);
+
     auto *buttonRow = new QHBoxLayout();
     buttonRow->addWidget(m_newButton);
     buttonRow->addWidget(m_saveButton);
@@ -167,6 +206,7 @@ void McpServerPanel::configureLayout()
     layout->addWidget(m_statusLabel);
     layout->addWidget(m_serverList, 1);
     layout->addWidget(m_healthStateLabel);
+    layout->addWidget(m_workspaceHealthGroup);
     layout->addLayout(formLayout);
     layout->addLayout(buttonRow);
 
@@ -176,6 +216,8 @@ void McpServerPanel::configureLayout()
     connect(m_saveButton, &QPushButton::clicked, this, &McpServerPanel::saveCurrentServer);
     connect(m_deleteButton, &QPushButton::clicked, this, &McpServerPanel::deleteCurrentServer);
     connect(m_testHealthButton, &QPushButton::clicked, this, &McpServerPanel::testSelectedServerHealth);
+
+    refreshWorkspaceHealth();
 }
 
 void McpServerPanel::refreshServerList()
@@ -375,6 +417,41 @@ void McpServerPanel::onServerHealthUpdated(
             setStatusMessage(result.message);
         }
     }
+}
+
+void McpServerPanel::refreshWorkspaceHealth()
+{
+    if (m_workspaceHealthSummaryLabel == nullptr || m_workspaceInstaller == nullptr) {
+        return;
+    }
+
+    if (m_projectManager == nullptr || !m_projectManager->hasActiveProject()) {
+        m_workspaceHealthSummaryLabel->setText(i18n("Open a repository to inspect workspace health."));
+        return;
+    }
+
+    qtcode::settings::ProjectRecord activeProject;
+    if (!m_projectManager->activeProject(&activeProject)) {
+        m_workspaceHealthSummaryLabel->setText(i18n("The active project could not be loaded."));
+        return;
+    }
+
+    const QList<qtcode::core::WorkspaceHealthCheck> checks =
+        m_workspaceInstaller->evaluateHealth(activeProject.rootPath);
+    QStringList lines;
+    for (const qtcode::core::WorkspaceHealthCheck &check : checks) {
+        lines.append(
+            i18n("%1 (%2): %3",
+                 check.label,
+                 qtcode::core::workspaceHealthStateLabel(check.state),
+                 check.message));
+        if (!check.fixHint.isEmpty()
+            && check.state != qtcode::core::WorkspaceHealthState::Ok) {
+            lines.append(i18n("Fix: %1", check.fixHint));
+        }
+    }
+
+    m_workspaceHealthSummaryLabel->setText(lines.join(QStringLiteral("\n\n")));
 }
 
 void McpServerPanel::refreshHealthDisplay()
