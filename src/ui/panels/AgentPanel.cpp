@@ -316,12 +316,17 @@ void AgentPanel::refreshSessionList()
         return;
     }
 
+    const QString projectId = m_projectManager->activeProjectId();
+    if (m_activeSessionId.isEmpty()) {
+        m_activeSessionId = m_agentManager->activeSessionIdForProject(projectId);
+    }
+
     m_refreshingSessionList = true;
     const QSignalBlocker blocker(m_sessionList);
     m_sessionList->clear();
 
     QList<qtcode::agents::AgentSession *> projectSessions =
-        m_agentManager->sessionsForProject(m_projectManager->activeProjectId());
+        m_agentManager->sessionsForProject(projectId);
     std::sort(
         projectSessions.begin(),
         projectSessions.end(),
@@ -351,17 +356,25 @@ void AgentPanel::refreshSessionList()
         }
     }
 
+    QString sessionIdToSelect;
     if (selectedRow >= 0) {
         m_sessionList->setCurrentRow(selectedRow);
+        sessionIdToSelect = m_activeSessionId;
     } else if (m_sessionList->count() > 0) {
         m_sessionList->setCurrentRow(0);
-        m_activeSessionId = m_sessionList->item(0)->data(kSessionIdRole).toString();
-    } else {
-        m_activeSessionId.clear();
+        sessionIdToSelect = m_sessionList->item(0)->data(kSessionIdRole).toString();
     }
 
     m_refreshingSessionList = false;
+
+    if (!sessionIdToSelect.isEmpty()) {
+        selectSession(sessionIdToSelect);
+        return;
+    }
+
+    m_activeSessionId.clear();
     refreshConversation();
+    setPromptEnabled(false);
 }
 
 void AgentPanel::sendPrompt()
@@ -574,7 +587,6 @@ void AgentPanel::onSessionListSelectionChanged()
     }
 
     selectSession(currentItem->data(kSessionIdRole).toString());
-    refreshDiffReview();
 }
 
 void AgentPanel::onSessionUpdated(qtcode::agents::AgentSession *session)
@@ -628,17 +640,18 @@ void AgentPanel::cancelActiveRequest()
 void AgentPanel::onActiveProjectChanged()
 {
     m_activeSessionId.clear();
+    if (m_agentManager != nullptr && m_projectManager != nullptr && m_projectManager->hasActiveProject()) {
+        m_activeSessionId = m_agentManager->activeSessionIdForProject(m_projectManager->activeProjectId());
+    }
+
     if (m_conversationView != nullptr) {
         m_conversationView->clearConversation();
     }
 
     refreshSessionList();
 
-    const bool canPrompt = m_projectManager != nullptr && m_projectManager->hasActiveProject()
-        && m_agentManager != nullptr && !selectedAgentKey().isEmpty();
-    setPromptEnabled(canPrompt);
-
     if (m_projectManager != nullptr && !m_projectManager->hasActiveProject()) {
+        setPromptEnabled(false);
         showStatus(i18n("Select a repository to start an agent conversation."), qtcode::core::StatusSeverity::Warning);
     } else {
         refreshCapabilityState();
@@ -855,6 +868,17 @@ void AgentPanel::selectSession(const QString &sessionId)
     updateSessionStatusDisplay(session);
     updateRequestControls(session);
     refreshSavedContextRetrieval();
+    refreshDiffReview();
+
+    if (m_projectManager != nullptr && m_projectManager->hasActiveProject()) {
+        QString persistError;
+        if (!m_agentManager->persistActiveSessionForProject(
+                m_projectManager->activeProjectId(),
+                sessionId,
+                &persistError)) {
+            qCWarning(qtcodeUi) << "Failed to persist active agent session:" << persistError;
+        }
+    }
 
     const bool running = session->status() == qtcode::agents::AgentSessionStatus::Running;
     setPromptEnabled(

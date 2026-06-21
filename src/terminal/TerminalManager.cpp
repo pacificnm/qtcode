@@ -324,7 +324,15 @@ bool TerminalManager::resolveProjectWorkingDirectory(
     }
 
     if (workingDirectory != nullptr) {
-        *workingDirectory = project.rootPath;
+        const QFileInfo rootInfo(project.rootPath);
+        if (!rootInfo.exists() || !rootInfo.isDir()) {
+            if (errorMessage != nullptr) {
+                *errorMessage = QStringLiteral("Project root path does not exist: %1")
+                                    .arg(project.rootPath);
+            }
+            return false;
+        }
+        *workingDirectory = QDir::cleanPath(rootInfo.canonicalFilePath());
     }
     if (projectName != nullptr) {
         *projectName = project.name;
@@ -416,6 +424,108 @@ bool TerminalManager::createTerminal(
     return true;
 }
 
+bool TerminalManager::resolveSessionWorkingDirectory(
+    TerminalSession *session,
+    QString *errorMessage) const
+{
+    if (session == nullptr) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("Terminal session output must not be null.");
+        }
+        return false;
+    }
+
+    TerminalProfile profile = TerminalProfile::defaults();
+    if (!session->profileJson.trimmed().isEmpty()) {
+        const QJsonDocument profileDocument = QJsonDocument::fromJson(session->profileJson.toUtf8());
+        if (profileDocument.isObject()) {
+            profile = TerminalProfile::fromJson(profileDocument.object());
+        }
+    } else {
+        profile = effectiveProfile(session->projectId);
+    }
+
+    if (!resolveWorkingDirectory(profile, session->projectId, &session->workingDirectory, errorMessage)) {
+        return false;
+    }
+
+    const QFileInfo workingDirectoryInfo(session->workingDirectory);
+    if (!workingDirectoryInfo.exists() || !workingDirectoryInfo.isDir()) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("Working directory does not exist: %1")
+                                .arg(session->workingDirectory);
+        }
+        return false;
+    }
+
+    session->workingDirectory = QDir::cleanPath(workingDirectoryInfo.canonicalFilePath());
+    return true;
+}
+
+bool TerminalManager::syncSessionsToActiveProject(
+    const QString &projectId,
+    QString *errorMessage)
+{
+    if (projectId.isEmpty()) {
+        return true;
+    }
+
+    const TerminalProfile profile = effectiveProfile(projectId);
+    if (profile.workingDirectoryMode != WorkingDirectoryMode::ProjectRoot) {
+        return true;
+    }
+
+    QString workingDirectory;
+    QString projectName;
+    if (!resolveWorkingDirectory(profile, projectId, &workingDirectory, errorMessage)) {
+        return false;
+    }
+    if (!resolveProjectWorkingDirectory(projectId, nullptr, &projectName, errorMessage)) {
+        return false;
+    }
+
+    bool changed = false;
+    for (TerminalSession &session : m_sessions) {
+        if (session.projectId == projectId && session.workingDirectory == workingDirectory
+            && (projectName.isEmpty() || session.title == projectName)) {
+            continue;
+        }
+
+        session.projectId = projectId;
+        session.workingDirectory = workingDirectory;
+        if (!projectName.isEmpty()) {
+            session.title = projectName;
+        }
+        session.updatedAt = currentTimestamp();
+        if (!updatePersistedSession(session, errorMessage)) {
+            return false;
+        }
+        changed = true;
+    }
+
+    if (changed) {
+        emit sessionsChanged();
+    }
+
+    return true;
+}
+
+void TerminalManager::applyWorkingDirectoryToWidget(
+    QWidget *widget,
+    const QString &workingDirectory) const
+{
+    if (widget == nullptr || workingDirectory.trimmed().isEmpty()) {
+        return;
+    }
+
+    auto *terminalWidget = qobject_cast<QTermWidget *>(widget);
+    if (terminalWidget == nullptr) {
+        return;
+    }
+
+    terminalWidget->changeDir(workingDirectory);
+}
+
 bool TerminalManager::restoreTerminal(
     const TerminalSession &session,
     QWidget *parent,
@@ -431,8 +541,13 @@ bool TerminalManager::restoreTerminal(
 
     *widget = nullptr;
 
+    TerminalSession resolvedSession = session;
+    if (!resolveSessionWorkingDirectory(&resolvedSession, errorMessage)) {
+        return false;
+    }
+
     auto *terminalWidget = new QTermWidget(0, parent);
-    if (!configureWidget(terminalWidget, session)) {
+    if (!configureWidget(terminalWidget, resolvedSession)) {
         delete terminalWidget;
         if (errorMessage != nullptr) {
             *errorMessage = QStringLiteral("Terminal shell did not start for %1.").arg(session.shellPath);
@@ -444,8 +559,8 @@ bool TerminalManager::restoreTerminal(
 
     terminalWidget->setProperty("qtcode_session_id", session.id);
 
-    qCInfo(qtcodeTerminal) << "Restored terminal session" << session.id << "in"
-                           << session.workingDirectory;
+    qCInfo(qtcodeTerminal) << "Restored terminal session" << resolvedSession.id << "in"
+                           << resolvedSession.workingDirectory;
     return true;
 }
 
@@ -511,6 +626,12 @@ bool TerminalManager::persistSession(const TerminalSession &session, QString *er
 {
     storage::TerminalSessionRepository repository(m_storageService);
     return repository.insertSession(session, errorMessage);
+}
+
+bool TerminalManager::updatePersistedSession(const TerminalSession &session, QString *errorMessage)
+{
+    storage::TerminalSessionRepository repository(m_storageService);
+    return repository.updateSession(session, errorMessage);
 }
 
 bool TerminalManager::removePersistedSession(const QString &sessionId, QString *errorMessage)

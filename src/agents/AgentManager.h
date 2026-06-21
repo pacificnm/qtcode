@@ -54,6 +54,11 @@ public:
     [[nodiscard]] QList<AgentSession *> sessions() const;
     [[nodiscard]] QList<AgentSession *> sessionsForProject(const QString &projectId) const;
     [[nodiscard]] AgentSession *session(const QString &sessionId) const;
+    [[nodiscard]] QString activeSessionIdForProject(const QString &projectId) const;
+    [[nodiscard]] bool persistActiveSessionForProject(
+        const QString &projectId,
+        const QString &sessionId,
+        QString *errorMessage = nullptr);
 
     [[nodiscard]] bool dispatchRequest(
         const QString &sessionId,

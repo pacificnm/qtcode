@@ -67,6 +67,13 @@ public:
         QWidget *parent,
         QWidget **widget,
         QString *errorMessage = nullptr);
+    [[nodiscard]] bool resolveSessionWorkingDirectory(
+        TerminalSession *session,
+        QString *errorMessage = nullptr) const;
+    [[nodiscard]] bool syncSessionsToActiveProject(
+        const QString &projectId,
+        QString *errorMessage = nullptr);
+    void applyWorkingDirectoryToWidget(QWidget *widget, const QString &workingDirectory) const;
     [[nodiscard]] bool closeSession(const QString &sessionId, QString *errorMessage = nullptr);
 
     [[nodiscard]] QList<TerminalSession> sessions() const;
@@ -79,6 +86,7 @@ private:
     [[nodiscard]] bool loadGlobalProfile(QString *errorMessage);
     [[nodiscard]] bool loadSessions(QString *errorMessage);
     [[nodiscard]] bool persistSession(const TerminalSession &session, QString *errorMessage);
+    [[nodiscard]] bool updatePersistedSession(const TerminalSession &session, QString *errorMessage);
     [[nodiscard]] bool removePersistedSession(const QString &sessionId, QString *errorMessage);
     [[nodiscard]] TerminalSession buildSessionForProject(
         const QString &projectId,

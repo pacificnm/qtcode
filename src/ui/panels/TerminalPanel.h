@@ -37,12 +37,14 @@ protected:
 private slots:
     void focusCurrentTerminal();
     void closeTerminalTab(int index);
+    void onActiveProjectChanged(const QString &projectId);
 
 private:
     void configureLayout();
     void restoreOrCreateInitialTabs();
     void addTerminalTabFromSession(const qtcode::terminal::TerminalSession &session, bool restored);
     void addTerminalTabForActiveProject();
+    void applyWorkingDirectoriesToOpenTabs();
     [[nodiscard]] QWidget *currentTerminalWidget() const;
     [[nodiscard]] static QString sessionIdForWidget(QWidget *widget);
 

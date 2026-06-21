@@ -84,6 +84,28 @@ set_tests_properties(agent_manager_conversation PROPERTIES
     TIMEOUT 30
 )
 
+qtcode_add_executable(qtcode_agent_manager_active_session_test
+    agents/AgentManagerActiveSessionTest.cpp
+)
+
+target_link_libraries(qtcode_agent_manager_active_session_test
+    PRIVATE
+        qtcode_agents
+        qtcode_memory
+        qtcode_storage
+        Qt6::Test
+)
+
+add_test(
+    NAME agent_manager_active_session
+    COMMAND qtcode_agent_manager_active_session_test
+)
+
+set_tests_properties(agent_manager_active_session PROPERTIES
+    LABELS "unit;agents"
+    TIMEOUT 30
+)
+
 qtcode_add_executable(qtcode_settings_persistence_test
     storage/SettingsPersistenceTest.cpp
 )
@@ -146,4 +168,25 @@ add_test(
 set_tests_properties(workspace_tabs PROPERTIES
     LABELS "unit;ui;editor"
     TIMEOUT 60
+)
+
+qtcode_add_executable(qtcode_terminal_manager_working_directory_test
+    terminal/TerminalManagerWorkingDirectoryTest.cpp
+)
+
+target_link_libraries(qtcode_terminal_manager_working_directory_test
+    PRIVATE
+        qtcode_terminal
+        qtcode_storage
+        Qt6::Test
+)
+
+add_test(
+    NAME terminal_manager_working_directory
+    COMMAND qtcode_terminal_manager_working_directory_test
+)
+
+set_tests_properties(terminal_manager_working_directory PROPERTIES
+    LABELS "unit;terminal"
+    TIMEOUT 30
 )

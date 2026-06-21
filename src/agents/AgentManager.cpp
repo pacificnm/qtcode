@@ -5,11 +5,14 @@
 #include "agents/adapters/CodexAgentAdapter.h"
 #include "agents/adapters/CursorAgentAdapter.h"
 #include "agents/DiffApplier.h"
+#include "settings/ProjectModels.h"
 #include "shared/Logging.h"
 #include "storage/repositories/AgentSessionRepository.h"
 #include "storage/repositories/ContextRetrievalRepository.h"
+#include "storage/repositories/SettingsRepository.h"
 
 #include <QDateTime>
+#include <QJsonObject>
 #include <QTimer>
 #include <QUuid>
 
@@ -237,6 +240,59 @@ AgentSession *AgentManager::session(const QString &sessionId) const
     }
 
     return nullptr;
+}
+
+QString AgentManager::activeSessionIdForProject(const QString &projectId) const
+{
+    if (projectId.isEmpty()) {
+        return {};
+    }
+
+    storage::SettingsRepository settingsRepository(m_storageService);
+    QJsonObject json;
+    bool found = false;
+    QString errorMessage;
+    if (!settingsRepository.loadJson(
+            settings::kActiveAgentSessionByProjectSettingKey,
+            &json,
+            &found,
+            &errorMessage)) {
+        qCWarning(qtcodeAgents) << "Failed to load active agent session setting:" << errorMessage;
+        return {};
+    }
+
+    if (!found) {
+        return {};
+    }
+
+    return json.value(projectId).toString();
+}
+
+bool AgentManager::persistActiveSessionForProject(
+    const QString &projectId,
+    const QString &sessionId,
+    QString *errorMessage)
+{
+    if (projectId.isEmpty() || sessionId.isEmpty()) {
+        return true;
+    }
+
+    storage::SettingsRepository settingsRepository(m_storageService);
+    QJsonObject json;
+    bool found = false;
+    if (!settingsRepository.loadJson(
+            settings::kActiveAgentSessionByProjectSettingKey,
+            &json,
+            &found,
+            errorMessage)) {
+        return false;
+    }
+
+    json.insert(projectId, sessionId);
+    return settingsRepository.upsertJson(
+        settings::kActiveAgentSessionByProjectSettingKey,
+        json,
+        errorMessage);
 }
 
 bool AgentManager::dispatchRequest(

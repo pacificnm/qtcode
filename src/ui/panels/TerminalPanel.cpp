@@ -7,6 +7,7 @@
 
 #include <KLocalizedString>
 
+#include <QHash>
 #include <QHBoxLayout>
 #include <QIcon>
 #include <QLabel>
@@ -35,7 +36,20 @@ TerminalPanel::TerminalPanel(
 {
     setFocusPolicy(Qt::StrongFocus);
     configureLayout();
+
+    if (m_projectManager != nullptr) {
+        connect(
+            m_projectManager,
+            &qtcode::core::ProjectManager::activeProjectChanged,
+            this,
+            &TerminalPanel::onActiveProjectChanged);
+    }
+
     restoreOrCreateInitialTabs();
+
+    if (m_projectManager != nullptr && m_projectManager->hasActiveProject()) {
+        onActiveProjectChanged(m_projectManager->activeProjectId());
+    }
 }
 
 void TerminalPanel::configureLayout()
@@ -79,7 +93,9 @@ void TerminalPanel::restoreOrCreateInitialTabs()
 
     const QList<qtcode::terminal::TerminalSession> sessions = m_terminalManager->sessions();
     if (sessions.isEmpty()) {
-        addTerminalTabForActiveProject();
+        if (m_projectManager != nullptr && m_projectManager->hasActiveProject()) {
+            addTerminalTabForActiveProject();
+        }
         return;
     }
 
@@ -113,6 +129,48 @@ void TerminalPanel::addTerminalTabForActiveProject()
     m_tabWidget->addTab(terminalWidget, session.title);
     m_tabWidget->setCurrentWidget(terminalWidget);
     focusCurrentTerminal();
+}
+
+void TerminalPanel::onActiveProjectChanged(const QString &projectId)
+{
+    if (projectId.isEmpty() || m_terminalManager == nullptr || m_tabWidget == nullptr) {
+        return;
+    }
+
+    QString errorMessage;
+    if (!m_terminalManager->syncSessionsToActiveProject(projectId, &errorMessage)) {
+        qCWarning(qtcodeTerminal) << "Failed to sync terminal working directories:" << errorMessage;
+        return;
+    }
+
+    applyWorkingDirectoriesToOpenTabs();
+
+    if (m_tabWidget->count() == 0) {
+        addTerminalTabForActiveProject();
+    }
+}
+
+void TerminalPanel::applyWorkingDirectoriesToOpenTabs()
+{
+    if (m_terminalManager == nullptr || m_tabWidget == nullptr) {
+        return;
+    }
+
+    QHash<QString, QString> workingDirectoryBySessionId;
+    for (const qtcode::terminal::TerminalSession &session : m_terminalManager->sessions()) {
+        workingDirectoryBySessionId.insert(session.id, session.workingDirectory);
+    }
+
+    for (int index = 0; index < m_tabWidget->count(); ++index) {
+        QWidget *terminalWidget = m_tabWidget->widget(index);
+        const QString sessionId = sessionIdForWidget(terminalWidget);
+        const QString workingDirectory = workingDirectoryBySessionId.value(sessionId);
+        if (workingDirectory.isEmpty()) {
+            continue;
+        }
+
+        m_terminalManager->applyWorkingDirectoryToWidget(terminalWidget, workingDirectory);
+    }
 }
 
 void TerminalPanel::addTerminalTabFromSession(
