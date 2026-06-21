@@ -18,6 +18,8 @@
 #include <QGroupBox>
 #include <QLabel>
 #include <QLineEdit>
+#include <QDir>
+#include <QFileInfo>
 #include <QMessageBox>
 #include <QPushButton>
 #include <QSpinBox>
@@ -88,8 +90,8 @@ void SettingsDialog::configureLayout()
     repositoryFormLayout->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);
     repositoryFormLayout->setContentsMargins(0, 0, 0, 0);
 
-    m_activeRepositoryLabel = new QLabel(repositoryDetailsWidget);
-    m_activeRepositoryLabel->setWordWrap(true);
+    m_projectDisplayNameLineEdit = new QLineEdit(repositoryDetailsWidget);
+    m_projectPathLineEdit = new QLineEdit(repositoryDetailsWidget);
 
     m_repoHelpEntryLineEdit = new QLineEdit(repositoryDetailsWidget);
     m_repoHelpEntryLineEdit->setPlaceholderText(
@@ -98,7 +100,8 @@ void SettingsDialog::configureLayout()
     m_defaultAgentComboBox = new QComboBox(repositoryDetailsWidget);
     m_defaultAgentComboBox->setSizeAdjustPolicy(QComboBox::AdjustToContents);
 
-    repositoryFormLayout->addRow(i18n("Active repository"), m_activeRepositoryLabel);
+    repositoryFormLayout->addRow(i18n("Project display name"), m_projectDisplayNameLineEdit);
+    repositoryFormLayout->addRow(i18n("Project path"), m_projectPathLineEdit);
     repositoryFormLayout->addRow(i18n("Default agent"), m_defaultAgentComboBox);
     repositoryFormLayout->addRow(i18n("Repo help entry"), m_repoHelpEntryLineEdit);
 
@@ -208,8 +211,13 @@ void SettingsDialog::refreshRepositorySection()
     const qtcode::settings::RepoConfig repoConfig =
         qtcode::core::RepoConfigLoader::loadFromProjectRoot(activeProject.rootPath);
 
-    if (m_activeRepositoryLabel != nullptr) {
-        m_activeRepositoryLabel->setText(activeProject.name);
+    if (m_projectDisplayNameLineEdit != nullptr) {
+        m_projectDisplayNameLineEdit->setText(
+            qtcode::settings::effectiveProjectDisplayName(activeProject, repoConfig));
+    }
+    if (m_projectPathLineEdit != nullptr) {
+        m_projectPathLineEdit->setText(
+            qtcode::settings::effectiveProjectPath(activeProject, repoConfig));
     }
     if (m_repoHelpEntryLineEdit != nullptr) {
         m_repoHelpEntryLineEdit->setText(
@@ -266,12 +274,36 @@ bool SettingsDialog::saveRepositorySettings(QString *errorMessage) const
         m_defaultAgentComboBox != nullptr && m_defaultAgentComboBox->currentIndex() >= 0
         ? m_defaultAgentComboBox->currentData().toString()
         : QString();
+    const QString projectDisplayName =
+        m_projectDisplayNameLineEdit != nullptr ? m_projectDisplayNameLineEdit->text() : QString();
+    const QString projectPath =
+        m_projectPathLineEdit != nullptr ? m_projectPathLineEdit->text() : QString();
+
+    const QString trimmedProjectPath = projectPath.trimmed();
+    if (!trimmedProjectPath.isEmpty()) {
+        QString resolvedPath = trimmedProjectPath;
+        const QFileInfo pathInfo(trimmedProjectPath);
+        if (pathInfo.isRelative()) {
+            resolvedPath = QDir(activeProject.rootPath).absoluteFilePath(trimmedProjectPath);
+        }
+
+        const QFileInfo resolvedInfo(resolvedPath);
+        if (!resolvedInfo.exists() || !resolvedInfo.isDir()) {
+            if (errorMessage != nullptr) {
+                *errorMessage = i18n("Project path does not exist: %1", resolvedPath);
+            }
+            return false;
+        }
+    }
 
     qtcode::settings::RepoConfig config =
         qtcode::core::RepoConfigLoader::loadFromProjectRoot(activeProject.rootPath);
     config.repoHelpPath = repoHelpPath.trimmed().isEmpty() ? QString() : repoHelpPath.trimmed();
     config.defaultAgentKey =
         defaultAgentKey.trimmed().isEmpty() ? QString() : defaultAgentKey.trimmed();
+    config.projectDisplayName =
+        projectDisplayName.trimmed().isEmpty() ? QString() : projectDisplayName.trimmed();
+    config.projectPath = trimmedProjectPath.isEmpty() ? QString() : trimmedProjectPath;
 
     return qtcode::core::RepoConfigWriter::save(activeProject.rootPath, config, errorMessage);
 }

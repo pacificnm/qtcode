@@ -45,6 +45,7 @@ private slots:
     void focusCurrentTerminal();
     void closeTerminalTab(int index);
     void onActiveProjectChanged(const QString &projectId);
+    void syncTabsFromSessions();
     void toggleCollapsed();
 
 private:

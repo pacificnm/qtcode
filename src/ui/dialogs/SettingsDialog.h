@@ -60,7 +60,8 @@ private:
     QSpinBox *m_leftPanelWidthSpinBox = nullptr;
     QSpinBox *m_rightPanelWidthSpinBox = nullptr;
     QLabel *m_noActiveRepositoryLabel = nullptr;
-    QLabel *m_activeRepositoryLabel = nullptr;
+    QLineEdit *m_projectDisplayNameLineEdit = nullptr;
+    QLineEdit *m_projectPathLineEdit = nullptr;
     QLineEdit *m_repoHelpEntryLineEdit = nullptr;
     QComboBox *m_defaultAgentComboBox = nullptr;
     QWidget *m_repositoryDetailsWidget = nullptr;

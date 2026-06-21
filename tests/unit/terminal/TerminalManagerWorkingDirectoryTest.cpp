@@ -1,3 +1,4 @@
+#include "core/RepoConfigLoader.h"
 #include "storage/MigrationRunner.h"
 #include "storage/StorageService.h"
 #include "storage/repositories/ProjectRepository.h"
@@ -56,6 +57,7 @@ private slots:
     void resolveProjectWorkingDirectoryUsesCanonicalProjectRoot();
     void resolveSessionWorkingDirectoryIgnoresStalePersistedHomePath();
     void syncSessionsToActiveProjectUpdatesPersistedWorkingDirectory();
+    void resolveProjectWorkingDirectoryUsesRepoConfigPath();
 };
 
 void TerminalManagerWorkingDirectoryTest::resolveProjectWorkingDirectoryUsesCanonicalProjectRoot()
@@ -161,6 +163,49 @@ void TerminalManagerWorkingDirectoryTest::syncSessionsToActiveProjectUpdatesPers
     QCOMPARE(sessionsAfterSync.size(), 1);
     QCOMPARE(sessionsAfterSync.first().projectId, project.id);
     QCOMPARE(sessionsAfterSync.first().workingDirectory, QDir(repoPath).canonicalPath());
+}
+
+void TerminalManagerWorkingDirectoryTest::resolveProjectWorkingDirectoryUsesRepoConfigPath()
+{
+    QTemporaryDir tempDir;
+    QVERIFY(tempDir.isValid());
+
+    const QString repoPath = tempDir.filePath(QStringLiteral("repo"));
+    const QString terminalPath = tempDir.filePath(QStringLiteral("terminal-root"));
+    QVERIFY(QDir().mkpath(repoPath));
+    QVERIFY(QDir().mkpath(terminalPath));
+
+    QDir(repoPath).mkpath(QStringLiteral(".qtcode"));
+    QFile configFile(QDir(repoPath).filePath(QStringLiteral(".qtcode/config.yaml")));
+    QVERIFY(configFile.open(QIODevice::WriteOnly | QIODevice::Text));
+    configFile.write(
+        "project:\n"
+        "  displayName: Terminal Project\n"
+        "  path: ");
+    configFile.write(terminalPath.toUtf8());
+    configFile.write("\n");
+    configFile.close();
+
+    qtcode::storage::StorageService storageService(tempDir.filePath(QStringLiteral("qtcode.db")));
+    QString errorMessage;
+    QVERIFY2(openMigratedDatabase(&storageService, &errorMessage), qPrintable(errorMessage));
+
+    const qtcode::settings::ProjectRecord project =
+        insertProject(storageService, repoPath, QStringLiteral("repo"));
+    QVERIFY(!project.id.isEmpty());
+
+    qtcode::terminal::TerminalManager terminalManager(storageService);
+    QVERIFY(terminalManager.restoreState(&errorMessage));
+
+    QString workingDirectory;
+    QString projectName;
+    QVERIFY(terminalManager.resolveProjectWorkingDirectory(
+        project.id,
+        &workingDirectory,
+        &projectName,
+        &errorMessage));
+    QCOMPARE(workingDirectory, QDir(terminalPath).canonicalPath());
+    QCOMPARE(projectName, QStringLiteral("Terminal Project"));
 }
 
 QTEST_MAIN(TerminalManagerWorkingDirectoryTest)

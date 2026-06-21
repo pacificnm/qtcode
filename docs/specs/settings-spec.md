@@ -38,7 +38,7 @@ Out of scope for this feature:
 - The user can choose whether QTCode restores the last active project on startup.
 - The user can choose whether the main window starts maximized.
 - The user can set default left and right column widths that apply on launch and after **Reset Panel Layout**.
-- Each repository can override the help entry file and default agent in `.qtcode/config.yaml` so documentation paths and agent choice differ per project.
+- Each repository can override the help entry file, default agent, terminal tab title, and terminal working directory in `.qtcode/config.yaml` so documentation paths, agent choice, and shell context differ per project.
 - When a repository has no prior agent selection, the agent selector uses that repository's default agent from `.qtcode/config.yaml`.
 - The user can resize and collapse the main shell panels and have splitter and collapse state restored later.
 - The user can quit and relaunch QTCode without losing their preferred shell layout or agent sessions.
@@ -50,7 +50,7 @@ QTCode uses three persistence tiers. When adding a new setting, choose the tier 
 | Tier | Storage | When loaded | Examples |
 | --- | --- | --- | --- |
 | System startup | KDE config file via `AppConfigService` | Before SQLite opens | restore last project, start maximized, default column widths, system default repo help entry |
-| Repository | `.qtcode/config.yaml` via `RepoConfigLoader` | When the active project needs the value | default agent, repo help entry override |
+| Repository | `.qtcode/config.yaml` via `RepoConfigLoader` | When the active project needs the value | default agent, repo help entry override, terminal display name, terminal working directory |
 | Runtime shell | SQLite via `SettingsService` | After storage opens | splitter sizes, window size, collapse state, agent sessions |
 
 ### System Startup Preferences
@@ -91,10 +91,15 @@ Supported fields:
 | `agent.defaultAgentKey` | nested under `agent:` | Same as `defaultAgentKey`; preferred documented form |
 | `repoHelpPath` | top-level scalar | Repository help entry file, relative to project root |
 | `help.entryPath` | nested under `help:` | Same as `repoHelpPath`; preferred documented form |
+| `project.displayName` | nested under `project:` | Terminal tab title override for this repository |
+| `project.path` | nested under `project:` | Terminal working directory override (absolute or relative to repository root) |
 
 Example:
 
 ```yaml
+project:
+  displayName: my-app
+  path: .
 agent:
   defaultAgentKey: codex
 help:
@@ -136,6 +141,24 @@ When the user opens or switches to a repository, `AgentPanel::refreshAgentSelect
 After project switch, `AgentPanel::onActiveProjectChanged()` restores the last active session for that project from SQLite when one exists. If no session exists, `ensureActiveSession()` creates one using the currently selected agent key.
 
 Saving a new default agent in **File > Settings** updates `.qtcode/config.yaml` and triggers `AgentPanel::reloadAgentSelector()` so the selector reflects the saved preference immediately.
+
+#### Terminal project display name and path resolution
+
+Terminal tabs use repository config to choose tab title and shell working directory.
+
+Resolution flow:
+
+1. `TerminalManager` loads the active `ProjectRecord` from SQLite.
+2. `RepoConfigLoader::loadFromProjectRoot()` reads `.qtcode/config.yaml` when present.
+3. `effectiveProjectDisplayName(project, repoConfig)` returns `project.displayName` when set; otherwise the SQLite project name.
+4. `effectiveProjectPath(project, repoConfig)` returns `project.path` when set (expanding relative paths against the repository root); otherwise the SQLite project `rootPath`.
+5. On project switch, settings save, or session restore, `TerminalManager::syncSessionsToActiveProject()` and `resolveSessionWorkingDirectory()` re-run this resolution so persisted SQLite cwd values do not go stale.
+
+The Settings dialog **Repository** group exposes **Project display name** and **Project path** as editable fields. Empty values clear the override and fall back to SQLite project metadata.
+
+After a successful repository settings save, `MainWindow` calls `TerminalManager::syncSessionsToActiveProject()` so open terminal tabs pick up the new title and cwd without relaunching QTCode.
+
+See [terminal integration](../engineering/terminal-integration.md) for shell startup and cwd application details.
 
 Behavior on failure:
 

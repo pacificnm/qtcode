@@ -100,7 +100,11 @@ Owns the protocol-specific communication with the configured MCP server.
 
 ### `TerminalManager`
 
-Creates terminal tabs, assigns project working directories, launches commands, persists terminal metadata, and handles shell profiles.
+Creates terminal tabs, resolves project working directories from SQLite and `.qtcode/config.yaml`, starts QTermWidget shells, persists terminal metadata, syncs sessions on project switch, and handles shell profiles.
+
+### `TerminalPanel`
+
+Hosts terminal tabs, restores or creates initial sessions on startup, wires project-change and session-change signals, and exposes new-tab and collapse controls.
 
 ### `TerminalSession`
 

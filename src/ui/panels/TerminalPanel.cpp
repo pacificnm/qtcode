@@ -8,6 +8,7 @@
 #include <KLocalizedString>
 
 #include <QHBoxLayout>
+#include <QHash>
 #include <QIcon>
 #include <QLabel>
 #include <QMouseEvent>
@@ -42,6 +43,14 @@ TerminalPanel::TerminalPanel(
             &qtcode::core::ProjectManager::activeProjectChanged,
             this,
             &TerminalPanel::onActiveProjectChanged);
+    }
+
+    if (m_terminalManager != nullptr) {
+        connect(
+            m_terminalManager,
+            &qtcode::terminal::TerminalManager::sessionsChanged,
+            this,
+            &TerminalPanel::syncTabsFromSessions);
     }
 
     restoreOrCreateInitialTabs();
@@ -203,6 +212,38 @@ void TerminalPanel::onActiveProjectChanged(const QString &projectId)
 
     if (m_tabWidget->count() == 0) {
         addTerminalTabForActiveProject();
+    } else {
+        syncTabsFromSessions();
+    }
+}
+
+void TerminalPanel::syncTabsFromSessions()
+{
+    if (m_terminalManager == nullptr || m_tabWidget == nullptr) {
+        return;
+    }
+
+    const QList<qtcode::terminal::TerminalSession> sessions = m_terminalManager->sessions();
+    QHash<QString, qtcode::terminal::TerminalSession> sessionsById;
+    sessionsById.reserve(sessions.size());
+    for (const qtcode::terminal::TerminalSession &session : sessions) {
+        sessionsById.insert(session.id, session);
+    }
+
+    for (int index = 0; index < m_tabWidget->count(); ++index) {
+        QWidget *terminalWidget = m_tabWidget->widget(index);
+        const QString sessionId = sessionIdForWidget(terminalWidget);
+        if (sessionId.isEmpty() || !sessionsById.contains(sessionId)) {
+            continue;
+        }
+
+        const qtcode::terminal::TerminalSession &session = sessionsById.value(sessionId);
+        m_tabWidget->setTabText(index, session.title);
+
+        QString errorMessage;
+        if (!m_terminalManager->applySessionToWidget(terminalWidget, session, &errorMessage)) {
+            qCWarning(qtcodeTerminal) << "Failed to apply terminal session to widget:" << errorMessage;
+        }
     }
 }
 

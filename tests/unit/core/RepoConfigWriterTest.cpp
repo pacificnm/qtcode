@@ -17,6 +17,7 @@ private slots:
     void saveRepoHelpPathCreatesQtcodeDirectory();
     void saveConfigPreservesDefaultAgentWhenClearingHelpPath();
     void saveConfigWritesDefaultAgentAndHelpPath();
+    void saveConfigWritesProjectSettings();
 };
 
 void RepoConfigWriterTest::saveRepoHelpPathCreatesConfigFile()
@@ -104,6 +105,24 @@ void RepoConfigWriterTest::saveConfigWritesDefaultAgentAndHelpPath()
         qtcode::core::RepoConfigLoader::loadFromProjectRoot(tempDir.path());
     QCOMPARE(loaded.defaultAgentKey, QStringLiteral("codex"));
     QCOMPARE(loaded.repoHelpPath, QStringLiteral("docs/README.md"));
+}
+
+void RepoConfigWriterTest::saveConfigWritesProjectSettings()
+{
+    QTemporaryDir tempDir;
+    QVERIFY(tempDir.isValid());
+
+    qtcode::settings::RepoConfig config;
+    config.projectDisplayName = QStringLiteral("demo");
+    config.projectPath = tempDir.path();
+
+    QString errorMessage;
+    QVERIFY(qtcode::core::RepoConfigWriter::save(tempDir.path(), config, &errorMessage));
+
+    const qtcode::settings::RepoConfig loaded =
+        qtcode::core::RepoConfigLoader::loadFromProjectRoot(tempDir.path());
+    QCOMPARE(loaded.projectDisplayName, QStringLiteral("demo"));
+    QCOMPARE(loaded.projectPath, tempDir.path());
 }
 
 QTEST_MAIN(RepoConfigWriterTest)

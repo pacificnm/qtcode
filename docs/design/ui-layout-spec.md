@@ -62,6 +62,25 @@ Expected surfaces:
 - **Workspace tabs** — main work-area tab control owned by `WorkspaceTabs`. The permanent **AI Chat** tab hosts `AgentPanel::conversationPanel()` and cannot be closed. File tabs use KTextEditor via `EditorTab` when opened from the folder tree.
 - **Terminal panel** — shell tabs and project-aware command output beneath the workspace tabs.
 
+### Terminal panel
+
+Implementation: `TerminalPanel` hosts a closable `QTabWidget` of QTermWidget instances managed by `TerminalManager`.
+
+Opening behavior:
+
+- On startup, QTCode restores persisted terminal sessions from SQLite when they exist; otherwise it creates one tab when an active project is already selected.
+- No terminal tab is created before a repository is active unless the user explicitly requests **File > New Terminal Tab** or clicks the panel **+** button.
+- Switching the active repository updates persisted session cwd/title from `.qtcode/config.yaml` (`project.path`, `project.displayName`) and applies the new directory to open tabs without typing a visible `cd` command.
+- Collapse/expand is controlled from the panel header; collapsed height and splitter size persist in SQLite.
+
+User actions:
+
+- **+** or **File > New Terminal Tab** — add another shell tab for the active project.
+- Close tab — removes the widget and deletes the SQLite session row.
+- Right-click — Copy, Paste, Paste Selection, Clear.
+
+See [terminal integration](../engineering/terminal-integration.md) for cwd resolution, profile storage, and current limitations.
+
 ### Editor non-goals
 
 The workspace editing slice is intentionally narrow. QTCode is still a developer cockpit, not a full IDE.

@@ -1,5 +1,7 @@
 #include "ui/MainWindow.h"
 
+#include "terminal/TerminalManager.h"
+
 #include "core/ApplicationController.h"
 #include "core/StatusService.h"
 #include "core/AppConfigService.h"
@@ -719,6 +721,18 @@ void MainWindow::openSettingsDialog()
 
     if (m_agentPanel != nullptr) {
         m_agentPanel->reloadAgentSelector();
+    }
+
+    if (m_controller != nullptr && m_controller->projectManager() != nullptr
+        && m_controller->projectManager()->hasActiveProject()
+        && m_controller->terminalManager() != nullptr) {
+        QString errorMessage;
+        if (!m_controller->terminalManager()->syncSessionsToActiveProject(
+                m_controller->projectManager()->activeProjectId(),
+                &errorMessage)) {
+            qCWarning(qtcodeUi) << "Failed to sync terminal sessions after settings save:"
+                                << errorMessage;
+        }
     }
 
     if (m_controller != nullptr && m_controller->statusService() != nullptr) {

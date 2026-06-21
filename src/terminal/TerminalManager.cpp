@@ -1,6 +1,8 @@
 #include "terminal/TerminalManager.h"
 
+#include "core/RepoConfigLoader.h"
 #include "settings/ProjectModels.h"
+#include "settings/RepoConfig.h"
 #include "shared/Logging.h"
 #include "storage/repositories/ProjectRepository.h"
 #include "storage/repositories/TerminalProfileStore.h"
@@ -13,13 +15,94 @@
 #include <QAction>
 #include <QDateTime>
 #include <QDir>
+#include <QEventLoop>
 #include <QFileInfo>
 #include <QIcon>
 #include <QJsonDocument>
 #include <QMenu>
+#include <QTimer>
 #include <QUuid>
 
 #include <algorithm>
+
+#include <signal.h>
+
+namespace {
+
+constexpr auto kTerminalWorkingDirectoryProperty = "qtcode_working_directory";
+
+[[nodiscard]] QString normalizedWorkingDirectory(const QString &path)
+{
+    if (path.trimmed().isEmpty()) {
+        return {};
+    }
+
+    const QFileInfo info(path);
+    if (info.exists()) {
+        return QDir::cleanPath(info.canonicalFilePath());
+    }
+
+    return QDir::cleanPath(path);
+}
+
+[[nodiscard]] bool restartShellInDirectory(
+    QTermWidget *widget,
+    const QString &workingDirectory,
+    QString *errorMessage)
+{
+    if (widget == nullptr) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("Terminal widget must not be null.");
+        }
+        return false;
+    }
+
+    const QString targetDirectory = normalizedWorkingDirectory(workingDirectory);
+    if (targetDirectory.isEmpty()) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("Working directory must not be empty.");
+        }
+        return false;
+    }
+
+    widget->setWorkingDirectory(targetDirectory);
+
+    const int shellPid = widget->getShellPID();
+    if (shellPid <= 0) {
+        widget->startShellProgram();
+        if (widget->getShellPID() <= 0) {
+            if (errorMessage != nullptr) {
+                *errorMessage = QStringLiteral("Terminal shell did not start.");
+            }
+            return false;
+        }
+        widget->setProperty(kTerminalWorkingDirectoryProperty, targetDirectory);
+        return true;
+    }
+
+    QEventLoop loop;
+    QTimer timeout;
+    timeout.setSingleShot(true);
+    timeout.setInterval(5000);
+    QObject::connect(&timeout, &QTimer::timeout, &loop, &QEventLoop::quit);
+    QObject::connect(widget, &QTermWidget::finished, &loop, &QEventLoop::quit);
+    timeout.start();
+    ::kill(shellPid, SIGHUP);
+    loop.exec();
+
+    widget->startShellProgram();
+    if (widget->getShellPID() <= 0) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("Terminal shell did not restart.");
+        }
+        return false;
+    }
+
+    widget->setProperty(kTerminalWorkingDirectoryProperty, targetDirectory);
+    return true;
+}
+
+} // namespace
 
 namespace {
 
@@ -317,19 +400,30 @@ bool TerminalManager::resolveProjectWorkingDirectory(
         return false;
     }
 
+    const qtcode::settings::RepoConfig repoConfig =
+        qtcode::core::RepoConfigLoader::loadFromProjectRoot(project.rootPath);
+
     if (workingDirectory != nullptr) {
-        const QFileInfo rootInfo(project.rootPath);
+        const QString resolvedPath =
+            qtcode::settings::effectiveProjectPath(project, repoConfig);
+        if (resolvedPath.isEmpty()) {
+            if (errorMessage != nullptr) {
+                *errorMessage = QStringLiteral("Project path is empty for project '%1'.").arg(projectId);
+            }
+            return false;
+        }
+
+        const QFileInfo rootInfo(resolvedPath);
         if (!rootInfo.exists() || !rootInfo.isDir()) {
             if (errorMessage != nullptr) {
-                *errorMessage = QStringLiteral("Project root path does not exist: %1")
-                                    .arg(project.rootPath);
+                *errorMessage = QStringLiteral("Project path does not exist: %1").arg(resolvedPath);
             }
             return false;
         }
         *workingDirectory = QDir::cleanPath(rootInfo.canonicalFilePath());
     }
     if (projectName != nullptr) {
-        *projectName = project.name;
+        *projectName = qtcode::settings::effectiveProjectDisplayName(project, repoConfig);
     }
 
     return true;
@@ -435,11 +529,25 @@ bool TerminalManager::resolveSessionWorkingDirectory(
         if (profileDocument.isObject()) {
             profile = TerminalProfile::fromJson(profileDocument.object());
         }
-    } else {
+    } else if (!session->projectId.isEmpty()) {
         profile = effectiveProfile(session->projectId);
+    } else {
+        profile = m_globalProfile;
     }
 
-    if (!resolveWorkingDirectory(profile, session->projectId, &session->workingDirectory, errorMessage)) {
+    if (!session->projectId.isEmpty()) {
+        QString projectName;
+        if (!resolveProjectWorkingDirectory(
+                session->projectId,
+                &session->workingDirectory,
+                &projectName,
+                errorMessage)) {
+            return false;
+        }
+        if (!projectName.isEmpty()) {
+            session->title = projectName;
+        }
+    } else if (!resolveWorkingDirectory(profile, session->projectId, &session->workingDirectory, errorMessage)) {
         return false;
     }
 
@@ -464,17 +572,9 @@ bool TerminalManager::syncSessionsToActiveProject(
         return true;
     }
 
-    const TerminalProfile profile = effectiveProfile(projectId);
-    if (profile.workingDirectoryMode != WorkingDirectoryMode::ProjectRoot) {
-        return true;
-    }
-
     QString workingDirectory;
     QString projectName;
-    if (!resolveWorkingDirectory(profile, projectId, &workingDirectory, errorMessage)) {
-        return false;
-    }
-    if (!resolveProjectWorkingDirectory(projectId, nullptr, &projectName, errorMessage)) {
+    if (!resolveProjectWorkingDirectory(projectId, &workingDirectory, &projectName, errorMessage)) {
         return false;
     }
 
@@ -502,6 +602,36 @@ bool TerminalManager::syncSessionsToActiveProject(
     }
 
     return true;
+}
+
+bool TerminalManager::applySessionToWidget(
+    QWidget *widget,
+    const TerminalSession &session,
+    QString *errorMessage) const
+{
+    if (widget == nullptr) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("Terminal widget must not be null.");
+        }
+        return false;
+    }
+
+    auto *terminalWidget = qobject_cast<QTermWidget *>(widget);
+    if (terminalWidget == nullptr) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("Widget is not a QTermWidget instance.");
+        }
+        return false;
+    }
+
+    const QString appliedDirectory =
+        normalizedWorkingDirectory(terminalWidget->property(kTerminalWorkingDirectoryProperty).toString());
+    const QString targetDirectory = normalizedWorkingDirectory(session.workingDirectory);
+    if (!targetDirectory.isEmpty() && appliedDirectory == targetDirectory) {
+        return true;
+    }
+
+    return restartShellInDirectory(terminalWidget, targetDirectory, errorMessage);
 }
 
 bool TerminalManager::restoreTerminal(
@@ -633,11 +763,15 @@ TerminalSession TerminalManager::buildSessionForProject(
     session.profileJson = profileSnapshotJson(profile);
 
     QString projectName;
-    if (!resolveWorkingDirectory(profile, projectId, &session.workingDirectory, errorMessage)) {
-        return {};
-    }
-
-    if (!resolveProjectWorkingDirectory(projectId, nullptr, &projectName, errorMessage)) {
+    if (projectId.isEmpty()) {
+        if (!resolveWorkingDirectory(profile, projectId, &session.workingDirectory, errorMessage)) {
+            return {};
+        }
+    } else if (!resolveProjectWorkingDirectory(
+                   projectId,
+                   &session.workingDirectory,
+                   &projectName,
+                   errorMessage)) {
         return {};
     }
 
@@ -668,13 +802,19 @@ bool TerminalManager::configureWidget(QTermWidget *widget, const TerminalSession
     applyDefaultColorScheme(widget);
     installTerminalContextMenu(widget);
     widget->setShellProgram(session.shellPath);
-    widget->setWorkingDirectory(session.workingDirectory);
+    const QString workingDirectory = normalizedWorkingDirectory(session.workingDirectory);
+    widget->setWorkingDirectory(workingDirectory);
     widget->setTerminalSizeHint(true);
     widget->setScrollBarPosition(QTermWidget::ScrollBarRight);
     widget->setFocusPolicy(Qt::StrongFocus);
     widget->startShellProgram();
 
-    return widget->getShellPID() > 0;
+    if (widget->getShellPID() <= 0) {
+        return false;
+    }
+
+    widget->setProperty(kTerminalWorkingDirectoryProperty, workingDirectory);
+    return true;
 }
 
 QString TerminalManager::currentTimestamp()

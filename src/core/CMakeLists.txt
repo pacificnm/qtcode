@@ -6,7 +6,6 @@ qtcode_add_module_library(qtcode_core STATIC
     FileOperationService.cpp
     McpServerService.cpp
     ProjectManager.cpp
-    RepoConfigLoader.cpp
     RepoConfigWriter.cpp
     SettingsService.cpp
     StatusService.cpp
@@ -24,6 +23,7 @@ target_compile_definitions(qtcode_core
 target_link_libraries(qtcode_core
     PUBLIC
         qtcode_storage
+        qtcode_shared
     PRIVATE
         Qt6::Core
         Qt6::Concurrent

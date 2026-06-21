@@ -16,6 +16,7 @@ private slots:
     void loadNestedHelpEntryPath();
     void loadNestedDefaultAgentKey();
     void loadTopLevelDefaultAgentKey();
+    void loadNestedProjectSettings();
     void repoHelpPathOverridesSystemDefault();
 };
 
@@ -70,6 +71,19 @@ void RepoConfigLoaderTest::loadTopLevelDefaultAgentKey()
     const qtcode::settings::RepoConfig config =
         qtcode::core::RepoConfigLoader::loadFromYamlContent(yaml);
     QCOMPARE(config.defaultAgentKey, QStringLiteral("codex"));
+}
+
+void RepoConfigLoaderTest::loadNestedProjectSettings()
+{
+    const QString yaml = QStringLiteral(
+        "project:\n"
+        "  displayName: My Project\n"
+        "  path: /tmp/my-project\n");
+
+    const qtcode::settings::RepoConfig config =
+        qtcode::core::RepoConfigLoader::loadFromYamlContent(yaml);
+    QCOMPARE(config.projectDisplayName, QStringLiteral("My Project"));
+    QCOMPARE(config.projectPath, QStringLiteral("/tmp/my-project"));
 }
 
 void RepoConfigLoaderTest::repoHelpPathOverridesSystemDefault()

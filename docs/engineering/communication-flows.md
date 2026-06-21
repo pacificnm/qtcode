@@ -13,6 +13,7 @@ QtCodeApplication starts
   -> CliCapabilityService schedules background CLI detection
   -> ProjectManager restores active project (unless disabled in settings)
   -> TerminalManager restores terminal metadata
+  -> MainWindow constructs TerminalPanel and restores or creates initial tabs
   -> MainWindow applies SQLite panel layout and AppConfig column widths
   -> AgentPanel restores project session list and default agent selector
   -> CliCapabilityService completes and updates agent/GitHub executable paths
@@ -40,7 +41,9 @@ User selects repository
   -> AgentPanel::onActiveProjectChanged()
   -> AgentPanel refreshes agent selector (repo default from .qtcode/config.yaml when needed)
   -> AgentManager restores last active session for project or creates one
-  -> TerminalManager updates default cwd
+  -> TerminalPanel::onActiveProjectChanged()
+       TerminalManager::syncSessionsToActiveProject() updates cwd/title metadata
+       create first tab when none exist, otherwise sync open tabs
   -> UI models refresh
 ```
 
@@ -78,6 +81,39 @@ Repository selected
   -> GitHubService normalizes issue models
   -> GitHub cache updates
   -> RepositoryPanel displays issues
+```
+
+## Open Terminal Tab
+
+```text
+User clicks terminal + button or File > New Terminal Tab
+  -> TerminalPanel::addTerminalTab()
+  -> TerminalManager::createTerminal(activeProjectId)
+       buildSessionForProject() resolves shell, cwd, title
+       configureWidget() starts shell in PTY cwd
+       persist TerminalSession row
+  -> TerminalPanel adds tab and focuses widget
+```
+
+## Restore Terminal Sessions
+
+```text
+TerminalPanel startup (after TerminalManager::restoreState())
+  -> for each persisted TerminalSession:
+       resolveSessionWorkingDirectory() re-canonicalizes cwd from repo config
+       restoreTerminal() creates QTermWidget + fresh shell
+       tab title shows "<display name> (restored)"
+  -> if no sessions and active project exists:
+       createTerminal() for active project
+```
+
+## Save Repository Terminal Settings
+
+```text
+User edits Project display name / Project path in File > Settings
+  -> RepoConfigWriter saves .qtcode/config.yaml
+  -> MainWindow calls TerminalManager::syncSessionsToActiveProject()
+  -> TerminalPanel::syncTabsFromSessions() updates titles and PTY cwd
 ```
 
 ## Run Build Command

@@ -28,6 +28,10 @@ namespace {
         "# agent:\n"
         "#   defaultAgentKey: codex\n"
         "#\n"
+        "# project:\n"
+        "#   displayName: my-project\n"
+        "#   path: /path/to/project\n"
+        "#\n"
         "# help:\n"
         "#   entryPath: docs/README.md\n"
         "#\n"
@@ -38,12 +42,23 @@ namespace {
 
 [[nodiscard]] QString yamlContentForRepoConfig(const qtcode::settings::RepoConfig &config)
 {
-    if (!config.hasRepoHelpPath() && !config.hasDefaultAgentKey()) {
+    if (!config.hasRepoHelpPath() && !config.hasDefaultAgentKey() && !config.hasProjectDisplayName()
+        && !config.hasProjectPath()) {
         return yamlContentForEmptyConfig();
     }
 
     QStringList lines;
     lines << QStringLiteral("# Per-repository QTCode settings.");
+
+    if (config.hasProjectDisplayName() || config.hasProjectPath()) {
+        lines << QStringLiteral("project:");
+        if (config.hasProjectDisplayName()) {
+            lines << QStringLiteral("  displayName: %1").arg(config.projectDisplayName.trimmed());
+        }
+        if (config.hasProjectPath()) {
+            lines << QStringLiteral("  path: %1").arg(config.projectPath.trimmed());
+        }
+    }
 
     if (config.hasDefaultAgentKey()) {
         lines << QStringLiteral("agent:");

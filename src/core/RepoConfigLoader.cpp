@@ -13,6 +13,7 @@ enum class ParseSection
     None,
     Help,
     Agent,
+    Project,
 };
 
 [[nodiscard]] QString parseYamlScalarValue(const QString &line, const QString &key)
@@ -83,6 +84,10 @@ settings::RepoConfig RepoConfigLoader::loadFromYamlContent(const QString &yamlCo
                 section = ParseSection::Agent;
                 continue;
             }
+            if (trimmed == QStringLiteral("project:")) {
+                section = ParseSection::Project;
+                continue;
+            }
 
             section = ParseSection::None;
             const QString repoHelpPath = parseYamlScalarValue(
@@ -117,6 +122,23 @@ settings::RepoConfig RepoConfigLoader::loadFromYamlContent(const QString &yamlCo
                 QString::fromLatin1(settings::kRepoConfigKeyDefaultAgentKey));
             if (!defaultAgentKey.isEmpty()) {
                 config.defaultAgentKey = defaultAgentKey;
+            }
+            continue;
+        }
+
+        if (section == ParseSection::Project) {
+            const QString displayName = parseYamlScalarValue(
+                line,
+                QString::fromLatin1(settings::kRepoConfigKeyProjectDisplayName));
+            if (!displayName.isEmpty()) {
+                config.projectDisplayName = displayName;
+            }
+
+            const QString projectPath = parseYamlScalarValue(
+                line,
+                QString::fromLatin1(settings::kRepoConfigKeyProjectPath));
+            if (!projectPath.isEmpty()) {
+                config.projectPath = projectPath;
             }
         }
     }

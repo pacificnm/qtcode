@@ -73,6 +73,10 @@ public:
     [[nodiscard]] bool syncSessionsToActiveProject(
         const QString &projectId,
         QString *errorMessage = nullptr);
+    [[nodiscard]] bool applySessionToWidget(
+        QWidget *widget,
+        const TerminalSession &session,
+        QString *errorMessage = nullptr) const;
     [[nodiscard]] bool closeSession(const QString &sessionId, QString *errorMessage = nullptr);
 
     [[nodiscard]] QList<TerminalSession> sessions() const;

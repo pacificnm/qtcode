@@ -1,4 +1,7 @@
 # Per-repository QTCode settings.
+project:
+  displayName: QTCode
+  path: /home/jaimie/qtcode
 agent:
   defaultAgentKey: cursor
 help:

@@ -180,10 +180,12 @@ QT_LOGGING_RULES="qtcode.core.info=true;qtcode.ui.info=true" ./build/src/app/qtc
 | GitHub lists stay empty | Missing or unauthenticated `gh` | `gh auth status`, repository panel capability banner |
 | Agent prompt fails instantly | Agent CLI missing or blocked | `which codex`, agent panel capability state |
 | Terminal tabs fail to start | Shell path or permissions | `QTCODE_TERMINAL_SHELL`, terminal profile settings |
+| Terminal opens in wrong directory | Stale session metadata or repo path override | `.qtcode/config.yaml` `project.path`, **File > Settings > Repository**, [terminal integration](terminal-integration.md) |
 | Memory search unavailable | PostgreSQL or MCP tooling not configured | `scripts/setup-memory-db`, `.venv` packages |
 
 ## Related Docs
 
+- [Terminal integration](terminal-integration.md)
 - [Toolchain requirements](../toolchain-requirements.md)
 - [Packaging notes](packaging-notes.md)
 - [Performance notes](performance-notes.md)
