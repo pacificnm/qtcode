@@ -10,8 +10,6 @@
 class QLabel;
 class QListView;
 class QListWidget;
-class QPushButton;
-
 namespace qtcode::git {
 class GitService;
 } // namespace qtcode::git
@@ -76,7 +74,6 @@ private:
     void showErrorState(const QString &message);
     void applySnapshot(const qtcode::git::RepositoryGitSnapshot &snapshot);
     void showChangedFiles(const qtcode::git::GitWorkingTreeStatus &status);
-    void showRecentCommits(const QList<qtcode::git::GitCommitSummary> &commits);
     void showGitHubIssues(const qtcode::github::GitHubIssueListResult &result);
     void showGitHubPullRequests(const qtcode::github::GitHubPullRequestListResult &result);
     void onIssueSelected();
@@ -93,15 +90,11 @@ private:
     QLabel *m_projectLabel = nullptr;
     QLabel *m_capabilityStateLabel = nullptr;
     QLabel *m_changedFilesStateLabel = nullptr;
-    QLabel *m_commitsStateLabel = nullptr;
     QListWidget *m_changedFilesList = nullptr;
-    QListWidget *m_commitsList = nullptr;
     QLabel *m_issuesStateLabel = nullptr;
     QListWidget *m_issuesList = nullptr;
     QLabel *m_pullRequestsStateLabel = nullptr;
     QListWidget *m_pullRequestsList = nullptr;
-    QPushButton *m_addRepositoryButton = nullptr;
-    QPushButton *m_refreshButton = nullptr;
     QFutureWatcher<RepositoryRefreshBundle> *m_refreshWatcher = nullptr;
     QElapsedTimer m_refreshTimer;
     GitHubDetailView *m_detailView = nullptr;

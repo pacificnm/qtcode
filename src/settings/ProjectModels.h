@@ -6,6 +6,7 @@ namespace qtcode::settings {
 
 inline constexpr auto kActiveProjectSettingKey = "app.active_project_id";
 inline constexpr auto kActiveAgentSessionByProjectSettingKey = "app.active_agent_session_by_project";
+inline constexpr auto kAgentSessionRequestOptionsSettingKey = "app.agent_session_request_options";
 
 struct ProjectRecord
 {

@@ -5,7 +5,6 @@
 #include "core/CliCapabilityModels.h"
 #include "core/StatusModels.h"
 #include "core/StatusService.h"
-#include "git/GitCommitSummary.h"
 #include "git/GitService.h"
 #include "github/GitHubService.h"
 #include "github/GitHubCachePolicy.h"
@@ -20,7 +19,6 @@
 #include <QLabel>
 #include <QListView>
 #include <QListWidget>
-#include <QPushButton>
 #include <QSignalBlocker>
 #include <QTimer>
 #include <QVBoxLayout>
@@ -147,12 +145,6 @@ void RepositoryPanel::configureLayout()
     m_repositoryList->setSelectionMode(QAbstractItemView::SingleSelection);
     m_repositoryList->setEditTriggers(QAbstractItemView::NoEditTriggers);
 
-    m_addRepositoryButton = new QPushButton(i18n("Add repository"), this);
-    connect(m_addRepositoryButton, &QPushButton::clicked, this, &RepositoryPanel::addRepository);
-
-    m_refreshButton = new QPushButton(i18n("Refresh status"), this);
-    connect(m_refreshButton, &QPushButton::clicked, this, &RepositoryPanel::refreshStatus);
-
     auto *changedFilesTitle = new QLabel(i18n("Changed files"), this);
     changedFilesTitle->setFont(sectionFont);
 
@@ -162,16 +154,6 @@ void RepositoryPanel::configureLayout()
 
     m_changedFilesList = new QListWidget(this);
     m_changedFilesList->setSelectionMode(QAbstractItemView::NoSelection);
-
-    auto *commitsTitle = new QLabel(i18n("Recent commits"), this);
-    commitsTitle->setFont(sectionFont);
-
-    m_commitsStateLabel = new QLabel(this);
-    m_commitsStateLabel->setWordWrap(true);
-    m_commitsStateLabel->setAlignment(Qt::AlignTop | Qt::AlignLeft);
-
-    m_commitsList = new QListWidget(this);
-    m_commitsList->setSelectionMode(QAbstractItemView::NoSelection);
 
     auto *issuesTitle = new QLabel(i18n("GitHub issues"), this);
     issuesTitle->setFont(sectionFont);
@@ -220,14 +202,9 @@ void RepositoryPanel::configureLayout()
     layout->addWidget(m_projectLabel);
     layout->addWidget(localRepositoriesTitle);
     layout->addWidget(m_repositoryList);
-    layout->addWidget(m_addRepositoryButton);
-    layout->addWidget(m_refreshButton);
     layout->addWidget(changedFilesTitle);
     layout->addWidget(m_changedFilesStateLabel);
     layout->addWidget(m_changedFilesList);
-    layout->addWidget(commitsTitle);
-    layout->addWidget(m_commitsStateLabel);
-    layout->addWidget(m_commitsList);
     layout->addWidget(issuesTitle);
     layout->addWidget(m_issuesStateLabel);
     layout->addWidget(m_issuesList);
@@ -276,7 +253,7 @@ void RepositoryPanel::startRefresh(const QString &projectId, const QString &repo
     m_refreshWatcher->setFuture(QtConcurrent::run(
         [projectId, repositoryPath, gitHubService]() {
             RepositoryRefreshBundle bundle;
-            bundle.git = qtcode::git::loadRepositoryGitSnapshot(repositoryPath, 10);
+            bundle.git = qtcode::git::loadRepositoryGitSnapshot(repositoryPath, 0);
             if (gitHubService != nullptr && bundle.git.success) {
                 bundle.issues = gitHubService->listIssuesForProject(projectId);
                 bundle.pullRequests = gitHubService->listPullRequestsForProject(projectId);
@@ -312,7 +289,6 @@ void RepositoryPanel::onRefreshFinished()
 
     qCInfo(qtcodeUi) << "Repository snapshot refreshed with"
                      << bundle.git.status.changedFiles.size() << "changed file(s),"
-                     << bundle.git.commits.size() << "recent commit(s),"
                      << bundle.issues.issues.size() << "GitHub issue(s), and"
                      << bundle.pullRequests.pullRequests.size() << "pull request(s)"
                      << "in" << m_refreshTimer.elapsed() << "ms";
@@ -324,15 +300,10 @@ void RepositoryPanel::onRefreshFinished()
 
 void RepositoryPanel::setRefreshing(bool refreshing)
 {
-    m_refreshButton->setEnabled(!refreshing);
-
     if (refreshing) {
         m_changedFilesStateLabel->setText(i18n("Loading changed files…"));
         m_changedFilesStateLabel->show();
         m_changedFilesList->hide();
-        m_commitsStateLabel->setText(i18n("Loading recent commits…"));
-        m_commitsStateLabel->show();
-        m_commitsList->hide();
         m_issuesStateLabel->setText(i18n("Loading GitHub issues…"));
         m_issuesStateLabel->show();
         m_issuesList->hide();
@@ -351,7 +322,6 @@ void RepositoryPanel::applySnapshot(const qtcode::git::RepositoryGitSnapshot &sn
     }
 
     showChangedFiles(snapshot.status);
-    showRecentCommits(snapshot.commits);
 }
 
 void RepositoryPanel::showEmptyState(const QString &message)
@@ -361,9 +331,6 @@ void RepositoryPanel::showEmptyState(const QString &message)
     m_changedFilesStateLabel->show();
     m_changedFilesList->clear();
     m_changedFilesList->hide();
-    m_commitsStateLabel->hide();
-    m_commitsList->clear();
-    m_commitsList->hide();
     m_issuesStateLabel->setText(i18n("GitHub issues load after a repository is selected."));
     m_issuesStateLabel->show();
     m_issuesList->clear();
@@ -373,8 +340,6 @@ void RepositoryPanel::showEmptyState(const QString &message)
     m_pullRequestsList->clear();
     m_pullRequestsList->hide();
     m_activeProjectId.clear();
-    m_refreshButton->setEnabled(m_projectManager != nullptr && m_projectManager->hasActiveProject());
-    m_addRepositoryButton->setEnabled(m_projectManager != nullptr);
 }
 
 void RepositoryPanel::showErrorState(const QString &message)
@@ -387,16 +352,12 @@ void RepositoryPanel::showErrorState(const QString &message)
     m_changedFilesStateLabel->show();
     m_changedFilesList->clear();
     m_changedFilesList->hide();
-    m_commitsStateLabel->hide();
-    m_commitsList->clear();
-    m_commitsList->hide();
     m_issuesStateLabel->hide();
     m_issuesList->clear();
     m_issuesList->hide();
     m_pullRequestsStateLabel->hide();
     m_pullRequestsList->clear();
     m_pullRequestsList->hide();
-    m_refreshButton->setEnabled(true);
 }
 
 void RepositoryPanel::showChangedFiles(const qtcode::git::GitWorkingTreeStatus &status)
@@ -417,31 +378,6 @@ void RepositoryPanel::showChangedFiles(const qtcode::git::GitWorkingTreeStatus &
 
         m_changedFilesList->show();
     }
-}
-
-void RepositoryPanel::showRecentCommits(const QList<qtcode::git::GitCommitSummary> &commits)
-{
-    m_commitsList->clear();
-
-    if (commits.isEmpty()) {
-        m_commitsStateLabel->setText(i18n("No commits in this repository yet."));
-        m_commitsStateLabel->show();
-        m_commitsList->hide();
-        return;
-    }
-
-    m_commitsStateLabel->hide();
-
-    for (const qtcode::git::GitCommitSummary &commit : commits) {
-        m_commitsList->addItem(
-            i18n("%1 — %2\n%3, %4",
-                 commit.shortSha,
-                 commit.subject,
-                 commit.author,
-                 commit.committedAt));
-    }
-
-    m_commitsList->show();
 }
 
 void RepositoryPanel::showGitHubIssues(const qtcode::github::GitHubIssueListResult &result)

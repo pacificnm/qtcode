@@ -2,6 +2,7 @@
 
 #include "agents/AgentAdapter.h"
 #include "agents/AgentManager.h"
+#include "agents/AgentOptions.h"
 #include "agents/AgentSession.h"
 #include "core/CliCapabilityModels.h"
 #include "core/CliCapabilityService.h"
@@ -178,23 +179,42 @@ void AgentPanel::configureLayout()
     m_promptInput->installEventFilter(this);
     connect(m_promptInput, &QPlainTextEdit::textChanged, this, &AgentPanel::refreshComposerControls);
 
-    m_sendButton = new QPushButton(i18n("Send"), m_conversationPanel);
+    m_sendButton = new QPushButton(m_conversationPanel);
     m_sendButton->setToolTip(i18n("Send prompt"));
     const QIcon sendIcon = QIcon::fromTheme(QStringLiteral("document-send"));
     if (!sendIcon.isNull()) {
         m_sendButton->setIcon(sendIcon);
+    } else {
+        m_sendButton->setText(i18n("Send"));
     }
     m_sendButton->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
     connect(m_sendButton, &QPushButton::clicked, this, &AgentPanel::onComposerActionClicked);
 
-    auto *composerRowLayout = new QHBoxLayout();
-    composerRowLayout->setSpacing(8);
-    composerRowLayout->addWidget(m_promptInput, 1);
-    composerRowLayout->addWidget(m_sendButton, 0, Qt::AlignBottom);
+    m_modelSelector = new QComboBox(m_conversationPanel);
+    m_modelSelector->setSizeAdjustPolicy(QComboBox::AdjustToContents);
+    m_modelSelector->setToolTip(i18n("Model for the active agent session"));
+    connect(m_modelSelector, &QComboBox::currentIndexChanged, this, &AgentPanel::onRequestOptionsChanged);
+
+    m_executionModeSelector = new QComboBox(m_conversationPanel);
+    m_executionModeSelector->setSizeAdjustPolicy(QComboBox::AdjustToContents);
+    m_executionModeSelector->setToolTip(i18n("Execution mode for the active agent session"));
+    connect(
+        m_executionModeSelector,
+        &QComboBox::currentIndexChanged,
+        this,
+        &AgentPanel::onRequestOptionsChanged);
+
+    auto *composerControlsLayout = new QHBoxLayout();
+    composerControlsLayout->setSpacing(8);
+    composerControlsLayout->addWidget(m_modelSelector, 0);
+    composerControlsLayout->addWidget(m_executionModeSelector, 0);
+    composerControlsLayout->addStretch(1);
+    composerControlsLayout->addWidget(m_sendButton, 0, Qt::AlignRight);
 
     conversationLayout->addWidget(titleLabel);
     conversationLayout->addWidget(m_conversationView, 1);
-    conversationLayout->addLayout(composerRowLayout);
+    conversationLayout->addWidget(m_promptInput);
+    conversationLayout->addLayout(composerControlsLayout);
 
     m_contextPanel = new QWidget(this);
     auto *contextLayout = new QVBoxLayout(m_contextPanel);
@@ -369,6 +389,7 @@ void AgentPanel::refreshSessionList()
 
     m_activeSessionId.clear();
     refreshConversation();
+    refreshRequestOptionSelectors();
     setPromptEnabled(false);
 }
 
@@ -465,6 +486,8 @@ void AgentPanel::dispatchPromptWithContext(
     mergedContextExcerpts.append(contextExcerpts);
     request.contextExcerpts = mergedContextExcerpts;
     request.nonInteractive = true;
+    request.modelKey = selectedModelKey();
+    request.executionModeKey = selectedExecutionModeKey();
 
     QString errorMessage;
     if (!m_agentManager->dispatchRequest(m_activeSessionId, request, &errorMessage)) {
@@ -573,6 +596,7 @@ void AgentPanel::onSessionListSelectionChanged()
     if (currentItem == nullptr) {
         m_activeSessionId.clear();
         refreshConversation();
+        refreshRequestOptionSelectors();
         setPromptEnabled(false);
         refreshComposerControls();
         return;
@@ -836,9 +860,17 @@ void AgentPanel::refreshComposerControls()
         && !m_promptInput->toPlainText().trimmed().isEmpty();
     const bool inputEnabled = m_promptComposerEnabled && !m_contextRetrievalInFlight && !running;
     const bool sendEnabled = inputEnabled && hasText;
+    const bool selectorsEnabled = inputEnabled;
 
     if (m_promptInput != nullptr) {
         m_promptInput->setEnabled(inputEnabled);
+    }
+    if (m_modelSelector != nullptr) {
+        m_modelSelector->setEnabled(selectorsEnabled && m_modelSelector->count() > 0);
+    }
+    if (m_executionModeSelector != nullptr) {
+        m_executionModeSelector->setEnabled(
+            selectorsEnabled && m_executionModeSelector->count() > 0);
     }
     if (m_sendButton == nullptr) {
         return;
@@ -861,8 +893,11 @@ void AgentPanel::refreshComposerControls()
     const QIcon sendIcon = QIcon::fromTheme(QStringLiteral("document-send"));
     if (!sendIcon.isNull()) {
         m_sendButton->setIcon(sendIcon);
+        m_sendButton->setText({});
+    } else {
+        m_sendButton->setIcon(QIcon());
+        m_sendButton->setText(i18n("Send"));
     }
-    m_sendButton->setText(i18n("Send"));
     m_sendButton->setToolTip(i18n("Send prompt"));
     m_sendButton->setEnabled(sendEnabled);
 }
@@ -892,6 +927,7 @@ void AgentPanel::selectSession(const QString &sessionId)
         : nullptr;
     if (session == nullptr) {
         refreshConversation();
+        refreshRequestOptionSelectors();
         setPromptEnabled(false);
         return;
     }
@@ -901,6 +937,7 @@ void AgentPanel::selectSession(const QString &sessionId)
     updateRequestControls(session);
     refreshSavedContextRetrieval();
     refreshDiffReview();
+    refreshRequestOptionSelectors();
 
     if (m_projectManager != nullptr && m_projectManager->hasActiveProject()) {
         QString persistError;
@@ -924,6 +961,192 @@ QString AgentPanel::selectedAgentKey() const
     }
 
     return m_agentSelector->currentData().toString();
+}
+
+QString AgentPanel::selectedModelKey() const
+{
+    if (m_modelSelector == nullptr || m_modelSelector->currentIndex() < 0) {
+        return {};
+    }
+
+    return m_modelSelector->currentData().toString();
+}
+
+QString AgentPanel::selectedExecutionModeKey() const
+{
+    if (m_executionModeSelector == nullptr || m_executionModeSelector->currentIndex() < 0) {
+        return QStringLiteral("agent");
+    }
+
+    const QString modeKey = m_executionModeSelector->currentData().toString();
+    return modeKey.isEmpty() ? QStringLiteral("agent") : modeKey;
+}
+
+QString AgentPanel::executionModeDisplayLabel(const QString &modeKey)
+{
+    if (modeKey == QStringLiteral("agent")) {
+        return i18n("Agent");
+    }
+    if (modeKey == QStringLiteral("plan")) {
+        return i18n("Plan");
+    }
+    if (modeKey == QStringLiteral("debug")) {
+        return i18n("Debug");
+    }
+    if (modeKey == QStringLiteral("multitask")) {
+        return i18n("Multitask");
+    }
+    if (modeKey == QStringLiteral("ask")) {
+        return i18n("Ask");
+    }
+
+    return modeKey;
+}
+
+void AgentPanel::refreshRequestOptionSelectors()
+{
+    if (m_modelSelector == nullptr || m_executionModeSelector == nullptr || m_agentManager == nullptr) {
+        return;
+    }
+
+    m_refreshingRequestOptions = true;
+    const QSignalBlocker modelBlocker(m_modelSelector);
+    const QSignalBlocker modeBlocker(m_executionModeSelector);
+
+    m_modelSelector->clear();
+    m_executionModeSelector->clear();
+
+    if (m_activeSessionId.isEmpty()) {
+        m_modelSelector->setEnabled(false);
+        m_executionModeSelector->setEnabled(false);
+        m_refreshingRequestOptions = false;
+        refreshComposerControls();
+        return;
+    }
+
+    qtcode::agents::AgentSession *session = m_agentManager->session(m_activeSessionId);
+    if (session == nullptr) {
+        m_modelSelector->setEnabled(false);
+        m_executionModeSelector->setEnabled(false);
+        m_refreshingRequestOptions = false;
+        refreshComposerControls();
+        return;
+    }
+
+    qtcode::agents::AgentAdapter *adapter = m_agentManager->adapter(session->agentKey());
+    const qtcode::agents::AgentSessionRequestOptions savedOptions =
+        m_agentManager->requestOptionsForSession(m_activeSessionId);
+
+    const QList<qtcode::agents::AgentOption> executionModes =
+        qtcode::agents::executionModesForAgentKey(session->agentKey());
+    for (const qtcode::agents::AgentOption &mode : executionModes) {
+        m_executionModeSelector->addItem(
+            executionModeDisplayLabel(mode.key),
+            mode.key);
+    }
+
+    int executionModeIndex = m_executionModeSelector->findData(savedOptions.executionModeKey);
+    if (executionModeIndex < 0) {
+        executionModeIndex = m_executionModeSelector->findData(QStringLiteral("agent"));
+    }
+    if (executionModeIndex < 0 && m_executionModeSelector->count() > 0) {
+        executionModeIndex = 0;
+    }
+    if (executionModeIndex >= 0) {
+        m_executionModeSelector->setCurrentIndex(executionModeIndex);
+    }
+
+    if (adapter != nullptr) {
+        const QList<qtcode::agents::AgentOption> models = adapter->supportedModels();
+        for (const qtcode::agents::AgentOption &model : models) {
+            m_modelSelector->addItem(model.label, model.key);
+        }
+
+        int modelIndex = m_modelSelector->findData(savedOptions.modelKey);
+        if (modelIndex < 0 && !models.isEmpty()) {
+            modelIndex = 0;
+        }
+        if (modelIndex >= 0) {
+            m_modelSelector->setCurrentIndex(modelIndex);
+        }
+
+        if (session->agentKey() == QStringLiteral("cursor")) {
+            auto *watcher = new QFutureWatcher<bool>(this);
+            connect(watcher, &QFutureWatcher<bool>::finished, this, [this, watcher, savedOptions]() {
+                const bool refreshed = watcher->result();
+                watcher->deleteLater();
+
+                if (!refreshed || m_activeSessionId.isEmpty() || m_agentManager == nullptr) {
+                    return;
+                }
+
+                qtcode::agents::AgentSession *activeSession =
+                    m_agentManager->session(m_activeSessionId);
+                if (activeSession == nullptr
+                    || activeSession->agentKey() != QStringLiteral("cursor")) {
+                    return;
+                }
+
+                qtcode::agents::AgentAdapter *cursorAdapter =
+                    m_agentManager->adapter(QStringLiteral("cursor"));
+                if (cursorAdapter == nullptr) {
+                    return;
+                }
+
+                m_refreshingRequestOptions = true;
+                const QSignalBlocker blocker(m_modelSelector);
+                const QString selectedModel = selectedModelKey();
+                m_modelSelector->clear();
+
+                const QList<qtcode::agents::AgentOption> refreshedModels =
+                    cursorAdapter->supportedModels();
+                for (const qtcode::agents::AgentOption &model : refreshedModels) {
+                    m_modelSelector->addItem(model.label, model.key);
+                }
+
+                int modelIndex = m_modelSelector->findData(selectedModel);
+                if (modelIndex < 0) {
+                    modelIndex = m_modelSelector->findData(savedOptions.modelKey);
+                }
+                if (modelIndex < 0 && m_modelSelector->count() > 0) {
+                    modelIndex = 0;
+                }
+                if (modelIndex >= 0) {
+                    m_modelSelector->setCurrentIndex(modelIndex);
+                }
+
+                m_refreshingRequestOptions = false;
+                refreshComposerControls();
+            });
+
+            watcher->setFuture(QtConcurrent::run([adapter]() {
+                QString errorMessage;
+                return adapter->refreshSupportedModels(&errorMessage);
+            }));
+        }
+    }
+
+    m_refreshingRequestOptions = false;
+    refreshComposerControls();
+}
+
+void AgentPanel::onRequestOptionsChanged()
+{
+    if (m_refreshingRequestOptions || m_agentManager == nullptr || m_activeSessionId.isEmpty()) {
+        return;
+    }
+
+    qtcode::agents::AgentSessionRequestOptions options;
+    options.modelKey = selectedModelKey();
+    options.executionModeKey = selectedExecutionModeKey();
+
+    QString persistError;
+    if (!m_agentManager->persistRequestOptionsForSession(
+            m_activeSessionId,
+            options,
+            &persistError)) {
+        qCWarning(qtcodeUi) << "Failed to persist agent session request options:" << persistError;
+    }
 }
 
 QString AgentPanel::sessionListLabel(const qtcode::agents::AgentSession *session)

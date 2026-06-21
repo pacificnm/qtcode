@@ -22,6 +22,8 @@ public:
     [[nodiscard]] QString executablePath() const override;
 
     [[nodiscard]] bool validateConfiguration(QString *errorMessage = nullptr) const override;
+    [[nodiscard]] QList<AgentOption> supportedModels() const override;
+    [[nodiscard]] bool refreshSupportedModels(QString *errorMessage = nullptr) override;
     [[nodiscard]] bool startRequest(
         const AgentRequest &request,
         QString *errorMessage = nullptr) override;
@@ -47,8 +49,10 @@ private:
     [[nodiscard]] static AgentError errorFromProcess(
         QProcess::ProcessError processError,
         const QString &details);
+    [[nodiscard]] static QList<AgentOption> parseModelsOutput(const QString &output);
 
     QString m_executablePath;
+    QList<AgentOption> m_supportedModels;
     QProcess *m_process = nullptr;
     bool m_requestInFlight = false;
     bool m_receivedAssistantOutput = false;

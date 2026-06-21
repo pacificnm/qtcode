@@ -24,6 +24,8 @@ public:
     [[nodiscard]] virtual QString executablePath() const;
 
     [[nodiscard]] virtual bool validateConfiguration(QString *errorMessage = nullptr) const = 0;
+    [[nodiscard]] virtual QList<AgentOption> supportedModels() const;
+    [[nodiscard]] virtual bool refreshSupportedModels(QString *errorMessage = nullptr);
     [[nodiscard]] virtual bool startRequest(
         const AgentRequest &request,
         QString *errorMessage = nullptr) = 0;

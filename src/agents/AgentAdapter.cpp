@@ -14,4 +14,15 @@ QString AgentAdapter::executablePath() const
     return {};
 }
 
+QList<AgentOption> AgentAdapter::supportedModels() const
+{
+    return {};
+}
+
+bool AgentAdapter::refreshSupportedModels(QString *errorMessage)
+{
+    Q_UNUSED(errorMessage);
+    return true;
+}
+
 } // namespace qtcode::agents

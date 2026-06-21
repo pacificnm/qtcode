@@ -39,7 +39,7 @@ Purpose:
 Implementation:
 
 - `ProjectNavigationPanel` hosts a compact tab bar with **Repository** and **Files** views.
-- **Repository** view: existing `RepositoryPanel` (local repositories, changed files, commits, GitHub issues and pull requests, detail attach flows).
+- **Repository** view: existing `RepositoryPanel` (local repositories, changed files, GitHub issues and pull requests, detail attach flows). Add repository and refresh status remain in the **File** menu; refresh also runs automatically on project selection and startup.
 - **Files** view: `FileTreePanel` rooted at the active project path via `QFileSystemModel`. Activating a text file requests a workspace tab through `WorkspaceTabs::requestOpenFile`. Context menu and **File** menu actions support project-root-scoped new file, new folder, rename, and delete through `FileOperationService`.
 
 Expected repository sections:
@@ -48,7 +48,6 @@ Expected repository sections:
 - GitHub repositories.
 - Branches and tags.
 - Changed files.
-- Commit history.
 - Issues.
 - Pull requests.
 - Repository search.
@@ -78,10 +77,23 @@ See [KTextEditor workspace spec](../specs/ktexteditor-workspace-spec.md) for the
 
 ### Prompt composer
 
-- Multi-line input (`QPlainTextEdit`) with a minimum height suitable for longer prompts.
-- Send control on the same row as the input, aligned to the bottom-right of the composer.
+The AI Chat composer is a two-row stack below the conversation transcript:
+
+1. **Prompt input** — multi-line `QPlainTextEdit` spanning the full composer width, with a minimum height suitable for longer prompts.
+2. **Control row** — model selector and execution-mode selector on the left; Send/Stop on the right.
+
+Interaction:
+
 - **Enter** sends when the prompt is non-empty and sending is allowed; **Shift+Enter** inserts a newline.
+- While a request is running, the Send control becomes Stop/Cancel for the active session.
 - After project memory retrieval completes, the prompt dispatches automatically with all retrieved results attached by default. Users can attach or detach excerpts in **Retrieved Context** to control what is included in later prompts.
+
+Request options:
+
+- Model and execution mode are session-scoped. Selections refresh when the active agent session changes and persist per session in app settings.
+- **Cursor** sessions load models from the Cursor CLI (`cursor agent models`) and expose execution modes Agent, Plan, Debug, Multitask, and Ask. Cursor requests pass `--model` and `--mode plan|ask` when applicable.
+- **Codex** sessions expose a static model list (Default/config, GPT-5.5, Codex 5.3, Codex 5.2, o3) and execution modes Agent, Plan, Debug, and Ask. Codex requests pass `-m` for model selection and use read-only sandbox for Plan/Ask modes.
+- Debug and Multitask appear in the UI for Cursor parity; the Cursor CLI currently accepts only `plan` and `ask` as explicit modes, so those two run in default agent mode until CLI support expands.
 
 ## Right Panel
 

@@ -59,6 +59,12 @@ public:
         const QString &projectId,
         const QString &sessionId,
         QString *errorMessage = nullptr);
+    [[nodiscard]] AgentSessionRequestOptions requestOptionsForSession(
+        const QString &sessionId) const;
+    [[nodiscard]] bool persistRequestOptionsForSession(
+        const QString &sessionId,
+        const AgentSessionRequestOptions &options,
+        QString *errorMessage = nullptr);
 
     [[nodiscard]] bool dispatchRequest(
         const QString &sessionId,

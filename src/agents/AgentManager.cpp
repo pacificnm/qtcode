@@ -295,6 +295,75 @@ bool AgentManager::persistActiveSessionForProject(
         errorMessage);
 }
 
+AgentSessionRequestOptions AgentManager::requestOptionsForSession(const QString &sessionId) const
+{
+    AgentSessionRequestOptions options;
+    options.executionModeKey = QStringLiteral("agent");
+
+    if (sessionId.isEmpty()) {
+        return options;
+    }
+
+    storage::SettingsRepository settingsRepository(m_storageService);
+    QJsonObject json;
+    bool found = false;
+    QString errorMessage;
+    if (!settingsRepository.loadJson(
+            settings::kAgentSessionRequestOptionsSettingKey,
+            &json,
+            &found,
+            &errorMessage)) {
+        qCWarning(qtcodeAgents) << "Failed to load agent session request options:" << errorMessage;
+        return options;
+    }
+
+    if (!found || !json.contains(sessionId)) {
+        return options;
+    }
+
+    const QJsonObject sessionOptions = json.value(sessionId).toObject();
+    options.modelKey = sessionOptions.value(QStringLiteral("modelKey")).toString();
+    options.executionModeKey = sessionOptions.value(QStringLiteral("executionModeKey"))
+                                   .toString()
+                                   .trimmed();
+    if (options.executionModeKey.isEmpty()) {
+        options.executionModeKey = QStringLiteral("agent");
+    }
+
+    return options;
+}
+
+bool AgentManager::persistRequestOptionsForSession(
+    const QString &sessionId,
+    const AgentSessionRequestOptions &options,
+    QString *errorMessage)
+{
+    if (sessionId.isEmpty()) {
+        return true;
+    }
+
+    storage::SettingsRepository settingsRepository(m_storageService);
+    QJsonObject json;
+    bool found = false;
+    if (!settingsRepository.loadJson(
+            settings::kAgentSessionRequestOptionsSettingKey,
+            &json,
+            &found,
+            errorMessage)) {
+        return false;
+    }
+
+    QJsonObject sessionOptions;
+    sessionOptions.insert(QStringLiteral("modelKey"), options.modelKey);
+    sessionOptions.insert(QStringLiteral("executionModeKey"), options.executionModeKey);
+    json.insert(sessionId, sessionOptions);
+
+    return settingsRepository.upsertJson(
+        settings::kAgentSessionRequestOptionsSettingKey,
+        json,
+        errorMessage);
+}
+
 bool AgentManager::dispatchRequest(
     const QString &sessionId,
     const AgentRequest &request,

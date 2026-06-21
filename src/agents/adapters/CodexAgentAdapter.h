@@ -23,6 +23,7 @@ public:
     [[nodiscard]] QString executablePath() const override;
 
     [[nodiscard]] bool validateConfiguration(QString *errorMessage = nullptr) const override;
+    [[nodiscard]] QList<AgentOption> supportedModels() const override;
     [[nodiscard]] bool startRequest(
         const AgentRequest &request,
         QString *errorMessage = nullptr) override;

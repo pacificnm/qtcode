@@ -12,6 +12,24 @@
 
 namespace qtcode::agents {
 
+namespace {
+
+QString composePromptWithContext(const AgentRequest &request)
+{
+    if (request.contextExcerpts.isEmpty()) {
+        return request.prompt;
+    }
+
+    QStringList parts;
+    parts.append(QStringLiteral("Retrieved project context:"));
+    parts.append(request.contextExcerpts);
+    parts.append(QStringLiteral("User request:"));
+    parts.append(request.prompt);
+    return parts.join(QStringLiteral("\n\n"));
+}
+
+} // namespace
+
 CodexAgentAdapter::CodexAgentAdapter(QObject *parent)
     : AgentAdapter(parent)
     , m_process(new QProcess(this))
@@ -70,25 +88,16 @@ bool CodexAgentAdapter::validateConfiguration(QString *errorMessage) const
     return false;
 }
 
-#include "agents/AgentModels.h"
-
-namespace {
-
-QString composePromptWithContext(const qtcode::agents::AgentRequest &request)
+QList<AgentOption> CodexAgentAdapter::supportedModels() const
 {
-    if (request.contextExcerpts.isEmpty()) {
-        return request.prompt;
-    }
-
-    QStringList parts;
-    parts.append(QStringLiteral("Retrieved project context:"));
-    parts.append(request.contextExcerpts);
-    parts.append(QStringLiteral("User request:"));
-    parts.append(request.prompt);
-    return parts.join(QStringLiteral("\n\n"));
+    return {
+        {QStringLiteral("default"), QStringLiteral("Default (config)")},
+        {QStringLiteral("gpt-5.5"), QStringLiteral("GPT-5.5")},
+        {QStringLiteral("gpt-5.3-codex"), QStringLiteral("Codex 5.3")},
+        {QStringLiteral("gpt-5.2-codex"), QStringLiteral("Codex 5.2")},
+        {QStringLiteral("o3"), QStringLiteral("o3")},
+    };
 }
-
-} // namespace
 
 bool CodexAgentAdapter::startRequest(const AgentRequest &request, QString *errorMessage)
 {
@@ -137,9 +146,18 @@ bool CodexAgentAdapter::startRequest(const AgentRequest &request, QString *error
     arguments << QStringLiteral("exec")
               << QStringLiteral("--skip-git-repo-check")
               << QStringLiteral("--cd")
-              << QDir::cleanPath(workingDirectoryInfo.canonicalFilePath())
-              << QStringLiteral("--json")
-              << composePromptWithContext(request);
+              << QDir::cleanPath(workingDirectoryInfo.canonicalFilePath());
+
+    if (!request.modelKey.isEmpty() && request.modelKey != QStringLiteral("default")) {
+        arguments << QStringLiteral("-m") << request.modelKey;
+    }
+
+    const QString executionMode = request.executionModeKey.trimmed();
+    if (executionMode == QStringLiteral("plan") || executionMode == QStringLiteral("ask")) {
+        arguments << QStringLiteral("-s") << QStringLiteral("read-only");
+    }
+
+    arguments << QStringLiteral("--json") << composePromptWithContext(request);
 
     qCInfo(qtcodeAgents) << "Starting Codex exec in" << workingDirectory;
 

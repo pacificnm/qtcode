@@ -487,7 +487,8 @@ RepositoryGitSnapshot loadRepositoryGitSnapshot(const QString &path, int commitL
         return snapshot;
     }
 
-    if (!gitService.loadRecentCommits(path, commitLimit, &snapshot.commits, &snapshot.errorMessage)) {
+    if (commitLimit > 0
+        && !gitService.loadRecentCommits(path, commitLimit, &snapshot.commits, &snapshot.errorMessage)) {
         return snapshot;
     }
 

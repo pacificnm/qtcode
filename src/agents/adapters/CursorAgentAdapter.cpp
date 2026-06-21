@@ -88,6 +88,81 @@ bool CursorAgentAdapter::validateConfiguration(QString *errorMessage) const
     return false;
 }
 
+QList<AgentOption> CursorAgentAdapter::supportedModels() const
+{
+    if (!m_supportedModels.isEmpty()) {
+        return m_supportedModels;
+    }
+
+    return {
+        {QStringLiteral("auto"), QStringLiteral("Auto")},
+    };
+}
+
+bool CursorAgentAdapter::refreshSupportedModels(QString *errorMessage)
+{
+    if (!validateConfiguration(errorMessage)) {
+        return false;
+    }
+
+    QProcess process;
+    process.setProgram(m_executablePath);
+    process.setArguments({QStringLiteral("agent"), QStringLiteral("models")});
+    process.start();
+    if (!process.waitForFinished(15000)) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("Timed out while listing Cursor models.");
+        }
+        return false;
+    }
+
+    if (process.exitStatus() != QProcess::NormalExit || process.exitCode() != 0) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("Failed to list Cursor models: %1")
+                                .arg(QString::fromUtf8(process.readAllStandardError()).trimmed());
+        }
+        return false;
+    }
+
+    const QList<AgentOption> parsedModels =
+        parseModelsOutput(QString::fromUtf8(process.readAllStandardOutput()));
+    if (parsedModels.isEmpty()) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("Cursor models output was empty.");
+        }
+        return false;
+    }
+
+    m_supportedModels = parsedModels;
+    return true;
+}
+
+QList<AgentOption> CursorAgentAdapter::parseModelsOutput(const QString &output)
+{
+    QList<AgentOption> models;
+    const QStringList lines = output.split(QLatin1Char('\n'), Qt::SkipEmptyParts);
+    for (const QString &line : lines) {
+        const QString trimmedLine = line.trimmed();
+        if (trimmedLine.isEmpty() || trimmedLine.startsWith(QStringLiteral("Available models"))) {
+            continue;
+        }
+
+        const int separatorIndex = trimmedLine.indexOf(QStringLiteral(" - "));
+        if (separatorIndex <= 0) {
+            continue;
+        }
+
+        AgentOption option;
+        option.key = trimmedLine.left(separatorIndex).trimmed();
+        option.label = trimmedLine.mid(separatorIndex + 3).trimmed();
+        if (!option.key.isEmpty()) {
+            models.append(option);
+        }
+    }
+
+    return models;
+}
+
 bool CursorAgentAdapter::startRequest(const AgentRequest &request, QString *errorMessage)
 {
     if (m_requestInFlight) {
@@ -138,8 +213,20 @@ bool CursorAgentAdapter::startRequest(const AgentRequest &request, QString *erro
               << QStringLiteral("--print")
               << QStringLiteral("--output-format")
               << QStringLiteral("stream-json")
-              << QStringLiteral("--stream-partial-output")
-              << composePromptWithContext(request);
+              << QStringLiteral("--stream-partial-output");
+
+    if (!request.modelKey.isEmpty()) {
+        arguments << QStringLiteral("--model") << request.modelKey;
+    }
+
+    const QString executionMode = request.executionModeKey.trimmed();
+    if (executionMode == QStringLiteral("plan")) {
+        arguments << QStringLiteral("--mode") << QStringLiteral("plan");
+    } else if (executionMode == QStringLiteral("ask")) {
+        arguments << QStringLiteral("--mode") << QStringLiteral("ask");
+    }
+
+    arguments << composePromptWithContext(request);
 
     qCInfo(qtcodeAgents) << "Starting Cursor agent in" << workingDirectory;
 

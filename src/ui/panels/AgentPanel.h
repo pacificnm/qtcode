@@ -83,9 +83,14 @@ private:
     [[nodiscard]] bool isActiveRequestRunning() const;
     void selectSession(const QString &sessionId);
     [[nodiscard]] QString selectedAgentKey() const;
+    [[nodiscard]] QString selectedModelKey() const;
+    [[nodiscard]] QString selectedExecutionModeKey() const;
+    [[nodiscard]] static QString executionModeDisplayLabel(const QString &modeKey);
     [[nodiscard]] static QString sessionListLabel(const qtcode::agents::AgentSession *session);
     [[nodiscard]] bool ensureActiveSession(QString *errorMessage);
     void refreshSavedContextRetrieval();
+    void refreshRequestOptionSelectors();
+    void onRequestOptionsChanged();
     void dispatchPromptWithContext(
         const QString &prompt,
         const qtcode::settings::ProjectRecord &project,
@@ -104,6 +109,8 @@ private:
     QWidget *m_contextPanel = nullptr;
     QWidget *m_changesPanel = nullptr;
     QComboBox *m_agentSelector = nullptr;
+    QComboBox *m_modelSelector = nullptr;
+    QComboBox *m_executionModeSelector = nullptr;
     QListWidget *m_sessionList = nullptr;
     QPushButton *m_newSessionButton = nullptr;
     ContextResultsView *m_contextResultsView = nullptr;
@@ -113,6 +120,7 @@ private:
     DiffReviewView *m_diffReviewView = nullptr;
     QString m_activeSessionId;
     bool m_refreshingSessionList = false;
+    bool m_refreshingRequestOptions = false;
     bool m_contextRetrievalInFlight = false;
     bool m_promptComposerEnabled = false;
     QString m_pendingPrompt;

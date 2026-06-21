@@ -81,6 +81,18 @@ struct AgentMessage
     QString createdAt;
 };
 
+struct AgentOption
+{
+    QString key;
+    QString label;
+};
+
+struct AgentSessionRequestOptions
+{
+    QString modelKey;
+    QString executionModeKey;
+};
+
 struct AgentRequest
 {
     QString sessionId;
@@ -88,6 +100,8 @@ struct AgentRequest
     QString prompt;
     QString workingDirectory;
     QStringList contextExcerpts;
+    QString modelKey;
+    QString executionModeKey;
     bool nonInteractive = false;
 };
 
