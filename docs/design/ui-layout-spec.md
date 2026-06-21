@@ -6,8 +6,8 @@ Primary layout:
 
 ```text
 +----------------------+----------------------+--------------+---+
-| Repository Panel     | AI Chat Panel        | Right Panel  |Act|
-| (left)               |                      | (one view)   |Bar|
+| Repository Panel     | Main Work Tabs       | Right Panel  |Act|
+| (left)               | [AI Chat*] [...]     | (one view)   |Bar|
 |                      +----------------------+              |   |
 |                      | Terminal Panel       |              |   |
 |                      | (main)               |              |   |
@@ -16,7 +16,7 @@ Primary layout:
 +----------------------------------------------------------------------------------------+
 ```
 
-The shell exposes exactly three content columns: repository on the left, AI chat plus terminal in the main column, and one shared right column. The activity bar toggles which right-panel view is active. A compact status bar spans the full window width below all columns.
+The shell exposes exactly three content columns: repository on the left, workspace tabs plus terminal in the main column, and one shared right column. The activity bar toggles which right-panel view is active. A compact status bar spans the full window width below all columns.
 
 Right-panel views:
 
@@ -25,7 +25,7 @@ Right-panel views:
 - Generated Changes
 - MCP Servers
 
-Only one right-panel view is visible at a time. AI chat and terminal remain in the main column at all times.
+Only one right-panel view is visible at a time. Workspace tabs and terminal remain in the main column at all times.
 
 ## Repository Panel
 
@@ -51,12 +51,12 @@ Expected sections:
 
 Purpose:
 
-- Run the primary AI chat workflow and terminal sessions.
+- Run the primary AI chat workflow and terminal sessions in a tabbed work area above the terminal splitter.
 
 Expected surfaces:
 
-- **AI Chat panel** — conversation transcript, multi-line prompt composer with inline send control, and request controls.
-- **Terminal panel** — shell tabs and project-aware command output beneath the chat panel.
+- **Workspace tabs** — main work-area tab control owned by `WorkspaceTabs`. The permanent **AI Chat** tab hosts `AgentPanel::conversationPanel()` and cannot be closed. Future editor tabs open beside it.
+- **Terminal panel** — shell tabs and project-aware command output beneath the workspace tabs.
 
 ### Prompt composer
 

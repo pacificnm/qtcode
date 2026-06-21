@@ -17,9 +17,9 @@ Replace the current chat-over-terminal main-column arrangement with workspace ta
 
 ## Acceptance Criteria
 
-- `MainWindow` shows a main work-area tab control above the terminal splitter.
-- The existing AI conversation panel appears in an `AI Chat` tab.
-- The `AI Chat` tab cannot be closed through the tab UI or close-tab actions.
-- The terminal panel remains below the main work area and keeps existing tab behavior.
-- Existing agent session, context attachment, generated changes, right activity panel, and status bar connections continue to work.
-- Layout persistence remains stable for the left, main, right, and terminal splitter sizes.
+- [x] `MainWindow` shows a main work-area tab control above the terminal splitter.
+- [x] The existing AI conversation panel appears in an `AI Chat` tab.
+- [x] The `AI Chat` tab cannot be closed through the tab UI or close-tab actions.
+- [x] The terminal panel remains below the main work area and keeps existing tab behavior.
+- [x] Existing agent session, context attachment, generated changes, right activity panel, and status bar connections continue to work.
+- [x] Layout persistence remains stable for the left, main, right, and terminal splitter sizes.

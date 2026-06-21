@@ -10,6 +10,7 @@
 #include "ui/panels/McpServerPanel.h"
 #include "ui/panels/RepositoryPanel.h"
 #include "ui/panels/TerminalPanel.h"
+#include "ui/panels/WorkspaceTabs.h"
 #include "ui/StatusBar.h"
 
 #include <KActionCollection>
@@ -87,8 +88,11 @@ void MainWindow::configureLayout()
         m_controller != nullptr ? m_controller->projectManager() : nullptr,
         this);
 
+    m_workspaceTabs = new WorkspaceTabs(this);
+    m_workspaceTabs->setPermanentAiChatTab(m_agentPanel->conversationPanel());
+
     m_repositoryPanel->setMinimumWidth(240);
-    m_agentPanel->conversationPanel()->setMinimumWidth(320);
+    m_workspaceTabs->setMinimumWidth(320);
     m_terminalPanel->setMinimumHeight(120);
 
     m_rightPanelStack = new QStackedWidget(this);
@@ -99,7 +103,7 @@ void MainWindow::configureLayout()
     m_rightPanelStack->addWidget(m_mcpServerPanel);
 
     m_mainVerticalSplitter = new QSplitter(Qt::Vertical, this);
-    m_mainVerticalSplitter->addWidget(m_agentPanel->conversationPanel());
+    m_mainVerticalSplitter->addWidget(m_workspaceTabs);
     m_mainVerticalSplitter->addWidget(m_terminalPanel);
     m_mainVerticalSplitter->setStretchFactor(0, 3);
     m_mainVerticalSplitter->setStretchFactor(1, 1);
@@ -155,7 +159,7 @@ void MainWindow::configureLayout()
         m_controller->statusService()->showMessage(i18n("Ready."));
     }
 
-    qCInfo(qtcodeUi) << "Initialized three-column shell with global status bar";
+    qCInfo(qtcodeUi) << "Initialized three-column shell with workspace tabs and global status bar";
 }
 
 void MainWindow::configureActions()

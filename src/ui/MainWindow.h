@@ -26,6 +26,7 @@ class McpServerPanel;
 class RepositoryPanel;
 class StatusBar;
 class TerminalPanel;
+class WorkspaceTabs;
 
 class MainWindow final : public QMainWindow
 {
@@ -62,6 +63,7 @@ private:
     QStackedWidget *m_rightPanelStack = nullptr;
     RepositoryPanel *m_repositoryPanel = nullptr;
     AgentPanel *m_agentPanel = nullptr;
+    WorkspaceTabs *m_workspaceTabs = nullptr;
     McpServerPanel *m_mcpServerPanel = nullptr;
     TerminalPanel *m_terminalPanel = nullptr;
     StatusBar *m_statusBar = nullptr;
