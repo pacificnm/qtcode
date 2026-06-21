@@ -1,7 +1,11 @@
 #include "ui/panels/WorkspaceTabs.h"
 
+#include "shared/Logging.h"
+
 #include <KLocalizedString>
 
+#include <QFileInfo>
+#include <QLabel>
 #include <QTabBar>
 #include <QTabWidget>
 #include <QVBoxLayout>
@@ -55,14 +59,68 @@ int WorkspaceTabs::aiChatTabIndex() const
     return m_aiChatTabIndex;
 }
 
+void WorkspaceTabs::requestOpenFile(const QString &absolutePath)
+{
+    if (m_tabWidget == nullptr || absolutePath.isEmpty()) {
+        return;
+    }
+
+    const QString pathKey = normalizedPath(absolutePath);
+    if (pathKey.isEmpty()) {
+        return;
+    }
+
+    const auto existingIndex = m_fileTabIndices.constFind(pathKey);
+    if (existingIndex != m_fileTabIndices.constEnd() && *existingIndex >= 0
+        && *existingIndex < m_tabWidget->count()) {
+        m_tabWidget->setCurrentIndex(*existingIndex);
+        qCInfo(qtcodeUi) << "Focused existing workspace tab for" << pathKey;
+        return;
+    }
+
+    const QFileInfo fileInfo(pathKey);
+    auto *placeholder = new QLabel(
+        i18n("Editor tab for %1\n\nKTextEditor integration arrives in a later milestone.", fileInfo.fileName()),
+        m_tabWidget);
+    placeholder->setWordWrap(true);
+    placeholder->setAlignment(Qt::AlignTop | Qt::AlignLeft);
+    placeholder->setContentsMargins(12, 12, 12, 12);
+
+    const int tabIndex = m_tabWidget->addTab(placeholder, fileInfo.fileName());
+    m_fileTabIndices.insert(pathKey, tabIndex);
+    m_tabWidget->setCurrentIndex(tabIndex);
+    qCInfo(qtcodeUi) << "Opened workspace tab for" << pathKey;
+}
+
+QString WorkspaceTabs::normalizedPath(const QString &absolutePath) const
+{
+    return QFileInfo(absolutePath).absoluteFilePath();
+}
+
 void WorkspaceTabs::onTabCloseRequested(int index)
 {
     if (m_tabWidget == nullptr || index == m_aiChatTabIndex) {
         return;
     }
 
+    const QString pathToRemove = m_fileTabIndices.key(index, QString());
+    if (!pathToRemove.isEmpty()) {
+        m_fileTabIndices.remove(pathToRemove);
+    }
+
     QWidget *widget = m_tabWidget->widget(index);
     m_tabWidget->removeTab(index);
+
+    for (auto it = m_fileTabIndices.begin(); it != m_fileTabIndices.end(); ++it) {
+        if (it.value() > index) {
+            it.value() -= 1;
+        }
+    }
+
+    if (m_aiChatTabIndex > index) {
+        m_aiChatTabIndex -= 1;
+    }
+
     if (widget != nullptr) {
         widget->deleteLater();
     }

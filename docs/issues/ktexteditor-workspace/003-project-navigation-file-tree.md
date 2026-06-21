@@ -17,9 +17,9 @@ Let the left column switch between the existing repository context and a new fol
 
 ## Acceptance Criteria
 
-- The existing `RepositoryPanel` behavior remains available in the left column.
-- A `Files` view appears in the same left-column space, not in a new permanent column.
-- The folder tree follows `ProjectManager` active-project changes.
-- Activating a text file emits a request to open that file in the main workspace tabs.
-- Empty, missing-path, and no-active-project states are handled clearly.
-- Repository GitHub issue and pull request context attachment still works from the repository view.
+- [x] The existing `RepositoryPanel` behavior remains available in the left column.
+- [x] A `Files` view appears in the same left-column space, not in a new permanent column.
+- [x] The folder tree follows `ProjectManager` active-project changes.
+- [x] Activating a text file emits a request to open that file in the main workspace tabs.
+- [x] Empty, missing-path, and no-active-project states are handled clearly.
+- [x] Repository GitHub issue and pull request context attachment still works from the repository view.

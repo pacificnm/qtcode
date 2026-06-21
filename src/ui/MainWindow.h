@@ -23,7 +23,7 @@ namespace qtcode::ui {
 
 class AgentPanel;
 class McpServerPanel;
-class RepositoryPanel;
+class ProjectNavigationPanel;
 class StatusBar;
 class TerminalPanel;
 class WorkspaceTabs;
@@ -61,7 +61,7 @@ private:
     QSplitter *m_rootHorizontalSplitter = nullptr;
     QSplitter *m_mainVerticalSplitter = nullptr;
     QStackedWidget *m_rightPanelStack = nullptr;
-    RepositoryPanel *m_repositoryPanel = nullptr;
+    ProjectNavigationPanel *m_projectNavigationPanel = nullptr;
     AgentPanel *m_agentPanel = nullptr;
     WorkspaceTabs *m_workspaceTabs = nullptr;
     McpServerPanel *m_mcpServerPanel = nullptr;
