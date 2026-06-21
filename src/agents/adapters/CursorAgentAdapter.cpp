@@ -1,0 +1,323 @@
+#include "agents/adapters/CursorAgentAdapter.h"
+
+#include "shared/Logging.h"
+
+#include <QDir>
+#include <QFileInfo>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QProcess>
+#include <QStandardPaths>
+
+namespace qtcode::agents {
+
+namespace {
+
+QString composePromptWithContext(const AgentRequest &request)
+{
+    if (request.contextExcerpts.isEmpty()) {
+        return request.prompt;
+    }
+
+    QStringList parts;
+    parts.append(QStringLiteral("Retrieved project context:"));
+    parts.append(request.contextExcerpts);
+    parts.append(QStringLiteral("User request:"));
+    parts.append(request.prompt);
+    return parts.join(QStringLiteral("\n\n"));
+}
+
+} // namespace
+
+CursorAgentAdapter::CursorAgentAdapter(QObject *parent)
+    : AgentAdapter(parent)
+    , m_process(new QProcess(this))
+{
+    m_executablePath = QStandardPaths::findExecutable(QStringLiteral("cursor"));
+    m_process->setProcessChannelMode(QProcess::MergedChannels);
+
+    connect(m_process, &QProcess::readyReadStandardOutput, this, &CursorAgentAdapter::onProcessReadyRead);
+    connect(m_process, &QProcess::finished, this, &CursorAgentAdapter::onProcessFinished);
+    connect(m_process, &QProcess::errorOccurred, this, &CursorAgentAdapter::onProcessErrorOccurred);
+}
+
+CursorAgentAdapter::~CursorAgentAdapter()
+{
+    if (m_requestInFlight && m_process->state() != QProcess::NotRunning) {
+        m_process->kill();
+        m_process->waitForFinished(3000);
+    }
+}
+
+QString CursorAgentAdapter::agentKey() const
+{
+    return QStringLiteral("cursor");
+}
+
+QString CursorAgentAdapter::displayName() const
+{
+    return QStringLiteral("Cursor CLI");
+}
+
+AgentCapabilities CursorAgentAdapter::capabilities() const
+{
+    return AgentCapability::StreamingText | AgentCapability::DiffOutput
+        | AgentCapability::SupportsNonInteractiveMode | AgentCapability::SupportsProjectConfig;
+}
+
+bool CursorAgentAdapter::isAvailable() const
+{
+    return !m_executablePath.isEmpty();
+}
+
+QString CursorAgentAdapter::executablePath() const
+{
+    return m_executablePath;
+}
+
+bool CursorAgentAdapter::validateConfiguration(QString *errorMessage) const
+{
+    if (isAvailable()) {
+        return true;
+    }
+
+    if (errorMessage != nullptr) {
+        *errorMessage = QStringLiteral("Cursor CLI was not found on PATH.");
+    }
+    return false;
+}
+
+bool CursorAgentAdapter::startRequest(const AgentRequest &request, QString *errorMessage)
+{
+    if (m_requestInFlight) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("Cursor adapter already has a request in flight.");
+        }
+        return false;
+    }
+
+    if (!validateConfiguration(errorMessage)) {
+        AgentEvent event;
+        event.type = AgentEventType::Error;
+        event.error.kind = AgentErrorKind::MissingExecutable;
+        event.error.message = QStringLiteral("Cursor CLI was not found on PATH.");
+        emit eventEmitted(event);
+        emit requestFinished(AgentRequestStatus::Failed, event.error.message);
+        return false;
+    }
+
+    if (request.prompt.trimmed().isEmpty()) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("Agent prompt must not be empty.");
+        }
+        return false;
+    }
+
+    const QString workingDirectory = request.workingDirectory.trimmed().isEmpty()
+        ? QDir::currentPath()
+        : request.workingDirectory;
+    const QFileInfo workingDirectoryInfo(workingDirectory);
+    if (!workingDirectoryInfo.exists() || !workingDirectoryInfo.isDir()) {
+        const QString message =
+            QStringLiteral("Working directory does not exist: %1").arg(workingDirectory);
+        if (errorMessage != nullptr) {
+            *errorMessage = message;
+        }
+        return false;
+    }
+
+    m_pendingOutput.clear();
+    m_requestInFlight = true;
+
+    QStringList arguments;
+    arguments << QStringLiteral("agent")
+              << QStringLiteral("-f")
+              << QStringLiteral("--print")
+              << QStringLiteral("--output-format")
+              << QStringLiteral("stream-json")
+              << composePromptWithContext(request);
+
+    qCInfo(qtcodeAgents) << "Starting Cursor agent in" << workingDirectory;
+
+    AgentEvent statusEvent;
+    statusEvent.type = AgentEventType::StatusUpdate;
+    statusEvent.text = QStringLiteral("Starting Cursor request…");
+    emit eventEmitted(statusEvent);
+
+    m_process->setProgram(m_executablePath);
+    m_process->setArguments(arguments);
+    m_process->setWorkingDirectory(QDir::cleanPath(workingDirectoryInfo.canonicalFilePath()));
+    m_process->start();
+
+    if (!m_process->waitForStarted(5000)) {
+        const QString message = QStringLiteral("Failed to start Cursor CLI: %1")
+                                    .arg(m_process->errorString());
+        if (errorMessage != nullptr) {
+            *errorMessage = message;
+        }
+
+        AgentEvent event;
+        event.type = AgentEventType::Error;
+        event.error = errorFromProcess(m_process->error(), message);
+        emit eventEmitted(event);
+        finishRequest(AgentRequestStatus::Failed, message);
+        return false;
+    }
+
+    return true;
+}
+
+void CursorAgentAdapter::cancelRequest()
+{
+    if (!m_requestInFlight) {
+        return;
+    }
+
+    if (m_process->state() != QProcess::NotRunning) {
+        m_process->kill();
+    }
+
+    finishRequest(AgentRequestStatus::Canceled, QStringLiteral("Cursor request canceled."));
+}
+
+void CursorAgentAdapter::setExecutablePath(const QString &executablePath)
+{
+    m_executablePath = executablePath;
+}
+
+void CursorAgentAdapter::onProcessReadyRead()
+{
+    m_pendingOutput.append(QString::fromUtf8(m_process->readAllStandardOutput()));
+
+    int newlineIndex = m_pendingOutput.indexOf(QLatin1Char('\n'));
+    while (newlineIndex >= 0) {
+        const QString line = m_pendingOutput.left(newlineIndex).trimmed();
+        m_pendingOutput.remove(0, newlineIndex + 1);
+
+        if (!line.isEmpty()) {
+            QJsonParseError parseError;
+            const QJsonDocument document = QJsonDocument::fromJson(line.toUtf8(), &parseError);
+            if (parseError.error == QJsonParseError::NoError && document.isObject()) {
+                emitNormalizedEvent(document.object());
+            } else {
+                qCDebug(qtcodeAgents) << "Skipping non-JSON Cursor output line:" << line;
+            }
+        }
+
+        newlineIndex = m_pendingOutput.indexOf(QLatin1Char('\n'));
+    }
+}
+
+void CursorAgentAdapter::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatus)
+{
+    if (!m_pendingOutput.trimmed().isEmpty()) {
+        QJsonParseError parseError;
+        const QJsonDocument document =
+            QJsonDocument::fromJson(m_pendingOutput.trimmed().toUtf8(), &parseError);
+        if (parseError.error == QJsonParseError::NoError && document.isObject()) {
+            emitNormalizedEvent(document.object());
+        }
+        m_pendingOutput.clear();
+    }
+
+    if (!m_requestInFlight) {
+        return;
+    }
+
+    if (exitStatus == QProcess::CrashExit || exitCode != 0) {
+        const QString message = QStringLiteral("Cursor CLI exited with code %1.").arg(exitCode);
+
+        qCWarning(qtcodeAgents) << "Cursor agent failed with exit code" << exitCode;
+
+        AgentEvent event;
+        event.type = AgentEventType::Error;
+        event.error.kind = AgentErrorKind::ProcessFailed;
+        event.error.message = message;
+        emit eventEmitted(event);
+        finishRequest(AgentRequestStatus::Failed, message);
+        return;
+    }
+
+    qCInfo(qtcodeAgents) << "Cursor agent completed successfully";
+    finishRequest(AgentRequestStatus::Succeeded, {});
+}
+
+void CursorAgentAdapter::onProcessErrorOccurred(QProcess::ProcessError processError)
+{
+    if (!m_requestInFlight) {
+        return;
+    }
+
+    const QString message = QStringLiteral("Cursor CLI process error: %1")
+                                .arg(m_process->errorString());
+
+    AgentEvent event;
+    event.type = AgentEventType::Error;
+    event.error = errorFromProcess(processError, message);
+    emit eventEmitted(event);
+    finishRequest(AgentRequestStatus::Failed, message);
+}
+
+void CursorAgentAdapter::emitNormalizedEvent(const QJsonObject &eventObject)
+{
+    const QString type = eventObject.value(QStringLiteral("type")).toString();
+
+    if (type == QStringLiteral("assistant")) {
+        const QJsonArray content =
+            eventObject.value(QStringLiteral("message")).toObject().value(QStringLiteral("content")).toArray();
+        for (const QJsonValue &value : content) {
+            if (!value.isObject()) {
+                continue;
+            }
+
+            const QString text = value.toObject().value(QStringLiteral("text")).toString();
+            if (text.isEmpty()) {
+                continue;
+            }
+
+            AgentEvent event;
+            event.type = AgentEventType::OutputText;
+            event.text = text;
+            emit eventEmitted(event);
+        }
+        return;
+    }
+
+    if (type == QStringLiteral("system")) {
+        AgentEvent event;
+        event.type = AgentEventType::StatusUpdate;
+        event.text = QStringLiteral("Cursor agent initialized");
+        emit eventEmitted(event);
+    }
+}
+
+void CursorAgentAdapter::finishRequest(AgentRequestStatus status, const QString &errorMessage)
+{
+    m_requestInFlight = false;
+    emit requestFinished(status, errorMessage);
+}
+
+AgentError CursorAgentAdapter::errorFromProcess(
+    QProcess::ProcessError processError,
+    const QString &details)
+{
+    AgentError error;
+    error.message = details;
+
+    switch (processError) {
+    case QProcess::FailedToStart:
+        error.kind = AgentErrorKind::MissingExecutable;
+        break;
+    case QProcess::Crashed:
+        error.kind = AgentErrorKind::ProcessFailed;
+        break;
+    default:
+        error.kind = AgentErrorKind::ProcessFailed;
+        break;
+    }
+
+    return error;
+}
+
+} // namespace qtcode::agents

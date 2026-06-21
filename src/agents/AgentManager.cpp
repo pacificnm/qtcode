@@ -3,6 +3,7 @@
 #include "agents/AgentAdapter.h"
 #include "agents/AgentSession.h"
 #include "agents/adapters/CodexAgentAdapter.h"
+#include "agents/adapters/CursorAgentAdapter.h"
 #include "agents/DiffApplier.h"
 #include "shared/Logging.h"
 #include "storage/repositories/AgentSessionRepository.h"
@@ -110,7 +111,11 @@ bool AgentManager::registerAdapter(
 
 bool AgentManager::registerBuiltInAdapters(QString *errorMessage)
 {
-    return registerAdapter(std::make_unique<CodexAgentAdapter>(), errorMessage);
+    if (!registerAdapter(std::make_unique<CodexAgentAdapter>(), errorMessage)) {
+        return false;
+    }
+
+    return registerAdapter(std::make_unique<CursorAgentAdapter>(), errorMessage);
 }
 
 QList<AgentAdapter *> AgentManager::adapters() const
