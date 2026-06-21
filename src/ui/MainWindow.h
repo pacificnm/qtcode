@@ -44,7 +44,6 @@ private:
     void configureLayout();
     void configureActions();
     void configureMenus();
-    void configureToolBar();
     void configureActivityBar();
     void applyPanelLayout(const qtcode::settings::PanelLayoutSettings &layout);
     void applyActiveRightPanel(const QString &panelId);
@@ -65,9 +64,7 @@ private:
     TerminalPanel *m_terminalPanel = nullptr;
     KActionCollection *m_actionCollection = nullptr;
     KHelpMenu *m_helpMenu = nullptr;
-    QToolBar *m_mainToolBar = nullptr;
     QToolBar *m_activityToolBar = nullptr;
-    QAction *m_toggleToolBarAction = nullptr;
     QAction *m_contextPanelAction = nullptr;
     QAction *m_changesPanelAction = nullptr;
     QAction *m_mcpPanelAction = nullptr;
