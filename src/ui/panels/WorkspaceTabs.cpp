@@ -258,7 +258,7 @@ bool WorkspaceTabs::closeEditorTabAt(int index, bool promptForDirty)
     reindexFileTabs();
 
     if (widget != nullptr) {
-        widget->deleteLater();
+        delete widget;
     }
 
     return true;

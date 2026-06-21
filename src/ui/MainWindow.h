@@ -1,8 +1,7 @@
 #pragma once
 
 #include <QMainWindow>
-
-#include <memory>
+#include <QObject>
 
 class QAction;
 class QCloseEvent;
@@ -94,7 +93,8 @@ private:
     QAction *m_newFolderAction = nullptr;
     QAction *m_renameEntryAction = nullptr;
     QAction *m_deleteEntryAction = nullptr;
-    std::unique_ptr<KTextEditor::Application> m_ktextEditorApplication;
+    QObject m_ktextEditorHost;
+    KTextEditor::Application *m_ktextEditorApplication = nullptr;
     int m_storedRightColumnWidth = 320;
 };
 

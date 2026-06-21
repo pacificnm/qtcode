@@ -66,6 +66,17 @@ MainWindow::MainWindow(qtcode::core::ApplicationController *controller, QWidget 
 MainWindow::~MainWindow()
 {
     persistPanelLayout();
+
+    if (m_workspaceTabs != nullptr) {
+        (void) m_workspaceTabs->closeAllEditorTabs(false);
+    }
+
+    if (KTextEditor::Editor::instance() != nullptr) {
+        KTextEditor::Editor::instance()->setApplication(nullptr);
+    }
+
+    delete m_ktextEditorApplication;
+    m_ktextEditorApplication = nullptr;
 }
 
 void MainWindow::configureLayout()
@@ -101,8 +112,8 @@ void MainWindow::configureLayout()
     m_workspaceTabs->setPermanentAiChatTab(m_agentPanel->conversationPanel());
 
     if (m_controller != nullptr) {
-        m_ktextEditorApplication = std::make_unique<KTextEditor::Application>(this);
-        KTextEditor::Editor::instance()->setApplication(m_ktextEditorApplication.get());
+        m_ktextEditorApplication = new KTextEditor::Application(&m_ktextEditorHost);
+        KTextEditor::Editor::instance()->setApplication(m_ktextEditorApplication);
     }
 
     m_projectNavigationPanel->setMinimumWidth(240);
