@@ -35,6 +35,7 @@
 #include <QStackedWidget>
 #include <QToolBar>
 #include <QVBoxLayout>
+#include <QtGlobal>
 
 namespace qtcode::ui {
 
@@ -105,6 +106,11 @@ void MainWindow::configureLayout()
         m_controller != nullptr ? m_controller->terminalManager() : nullptr,
         m_controller != nullptr ? m_controller->projectManager() : nullptr,
         this);
+    connect(
+        m_terminalPanel,
+        &TerminalPanel::collapsedChanged,
+        this,
+        &MainWindow::onTerminalPanelCollapsedChanged);
 
     m_workspaceTabs = new WorkspaceTabs(
         m_controller != nullptr ? m_controller->statusService() : nullptr,
@@ -170,6 +176,11 @@ void MainWindow::configureLayout()
     }
 
     if (m_projectNavigationPanel != nullptr && m_workspaceTabs != nullptr) {
+        connect(
+            m_projectNavigationPanel->repositoryPanel(),
+            &RepositoryPanel::fileOpenRequested,
+            m_workspaceTabs,
+            &WorkspaceTabs::requestOpenFile);
         connect(
             m_projectNavigationPanel->fileTreePanel(),
             &FileTreePanel::fileOpenRequested,
@@ -428,6 +439,51 @@ void MainWindow::onMcpPanelActionToggled(bool visible)
     }
 }
 
+void MainWindow::onTerminalPanelCollapsedChanged(bool collapsed)
+{
+    Q_UNUSED(collapsed);
+    syncTerminalPanelHeight();
+}
+
+void MainWindow::syncTerminalPanelHeight()
+{
+    if (m_mainVerticalSplitter == nullptr || m_terminalPanel == nullptr) {
+        return;
+    }
+
+    QList<int> sizes = m_mainVerticalSplitter->sizes();
+    if (sizes.size() < 2) {
+        return;
+    }
+
+    const bool collapsed = m_terminalPanel->isCollapsed();
+    const int collapsedHeight = m_terminalPanel->collapsedHeight();
+    const int splitterHeight = m_mainVerticalSplitter->height();
+
+    if (collapsed) {
+        if (sizes.at(1) > collapsedHeight + 8) {
+            m_storedTerminalHeight = sizes.at(1);
+        }
+
+        m_terminalPanel->setMinimumHeight(collapsedHeight);
+        m_terminalPanel->setMaximumHeight(collapsedHeight);
+
+        sizes[1] = collapsedHeight;
+        sizes[0] = qMax(0, splitterHeight - collapsedHeight);
+        m_mainVerticalSplitter->setSizes(sizes);
+        return;
+    }
+
+    m_terminalPanel->setMaximumHeight(QWIDGETSIZE_MAX);
+    m_terminalPanel->setMinimumHeight(120);
+
+    const int restoredHeight = m_storedTerminalHeight > 120 ? m_storedTerminalHeight : 240;
+    const int terminalHeight = qMin(restoredHeight, qMax(120, splitterHeight - 120));
+    sizes[1] = terminalHeight;
+    sizes[0] = qMax(0, splitterHeight - terminalHeight);
+    m_mainVerticalSplitter->setSizes(sizes);
+}
+
 void MainWindow::setActiveRightPanelAction(const QString &panelId)
 {
     const QSignalBlocker sessionsBlocker(m_agentSessionsPanelAction);
@@ -552,7 +608,20 @@ void MainWindow::applyPanelLayout(const qtcode::settings::PanelLayoutSettings &l
 
     if (m_mainVerticalSplitter != nullptr && layout.verticalSizes.size() >= 2) {
         m_mainVerticalSplitter->setSizes(layout.verticalSizes);
+        if (!layout.terminalCollapsed && layout.verticalSizes.at(1) > 120) {
+            m_storedTerminalHeight = layout.verticalSizes.at(1);
+        }
     }
+
+    if (layout.storedTerminalHeight > 120) {
+        m_storedTerminalHeight = layout.storedTerminalHeight;
+    }
+
+    if (m_terminalPanel != nullptr) {
+        const QSignalBlocker blocker(m_terminalPanel);
+        m_terminalPanel->setCollapsed(layout.terminalCollapsed);
+    }
+    syncTerminalPanelHeight();
 
     setActiveRightPanelAction(layout.activeRightPanel);
 }
@@ -574,6 +643,13 @@ qtcode::settings::PanelLayoutSettings MainWindow::currentPanelLayout() const
 
     if (m_mainVerticalSplitter != nullptr) {
         layout.verticalSizes = m_mainVerticalSplitter->sizes();
+    }
+
+    if (m_terminalPanel != nullptr) {
+        layout.terminalCollapsed = m_terminalPanel->isCollapsed();
+        if (layout.terminalCollapsed && m_storedTerminalHeight > 120) {
+            layout.storedTerminalHeight = m_storedTerminalHeight;
+        }
     }
 
     return layout;

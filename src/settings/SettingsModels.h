@@ -8,7 +8,7 @@ namespace qtcode::settings {
 
 inline constexpr auto kPanelLayoutSettingKey = "app.panel_layout";
 
-inline constexpr auto kPanelLayoutSchemaVersion = 3;
+inline constexpr auto kPanelLayoutSchemaVersion = 4;
 
 inline constexpr auto kRightPanelNone = "none";
 inline constexpr auto kRightPanelSessions = "sessions";
@@ -22,6 +22,8 @@ struct PanelLayoutSettings
     QString activeRightPanel = QString::fromLatin1(kRightPanelSessions);
     int windowWidth = 1280;
     int windowHeight = 800;
+    bool terminalCollapsed = false;
+    int storedTerminalHeight = 240;
 
     [[nodiscard]] QJsonObject toJson() const;
     [[nodiscard]] static PanelLayoutSettings fromJson(const QJsonObject &json);

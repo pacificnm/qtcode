@@ -27,8 +27,15 @@ public:
         qtcode::core::ProjectManager *projectManager,
         QWidget *parent = nullptr);
 
+    [[nodiscard]] bool isCollapsed() const;
+    [[nodiscard]] int collapsedHeight() const;
+
 public slots:
     void addTerminalTab();
+    void setCollapsed(bool collapsed);
+
+signals:
+    void collapsedChanged(bool collapsed);
 
 protected:
     void showEvent(QShowEvent *event) override;
@@ -38,9 +45,11 @@ private slots:
     void focusCurrentTerminal();
     void closeTerminalTab(int index);
     void onActiveProjectChanged(const QString &projectId);
+    void toggleCollapsed();
 
 private:
     void configureLayout();
+    void updateCollapseButton();
     void restoreOrCreateInitialTabs();
     void addTerminalTabFromSession(const qtcode::terminal::TerminalSession &session, bool restored);
     void addTerminalTabForActiveProject();
@@ -51,6 +60,9 @@ private:
     qtcode::core::ProjectManager *m_projectManager = nullptr;
     QTabWidget *m_tabWidget = nullptr;
     QToolButton *m_newTerminalButton = nullptr;
+    QToolButton *m_collapseButton = nullptr;
+    bool m_collapsed = false;
+    int m_collapsedHeight = 0;
 };
 
 } // namespace qtcode::ui

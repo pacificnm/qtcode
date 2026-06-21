@@ -54,6 +54,7 @@ private slots:
     void onAgentSessionsPanelActionToggled(bool visible);
     void onContextPanelActionToggled(bool visible);
     void onMcpPanelActionToggled(bool visible);
+    void onTerminalPanelCollapsedChanged(bool collapsed);
 
 private:
     void configureLayout();
@@ -63,6 +64,7 @@ private:
     void applyPanelLayout(const qtcode::settings::PanelLayoutSettings &layout);
     void applyActiveRightPanel(const QString &panelId);
     void syncRightPanelVisibility();
+    void syncTerminalPanelHeight();
     void setActiveRightPanelAction(const QString &panelId);
     [[nodiscard]] QString currentActiveRightPanel() const;
     [[nodiscard]] qtcode::settings::PanelLayoutSettings currentPanelLayout() const;
@@ -94,6 +96,7 @@ private:
     QObject m_ktextEditorHost;
     KTextEditor::Application *m_ktextEditorApplication = nullptr;
     int m_storedRightColumnWidth = 320;
+    int m_storedTerminalHeight = 240;
 };
 
 } // namespace qtcode::ui

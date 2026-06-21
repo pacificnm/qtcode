@@ -15,7 +15,9 @@
 
 #include <KLocalizedString>
 
+#include <QDir>
 #include <QFileDialog>
+#include <QFileInfo>
 #include <QGuiApplication>
 #include <QLabel>
 #include <QListView>
@@ -50,32 +52,11 @@ struct NumberedListEntry
     QString text;
 };
 
-bool stringListWidgetMatches(QListWidget *list, const QStringList &items)
+struct PathListEntry
 {
-    if (list == nullptr || list->count() != items.size()) {
-        return false;
-    }
-
-    for (int i = 0; i < items.size(); ++i) {
-        if (list->item(i)->text() != items.at(i)) {
-            return false;
-        }
-    }
-
-    return true;
-}
-
-void syncStringListWidget(QListWidget *list, const QStringList &items)
-{
-    if (stringListWidgetMatches(list, items)) {
-        return;
-    }
-
-    list->clear();
-    for (const QString &item : items) {
-        list->addItem(item);
-    }
-}
+    QString path;
+    QString text;
+};
 
 bool numberedListWidgetMatches(QListWidget *list, const QList<NumberedListEntry> &entries)
 {
@@ -91,6 +72,40 @@ bool numberedListWidgetMatches(QListWidget *list, const QList<NumberedListEntry>
     }
 
     return true;
+}
+
+bool pathListWidgetMatches(QListWidget *list, const QList<PathListEntry> &entries)
+{
+    if (list == nullptr || list->count() != entries.size()) {
+        return false;
+    }
+
+    for (int i = 0; i < entries.size(); ++i) {
+        if (list->item(i)->data(Qt::UserRole).toString() != entries.at(i).path
+            || list->item(i)->text() != entries.at(i).text) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+void syncPathListWidget(QListWidget *list, const QList<PathListEntry> &entries)
+{
+    if (list == nullptr) {
+        return;
+    }
+
+    if (pathListWidgetMatches(list, entries)) {
+        return;
+    }
+
+    list->clear();
+    for (const PathListEntry &entry : entries) {
+        auto *item = new QListWidgetItem(entry.text);
+        item->setData(Qt::UserRole, entry.path);
+        list->addItem(item);
+    }
 }
 
 void syncNumberedListWidget(QListWidget *list, const QList<NumberedListEntry> &entries)
@@ -257,7 +272,8 @@ void RepositoryPanel::configureLayout()
     m_changedFilesStateLabel->setAlignment(Qt::AlignTop | Qt::AlignLeft);
 
     m_changedFilesList = new QListWidget(this);
-    m_changedFilesList->setSelectionMode(QAbstractItemView::NoSelection);
+    m_changedFilesList->setSelectionMode(QAbstractItemView::SingleSelection);
+    connect(m_changedFilesList, &QListWidget::itemClicked, this, &RepositoryPanel::onChangedFileClicked);
 
     auto *issuesTitle = new QLabel(i18n("GitHub issues"), this);
     issuesTitle->setFont(sectionFont);
@@ -501,15 +517,45 @@ void RepositoryPanel::showChangedFiles(const qtcode::git::GitWorkingTreeStatus &
         return;
     }
 
-    QStringList items;
-    items.reserve(status.changedFiles.size());
+    QList<PathListEntry> entries;
+    entries.reserve(status.changedFiles.size());
     for (const qtcode::git::ChangedFile &changedFile : status.changedFiles) {
-        items.append(QStringLiteral("%1 — %2").arg(changedFile.path, changedFile.statusLabel));
+        PathListEntry entry;
+        entry.text = QStringLiteral("%1 — %2").arg(changedFile.path, changedFile.statusLabel);
+        entry.path = resolveChangedFilePath(changedFile.path);
+        entries.append(entry);
     }
 
-    syncStringListWidget(m_changedFilesList, items);
+    syncPathListWidget(m_changedFilesList, entries);
     setWidgetVisibleIfChanged(m_changedFilesStateLabel, false);
     setWidgetVisibleIfChanged(m_changedFilesList, true);
+}
+
+void RepositoryPanel::onChangedFileClicked(QListWidgetItem *item)
+{
+    if (item == nullptr) {
+        return;
+    }
+
+    const QString path = item->data(Qt::UserRole).toString();
+    if (!path.isEmpty()) {
+        emit fileOpenRequested(path);
+    }
+}
+
+QString RepositoryPanel::resolveChangedFilePath(const QString &relativePath) const
+{
+    const QString trimmedPath = relativePath.trimmed();
+    if (trimmedPath.isEmpty() || m_projectManager == nullptr) {
+        return {};
+    }
+
+    settings::ProjectRecord activeProject;
+    if (!m_projectManager->activeProject(&activeProject) || activeProject.rootPath.isEmpty()) {
+        return {};
+    }
+
+    return QDir(activeProject.rootPath).absoluteFilePath(trimmedPath);
 }
 
 void RepositoryPanel::showGitHubIssues(const qtcode::github::GitHubIssueListResult &result)

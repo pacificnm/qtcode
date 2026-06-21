@@ -72,8 +72,14 @@ void TerminalPanel::configureLayout()
     m_newTerminalButton->setAutoRaise(true);
     connect(m_newTerminalButton, &QToolButton::clicked, this, &TerminalPanel::addTerminalTab);
 
+    m_collapseButton = new QToolButton(this);
+    m_collapseButton->setAutoRaise(true);
+    m_collapseButton->setAccessibleName(i18n("Collapse Terminal"));
+    connect(m_collapseButton, &QToolButton::clicked, this, &TerminalPanel::toggleCollapsed);
+
     headerLayout->addWidget(titleLabel);
     headerLayout->addStretch();
+    headerLayout->addWidget(m_collapseButton);
     headerLayout->addWidget(m_newTerminalButton);
 
     m_tabWidget = new QTabWidget(this);
@@ -82,6 +88,11 @@ void TerminalPanel::configureLayout()
 
     layout->addLayout(headerLayout);
     layout->addWidget(m_tabWidget, 1);
+
+    m_tabWidget->hide();
+    m_collapsedHeight = sizeHint().height();
+    m_tabWidget->show();
+    updateCollapseButton();
 }
 
 void TerminalPanel::restoreOrCreateInitialTabs()
@@ -106,6 +117,54 @@ void TerminalPanel::restoreOrCreateInitialTabs()
 void TerminalPanel::addTerminalTab()
 {
     addTerminalTabForActiveProject();
+}
+
+bool TerminalPanel::isCollapsed() const
+{
+    return m_collapsed;
+}
+
+int TerminalPanel::collapsedHeight() const
+{
+    return m_collapsedHeight > 0 ? m_collapsedHeight : sizeHint().height();
+}
+
+void TerminalPanel::setCollapsed(bool collapsed)
+{
+    if (m_collapsed == collapsed) {
+        return;
+    }
+
+    m_collapsed = collapsed;
+
+    if (m_tabWidget != nullptr) {
+        m_tabWidget->setVisible(!collapsed);
+    }
+
+    updateCollapseButton();
+    emit collapsedChanged(collapsed);
+}
+
+void TerminalPanel::toggleCollapsed()
+{
+    setCollapsed(!m_collapsed);
+}
+
+void TerminalPanel::updateCollapseButton()
+{
+    if (m_collapseButton == nullptr) {
+        return;
+    }
+
+    if (m_collapsed) {
+        m_collapseButton->setIcon(QIcon::fromTheme(QStringLiteral("arrow-up")));
+        m_collapseButton->setToolTip(i18n("Expand Terminal"));
+        m_collapseButton->setAccessibleName(i18n("Expand Terminal"));
+    } else {
+        m_collapseButton->setIcon(QIcon::fromTheme(QStringLiteral("arrow-down")));
+        m_collapseButton->setToolTip(i18n("Collapse Terminal"));
+        m_collapseButton->setAccessibleName(i18n("Collapse Terminal"));
+    }
 }
 
 void TerminalPanel::addTerminalTabForActiveProject()
@@ -221,12 +280,16 @@ QString TerminalPanel::sessionIdForWidget(QWidget *widget)
 void TerminalPanel::showEvent(QShowEvent *event)
 {
     QWidget::showEvent(event);
-    focusCurrentTerminal();
+    if (!m_collapsed) {
+        focusCurrentTerminal();
+    }
 }
 
 void TerminalPanel::mousePressEvent(QMouseEvent *event)
 {
-    focusCurrentTerminal();
+    if (!m_collapsed) {
+        focusCurrentTerminal();
+    }
     QWidget::mousePressEvent(event);
 }
 

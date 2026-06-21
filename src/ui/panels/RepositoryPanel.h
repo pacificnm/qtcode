@@ -11,6 +11,7 @@
 class QLabel;
 class QListView;
 class QListWidget;
+class QListWidgetItem;
 namespace qtcode::git {
 class GitService;
 } // namespace qtcode::git
@@ -61,8 +62,10 @@ public slots:
 signals:
     void issueContextSelected(const qtcode::github::GitHubIssueDetail &detail);
     void pullRequestContextSelected(const qtcode::github::GitHubPullRequestDetail &detail);
+    void fileOpenRequested(const QString &absolutePath);
 
 private slots:
+    void onChangedFileClicked(QListWidgetItem *item);
     void onRefreshFinished();
     void onRepositorySelected(const QModelIndex &current, const QModelIndex &previous);
     void onActiveProjectChanged();
@@ -77,6 +80,7 @@ private:
     void showErrorState(const QString &message);
     void applySnapshot(const qtcode::git::RepositoryGitSnapshot &snapshot);
     void showChangedFiles(const qtcode::git::GitWorkingTreeStatus &status);
+    [[nodiscard]] QString resolveChangedFilePath(const QString &relativePath) const;
     void showGitHubIssues(const qtcode::github::GitHubIssueListResult &result);
     void showGitHubPullRequests(const qtcode::github::GitHubPullRequestListResult &result);
     void onIssueSelected();

@@ -62,6 +62,8 @@ QJsonObject PanelLayoutSettings::toJson() const
     json.insert(QStringLiteral("activeRightPanel"), activeRightPanel);
     json.insert(QStringLiteral("windowWidth"), windowWidth);
     json.insert(QStringLiteral("windowHeight"), windowHeight);
+    json.insert(QStringLiteral("terminalCollapsed"), terminalCollapsed);
+    json.insert(QStringLiteral("storedTerminalHeight"), storedTerminalHeight);
     return json;
 }
 
@@ -146,6 +148,15 @@ PanelLayoutSettings PanelLayoutSettings::fromJson(const QJsonObject &json)
 
     if (json.contains(QStringLiteral("windowHeight"))) {
         layout.windowHeight = json.value(QStringLiteral("windowHeight")).toInt(defaults.windowHeight);
+    }
+
+    if (json.contains(QStringLiteral("terminalCollapsed"))) {
+        layout.terminalCollapsed = json.value(QStringLiteral("terminalCollapsed")).toBool(false);
+    }
+
+    if (json.contains(QStringLiteral("storedTerminalHeight"))) {
+        layout.storedTerminalHeight =
+            json.value(QStringLiteral("storedTerminalHeight")).toInt(defaults.storedTerminalHeight);
     }
 
     return layout;
