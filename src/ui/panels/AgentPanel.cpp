@@ -95,49 +95,63 @@ AgentPanel::AgentPanel(
     }
 }
 
+QWidget *AgentPanel::conversationPanel() const
+{
+    return m_conversationPanel;
+}
+
+QWidget *AgentPanel::contextPanel() const
+{
+    return m_contextPanel;
+}
+
+QWidget *AgentPanel::changesPanel() const
+{
+    return m_changesPanel;
+}
+
 void AgentPanel::configureLayout()
 {
-    auto *layout = new QVBoxLayout(this);
-    layout->setContentsMargins(12, 12, 12, 12);
-    layout->setSpacing(8);
+    m_conversationPanel = new QWidget(this);
+    auto *conversationLayout = new QVBoxLayout(m_conversationPanel);
+    conversationLayout->setContentsMargins(12, 12, 12, 12);
+    conversationLayout->setSpacing(8);
 
-    auto *titleLabel = new QLabel(i18n("AI Agent"), this);
+    auto *titleLabel = new QLabel(i18n("AI Agent"), m_conversationPanel);
     QFont titleFont = titleLabel->font();
     titleFont.setBold(true);
     titleLabel->setFont(titleFont);
 
-    auto *agentSelectorLabel = new QLabel(i18n("Agent"), this);
-    m_agentSelector = new QComboBox(this);
+    auto *agentSelectorLabel = new QLabel(i18n("Agent"), m_conversationPanel);
+    m_agentSelector = new QComboBox(m_conversationPanel);
     m_agentSelector->setSizeAdjustPolicy(QComboBox::AdjustToContents);
 
     auto *sessionHeaderLayout = new QHBoxLayout();
-    auto *sessionListLabel = new QLabel(i18n("Sessions"), this);
-    m_newSessionButton = new QPushButton(i18n("New session"), this);
+    auto *sessionListLabel = new QLabel(i18n("Sessions"), m_conversationPanel);
+    m_newSessionButton = new QPushButton(i18n("New session"), m_conversationPanel);
     sessionHeaderLayout->addWidget(sessionListLabel);
     sessionHeaderLayout->addStretch();
     sessionHeaderLayout->addWidget(m_newSessionButton);
 
-    m_sessionList = new QListWidget(this);
+    m_sessionList = new QListWidget(m_conversationPanel);
     m_sessionList->setSelectionMode(QAbstractItemView::SingleSelection);
 
-    m_stateLabel = new QLabel(this);
+    m_stateLabel = new QLabel(m_conversationPanel);
     m_stateLabel->setWordWrap(true);
     m_stateLabel->setAlignment(Qt::AlignTop | Qt::AlignLeft);
 
-    m_contextResultsView = new ContextResultsView(this);
-
-    m_conversationView = new QTextEdit(this);
+    m_conversationView = new QTextEdit(m_conversationPanel);
     m_conversationView->setReadOnly(true);
     m_conversationView->setPlaceholderText(i18n("Agent responses will appear here."));
 
-    m_promptInput = new QLineEdit(this);
+    m_promptInput = new QLineEdit(m_conversationPanel);
     m_promptInput->setPlaceholderText(i18n("Ask the agent about the active repository…"));
     connect(m_promptInput, &QLineEdit::returnPressed, this, &AgentPanel::sendPrompt);
 
-    m_sendButton = new QPushButton(i18n("Send prompt"), this);
+    m_sendButton = new QPushButton(i18n("Send prompt"), m_conversationPanel);
     connect(m_sendButton, &QPushButton::clicked, this, &AgentPanel::sendPrompt);
 
-    m_cancelButton = new QPushButton(i18n("Cancel request"), this);
+    m_cancelButton = new QPushButton(i18n("Cancel request"), m_conversationPanel);
     m_cancelButton->setVisible(false);
     connect(m_cancelButton, &QPushButton::clicked, this, &AgentPanel::cancelActiveRequest);
 
@@ -146,16 +160,42 @@ void AgentPanel::configureLayout()
         onSessionListSelectionChanged();
     });
 
-    layout->addWidget(titleLabel);
-    layout->addWidget(agentSelectorLabel);
-    layout->addWidget(m_agentSelector);
-    layout->addLayout(sessionHeaderLayout);
-    layout->addWidget(m_sessionList);
-    layout->addWidget(m_stateLabel);
-    layout->addWidget(m_contextResultsView);
-    layout->addWidget(m_conversationView, 1);
+    conversationLayout->addWidget(titleLabel);
+    conversationLayout->addWidget(agentSelectorLabel);
+    conversationLayout->addWidget(m_agentSelector);
+    conversationLayout->addLayout(sessionHeaderLayout);
+    conversationLayout->addWidget(m_sessionList);
+    conversationLayout->addWidget(m_stateLabel);
+    conversationLayout->addWidget(m_conversationView, 1);
+    conversationLayout->addWidget(m_promptInput);
+    conversationLayout->addWidget(m_sendButton);
+    conversationLayout->addWidget(m_cancelButton);
 
-    m_diffReviewView = new DiffReviewView(this);
+    m_contextPanel = new QWidget(this);
+    auto *contextLayout = new QVBoxLayout(m_contextPanel);
+    contextLayout->setContentsMargins(12, 12, 12, 12);
+    contextLayout->setSpacing(8);
+
+    auto *contextTitleLabel = new QLabel(i18n("Retrieved Context"), m_contextPanel);
+    QFont contextTitleFont = contextTitleLabel->font();
+    contextTitleFont.setBold(true);
+    contextTitleLabel->setFont(contextTitleFont);
+
+    m_contextResultsView = new ContextResultsView(m_contextPanel);
+    contextLayout->addWidget(contextTitleLabel);
+    contextLayout->addWidget(m_contextResultsView, 1);
+
+    m_changesPanel = new QWidget(this);
+    auto *changesLayout = new QVBoxLayout(m_changesPanel);
+    changesLayout->setContentsMargins(12, 12, 12, 12);
+    changesLayout->setSpacing(8);
+
+    auto *changesTitleLabel = new QLabel(i18n("Generated Changes"), m_changesPanel);
+    QFont changesTitleFont = changesTitleLabel->font();
+    changesTitleFont.setBold(true);
+    changesTitleLabel->setFont(changesTitleFont);
+
+    m_diffReviewView = new DiffReviewView(m_changesPanel);
     connect(
         m_diffReviewView,
         &DiffReviewView::approveRequested,
@@ -166,11 +206,10 @@ void AgentPanel::configureLayout()
         &DiffReviewView::rejectRequested,
         this,
         &AgentPanel::rejectSelectedArtifact);
-    layout->addWidget(m_diffReviewView);
+    changesLayout->addWidget(changesTitleLabel);
+    changesLayout->addWidget(m_diffReviewView, 1);
 
-    layout->addWidget(m_promptInput);
-    layout->addWidget(m_sendButton);
-    layout->addWidget(m_cancelButton);
+    setVisible(false);
 }
 
 void AgentPanel::refreshCapabilityState()

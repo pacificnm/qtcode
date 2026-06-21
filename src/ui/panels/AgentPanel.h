@@ -44,6 +44,10 @@ public:
         qtcode::core::ContextManager *contextManager,
         QWidget *parent = nullptr);
 
+    [[nodiscard]] QWidget *conversationPanel() const;
+    [[nodiscard]] QWidget *contextPanel() const;
+    [[nodiscard]] QWidget *changesPanel() const;
+
 public slots:
     void attachIssueContext(const qtcode::github::GitHubIssueDetail &detail);
     void attachPullRequestContext(const qtcode::github::GitHubPullRequestDetail &detail);
@@ -84,6 +88,9 @@ private:
     qtcode::agents::AgentManager *m_agentManager = nullptr;
     qtcode::core::ProjectManager *m_projectManager = nullptr;
     qtcode::core::ContextManager *m_contextManager = nullptr;
+    QWidget *m_conversationPanel = nullptr;
+    QWidget *m_contextPanel = nullptr;
+    QWidget *m_changesPanel = nullptr;
     QComboBox *m_agentSelector = nullptr;
     QListWidget *m_sessionList = nullptr;
     QPushButton *m_newSessionButton = nullptr;

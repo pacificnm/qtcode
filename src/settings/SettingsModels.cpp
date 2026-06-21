@@ -41,6 +41,9 @@ QJsonObject PanelLayoutSettings::toJson() const
     QJsonObject json;
     json.insert(QStringLiteral("columnSizes"), sizesToJsonArray(columnSizes));
     json.insert(QStringLiteral("verticalSizes"), sizesToJsonArray(verticalSizes));
+    json.insert(QStringLiteral("agentPanelVisible"), agentPanelVisible);
+    json.insert(QStringLiteral("contextPanelVisible"), contextPanelVisible);
+    json.insert(QStringLiteral("changesPanelVisible"), changesPanelVisible);
     json.insert(QStringLiteral("windowWidth"), windowWidth);
     json.insert(QStringLiteral("windowHeight"), windowHeight);
     return json;
@@ -75,14 +78,37 @@ PanelLayoutSettings PanelLayoutSettings::fromJson(const QJsonObject &json)
         layout.columnSizes = {
             layout.columnSizes.at(0),
             legacyHorizontalSizes.at(0),
+            0,
             legacyHorizontalSizes.at(1),
+        };
+    } else if (layout.columnSizes.size() == 3) {
+        layout.columnSizes = {
+            layout.columnSizes.at(0),
+            layout.columnSizes.at(1),
+            0,
+            layout.columnSizes.at(2),
         };
     } else if (!json.contains(QStringLiteral("columnSizes")) && legacyHorizontalSizes.size() >= 3) {
         layout.columnSizes = {
             legacyHorizontalSizes.at(0),
             legacyHorizontalSizes.at(1),
+            0,
             legacyHorizontalSizes.at(2),
         };
+    }
+
+    if (json.contains(QStringLiteral("agentPanelVisible"))) {
+        layout.agentPanelVisible = json.value(QStringLiteral("agentPanelVisible")).toBool(defaults.agentPanelVisible);
+    }
+
+    if (json.contains(QStringLiteral("contextPanelVisible"))) {
+        layout.contextPanelVisible =
+            json.value(QStringLiteral("contextPanelVisible")).toBool(defaults.contextPanelVisible);
+    }
+
+    if (json.contains(QStringLiteral("changesPanelVisible"))) {
+        layout.changesPanelVisible =
+            json.value(QStringLiteral("changesPanelVisible")).toBool(defaults.changesPanelVisible);
     }
 
     if (json.contains(QStringLiteral("windowWidth"))) {

@@ -17,11 +17,12 @@ When a user selects a repository:
 2. User selects agent.
 3. User writes prompt.
 4. QTCode retrieves relevant context when enabled.
-5. User can inspect attached context.
-6. User sends request.
-7. Response streams into conversation.
-8. Diffs or artifacts appear in review UI.
-9. User approves or rejects generated changes.
+5. QTCode retrieves relevant context when enabled.
+6. User can open the Retrieved Context panel from the activity bar to inspect attached context.
+7. User sends request.
+8. Response streams into conversation.
+9. Diffs or artifacts appear in the Generated Changes panel.
+10. User approves or rejects generated changes.
 
 ## Terminal Flow
 
