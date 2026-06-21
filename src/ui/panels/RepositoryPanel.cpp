@@ -19,16 +19,21 @@
 #include <QFileInfo>
 #include <QGuiApplication>
 #include <QClipboard>
+#include <QHBoxLayout>
 #include <QLabel>
 #include <QListView>
 #include <QListWidget>
 #include <QMenu>
 #include <QMessageBox>
+#include <QPlainTextEdit>
+#include <QPushButton>
 #include <QSignalBlocker>
 #include <QTimer>
 #include <QVBoxLayout>
 #include <QtConcurrent>
 #include <QFutureWatcher>
+
+#include <functional>
 
 namespace qtcode::ui {
 
@@ -181,6 +186,7 @@ RepositoryPanel::RepositoryPanel(
     , m_gitHubService(gitHubService)
     , m_statusService(statusService)
     , m_refreshWatcher(new QFutureWatcher<RepositoryRefreshBundle>(this))
+    , m_gitOperationWatcher(new QFutureWatcher<qtcode::git::GitOperationResult>(this))
     , m_autoRefreshTimer(new QTimer(this))
 {
     m_autoRefreshTimer->setInterval(kAutoRefreshIntervalMs);
@@ -222,6 +228,7 @@ RepositoryPanel::RepositoryPanel(
     }
 
     connect(m_refreshWatcher, &QFutureWatcher<RepositoryRefreshBundle>::finished, this, &RepositoryPanel::onRefreshFinished);
+    connect(m_gitOperationWatcher, &QFutureWatcher<qtcode::git::GitOperationResult>::finished, this, &RepositoryPanel::onGitOperationFinished);
 
     if (m_cliCapabilityService != nullptr) {
         connect(
@@ -242,6 +249,10 @@ RepositoryPanel::~RepositoryPanel()
 {
     if (m_refreshWatcher->isRunning()) {
         m_refreshWatcher->waitForFinished();
+    }
+
+    if (m_gitOperationWatcher->isRunning()) {
+        m_gitOperationWatcher->waitForFinished();
     }
 }
 
@@ -280,16 +291,75 @@ void RepositoryPanel::configureLayout()
         this,
         &RepositoryPanel::showRepositoryContextMenu);
 
-    auto *changedFilesTitle = new QLabel(i18n("Changed files"), this);
-    changedFilesTitle->setFont(sectionFont);
+    auto *sourceControlTitle = new QLabel(i18n("Source control"), this);
+    sourceControlTitle->setFont(sectionFont);
 
-    m_changedFilesStateLabel = new QLabel(this);
-    m_changedFilesStateLabel->setWordWrap(true);
-    m_changedFilesStateLabel->setAlignment(Qt::AlignTop | Qt::AlignLeft);
+    m_sourceControlStateLabel = new QLabel(this);
+    m_sourceControlStateLabel->setWordWrap(true);
+    m_sourceControlStateLabel->setAlignment(Qt::AlignTop | Qt::AlignLeft);
 
-    m_changedFilesList = new QListWidget(this);
-    m_changedFilesList->setSelectionMode(QAbstractItemView::SingleSelection);
-    connect(m_changedFilesList, &QListWidget::itemClicked, this, &RepositoryPanel::onChangedFileClicked);
+    m_commitMessageEdit = new QPlainTextEdit(this);
+    m_commitMessageEdit->setPlaceholderText(i18n("Commit message"));
+    m_commitMessageEdit->setMaximumHeight(72);
+    m_commitMessageEdit->setTabChangesFocus(true);
+    connect(m_commitMessageEdit, &QPlainTextEdit::textChanged, this, &RepositoryPanel::onCommitMessageChanged);
+
+    m_commitButton = new QPushButton(i18n("Commit"), this);
+    m_pushButton = new QPushButton(i18n("Push"), this);
+    connect(m_commitButton, &QPushButton::clicked, this, &RepositoryPanel::onCommitClicked);
+    connect(m_pushButton, &QPushButton::clicked, this, &RepositoryPanel::onPushClicked);
+
+    auto *sourceControlActions = new QHBoxLayout();
+    sourceControlActions->setContentsMargins(0, 0, 0, 0);
+    sourceControlActions->addWidget(m_commitButton);
+    sourceControlActions->addWidget(m_pushButton);
+    sourceControlActions->addStretch();
+
+    m_stagedSectionLabel = new QLabel(i18n("Staged changes"), this);
+    m_stagedSectionLabel->setFont(sectionFont);
+
+    m_unstageAllButton = new QPushButton(i18n("Unstage all"), this);
+    m_unstageAllButton->setFlat(true);
+    connect(m_unstageAllButton, &QPushButton::clicked, this, &RepositoryPanel::onUnstageAllClicked);
+
+    auto *stagedHeader = new QHBoxLayout();
+    stagedHeader->setContentsMargins(0, 0, 0, 0);
+    stagedHeader->addWidget(m_stagedSectionLabel);
+    stagedHeader->addStretch();
+    stagedHeader->addWidget(m_unstageAllButton);
+
+    m_stagedFilesList = new QListWidget(this);
+    m_stagedFilesList->setSelectionMode(QAbstractItemView::ExtendedSelection);
+    m_stagedFilesList->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(m_stagedFilesList, &QListWidget::itemClicked, this, &RepositoryPanel::onChangedFileClicked);
+    connect(
+        m_stagedFilesList,
+        &QListWidget::customContextMenuRequested,
+        this,
+        &RepositoryPanel::showStagedFilesContextMenu);
+
+    m_changesSectionLabel = new QLabel(i18n("Changes"), this);
+    m_changesSectionLabel->setFont(sectionFont);
+
+    m_stageAllButton = new QPushButton(i18n("Stage all"), this);
+    m_stageAllButton->setFlat(true);
+    connect(m_stageAllButton, &QPushButton::clicked, this, &RepositoryPanel::onStageAllClicked);
+
+    auto *changesHeader = new QHBoxLayout();
+    changesHeader->setContentsMargins(0, 0, 0, 0);
+    changesHeader->addWidget(m_changesSectionLabel);
+    changesHeader->addStretch();
+    changesHeader->addWidget(m_stageAllButton);
+
+    m_unstagedFilesList = new QListWidget(this);
+    m_unstagedFilesList->setSelectionMode(QAbstractItemView::ExtendedSelection);
+    m_unstagedFilesList->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(m_unstagedFilesList, &QListWidget::itemClicked, this, &RepositoryPanel::onChangedFileClicked);
+    connect(
+        m_unstagedFilesList,
+        &QListWidget::customContextMenuRequested,
+        this,
+        &RepositoryPanel::showUnstagedFilesContextMenu);
 
     auto *issuesTitle = new QLabel(i18n("GitHub issues"), this);
     issuesTitle->setFont(sectionFont);
@@ -328,9 +398,14 @@ void RepositoryPanel::configureLayout()
     layout->addWidget(m_projectLabel);
     layout->addWidget(localRepositoriesTitle);
     layout->addWidget(m_repositoryList);
-    layout->addWidget(changedFilesTitle);
-    layout->addWidget(m_changedFilesStateLabel);
-    layout->addWidget(m_changedFilesList);
+    layout->addWidget(sourceControlTitle);
+    layout->addWidget(m_sourceControlStateLabel);
+    layout->addWidget(m_commitMessageEdit);
+    layout->addLayout(sourceControlActions);
+    layout->addLayout(stagedHeader);
+    layout->addWidget(m_stagedFilesList);
+    layout->addLayout(changesHeader);
+    layout->addWidget(m_unstagedFilesList);
     layout->addWidget(issuesTitle);
     layout->addWidget(m_issuesStateLabel);
     layout->addWidget(m_issuesList);
@@ -422,7 +497,8 @@ void RepositoryPanel::onRefreshFinished()
     m_activeProjectId = activeProject.id;
 
     qCInfo(qtcodeUi) << "Repository snapshot refreshed with"
-                     << bundle.git.status.changedFiles.size() << "changed file(s),"
+                     << bundle.git.status.stagedFiles.size() << "staged file(s),"
+                     << bundle.git.status.unstagedFiles.size() << "unstaged file(s),"
                      << bundle.issues.issues.size() << "GitHub issue(s), and"
                      << bundle.pullRequests.pullRequests.size() << "pull request(s)"
                      << "in" << m_refreshTimer.elapsed() << "ms";
@@ -440,9 +516,17 @@ void RepositoryPanel::setRefreshing(bool refreshing, bool showLoadingUi)
         return;
     }
 
-    setLabelTextIfChanged(m_changedFilesStateLabel, i18n("Loading changed files…"));
-    setWidgetVisibleIfChanged(m_changedFilesStateLabel, true);
-    setWidgetVisibleIfChanged(m_changedFilesList, false);
+    setLabelTextIfChanged(m_sourceControlStateLabel, i18n("Loading source control…"));
+    setWidgetVisibleIfChanged(m_sourceControlStateLabel, true);
+    setWidgetVisibleIfChanged(m_commitMessageEdit, false);
+    setWidgetVisibleIfChanged(m_commitButton, false);
+    setWidgetVisibleIfChanged(m_pushButton, false);
+    setWidgetVisibleIfChanged(m_stagedSectionLabel, false);
+    setWidgetVisibleIfChanged(m_unstageAllButton, false);
+    setWidgetVisibleIfChanged(m_stagedFilesList, false);
+    setWidgetVisibleIfChanged(m_changesSectionLabel, false);
+    setWidgetVisibleIfChanged(m_stageAllButton, false);
+    setWidgetVisibleIfChanged(m_unstagedFilesList, false);
     setLabelTextIfChanged(m_issuesStateLabel, i18n("Loading GitHub issues…"));
     setWidgetVisibleIfChanged(m_issuesStateLabel, true);
     setWidgetVisibleIfChanged(m_issuesList, false);
@@ -460,17 +544,91 @@ void RepositoryPanel::applySnapshot(const qtcode::git::RepositoryGitSnapshot &sn
             i18n("Active project: %1\nBranch: %2", activeProject.name, snapshot.status.branchName));
     }
 
-    showChangedFiles(snapshot.status);
+    applyWorkingTreeStatus(snapshot.status);
+}
+
+void RepositoryPanel::applyWorkingTreeStatus(const qtcode::git::GitWorkingTreeStatus &status)
+{
+    m_commitsAhead = status.commitsAhead;
+
+    const bool hasStagedFiles = !status.stagedFiles.isEmpty();
+    const bool hasUnstagedFiles = !status.unstagedFiles.isEmpty();
+    const bool hasWorkingTreeChanges = hasStagedFiles || hasUnstagedFiles;
+
+    setWidgetVisibleIfChanged(m_commitMessageEdit, true);
+    setWidgetVisibleIfChanged(m_commitButton, true);
+    setWidgetVisibleIfChanged(m_pushButton, true);
+    setWidgetVisibleIfChanged(m_stagedSectionLabel, true);
+    setWidgetVisibleIfChanged(m_unstageAllButton, hasStagedFiles);
+    setWidgetVisibleIfChanged(m_changesSectionLabel, true);
+    setWidgetVisibleIfChanged(m_stageAllButton, hasUnstagedFiles);
+
+    if (!hasWorkingTreeChanges) {
+        const QString emptyMessage = i18n("No local changes in the working tree.");
+        setLabelTextIfChanged(m_sourceControlStateLabel, emptyMessage);
+        setWidgetVisibleIfChanged(m_sourceControlStateLabel, true);
+        m_stagedFilesList->clear();
+        m_unstagedFilesList->clear();
+        setWidgetVisibleIfChanged(m_stagedFilesList, false);
+        setWidgetVisibleIfChanged(m_unstagedFilesList, false);
+    } else {
+        setWidgetVisibleIfChanged(m_sourceControlStateLabel, false);
+
+        QList<PathListEntry> stagedEntries;
+        stagedEntries.reserve(status.stagedFiles.size());
+        for (const qtcode::git::ChangedFile &changedFile : status.stagedFiles) {
+            PathListEntry entry;
+            entry.text = QStringLiteral("%1  %2").arg(changedFile.statusLabel, changedFile.path);
+            entry.path = changedFile.path;
+            stagedEntries.append(entry);
+        }
+
+        QList<PathListEntry> unstagedEntries;
+        unstagedEntries.reserve(status.unstagedFiles.size());
+        for (const qtcode::git::ChangedFile &changedFile : status.unstagedFiles) {
+            PathListEntry entry;
+            entry.text = QStringLiteral("%1  %2").arg(changedFile.statusLabel, changedFile.path);
+            entry.path = changedFile.path;
+            unstagedEntries.append(entry);
+        }
+
+        syncPathListWidget(m_stagedFilesList, stagedEntries);
+        syncPathListWidget(m_unstagedFilesList, unstagedEntries);
+        setWidgetVisibleIfChanged(m_stagedFilesList, hasStagedFiles);
+        setWidgetVisibleIfChanged(m_unstagedFilesList, hasUnstagedFiles);
+    }
+
+    setLabelTextIfChanged(
+        m_stagedSectionLabel,
+        hasStagedFiles
+            ? i18n("Staged changes (%1)", status.stagedFiles.size())
+            : i18n("Staged changes"));
+    setLabelTextIfChanged(
+        m_changesSectionLabel,
+        hasUnstagedFiles
+            ? i18n("Changes (%1)", status.unstagedFiles.size())
+            : i18n("Changes"));
+
+    updateSourceControlActions(status);
 }
 
 void RepositoryPanel::showEmptyState(const QString &message)
 {
     m_hasLoadedSnapshot = false;
     m_projectLabel->clear();
-    setLabelTextIfChanged(m_changedFilesStateLabel, message);
-    setWidgetVisibleIfChanged(m_changedFilesStateLabel, true);
-    m_changedFilesList->clear();
-    setWidgetVisibleIfChanged(m_changedFilesList, false);
+    setLabelTextIfChanged(m_sourceControlStateLabel, message);
+    setWidgetVisibleIfChanged(m_sourceControlStateLabel, true);
+    m_stagedFilesList->clear();
+    m_unstagedFilesList->clear();
+    setWidgetVisibleIfChanged(m_stagedFilesList, false);
+    setWidgetVisibleIfChanged(m_unstagedFilesList, false);
+    setWidgetVisibleIfChanged(m_commitMessageEdit, false);
+    setWidgetVisibleIfChanged(m_commitButton, false);
+    setWidgetVisibleIfChanged(m_pushButton, false);
+    setWidgetVisibleIfChanged(m_stagedSectionLabel, false);
+    setWidgetVisibleIfChanged(m_unstageAllButton, false);
+    setWidgetVisibleIfChanged(m_changesSectionLabel, false);
+    setWidgetVisibleIfChanged(m_stageAllButton, false);
     setLabelTextIfChanged(
         m_issuesStateLabel,
         i18n("GitHub issues load after a repository is selected."));
@@ -492,10 +650,15 @@ void RepositoryPanel::showErrorState(const QString &message)
         m_statusService->showMessage(message, qtcode::core::StatusSeverity::Error);
     }
 
-    m_changedFilesStateLabel->setText(message);
-    m_changedFilesStateLabel->show();
-    m_changedFilesList->clear();
-    m_changedFilesList->hide();
+    m_sourceControlStateLabel->setText(message);
+    m_sourceControlStateLabel->show();
+    m_stagedFilesList->clear();
+    m_stagedFilesList->hide();
+    m_unstagedFilesList->clear();
+    m_unstagedFilesList->hide();
+    m_commitMessageEdit->hide();
+    m_commitButton->hide();
+    m_pushButton->hide();
     m_issuesStateLabel->hide();
     m_issuesList->clear();
     m_issuesList->hide();
@@ -504,44 +667,16 @@ void RepositoryPanel::showErrorState(const QString &message)
     m_pullRequestsList->hide();
 }
 
-void RepositoryPanel::showChangedFiles(const qtcode::git::GitWorkingTreeStatus &status)
-{
-    if (status.changedFiles.isEmpty()) {
-        const QString emptyMessage = i18n("No local changes in the working tree.");
-        setLabelTextIfChanged(m_changedFilesStateLabel, emptyMessage);
-        if (m_changedFilesList->isVisible()) {
-            m_changedFilesList->clear();
-            setWidgetVisibleIfChanged(m_changedFilesList, false);
-            setWidgetVisibleIfChanged(m_changedFilesStateLabel, true);
-        } else if (!m_changedFilesStateLabel->isVisible()) {
-            setWidgetVisibleIfChanged(m_changedFilesStateLabel, true);
-        }
-        return;
-    }
-
-    QList<PathListEntry> entries;
-    entries.reserve(status.changedFiles.size());
-    for (const qtcode::git::ChangedFile &changedFile : status.changedFiles) {
-        PathListEntry entry;
-        entry.text = QStringLiteral("%1 — %2").arg(changedFile.path, changedFile.statusLabel);
-        entry.path = resolveChangedFilePath(changedFile.path);
-        entries.append(entry);
-    }
-
-    syncPathListWidget(m_changedFilesList, entries);
-    setWidgetVisibleIfChanged(m_changedFilesStateLabel, false);
-    setWidgetVisibleIfChanged(m_changedFilesList, true);
-}
-
 void RepositoryPanel::onChangedFileClicked(QListWidgetItem *item)
 {
     if (item == nullptr) {
         return;
     }
 
-    const QString path = item->data(Qt::UserRole).toString();
-    if (!path.isEmpty()) {
-        emit fileOpenRequested(path);
+    const QString relativePath = item->data(Qt::UserRole).toString();
+    const QString absolutePath = resolveChangedFilePath(relativePath);
+    if (!absolutePath.isEmpty()) {
+        emit fileOpenRequested(absolutePath);
     }
 }
 
@@ -884,11 +1019,335 @@ void RepositoryPanel::refreshCapabilityState()
 
     if (messages.isEmpty()) {
         m_capabilityStateLabel->hide();
+        m_gitAvailable = m_cliCapabilityService != nullptr && m_cliCapabilityService->isGitAvailable();
         return;
     }
 
+    m_gitAvailable = snapshot.git.available;
+
     m_capabilityStateLabel->setText(messages.join(QStringLiteral("\n\n")));
     m_capabilityStateLabel->show();
+}
+
+void RepositoryPanel::updateSourceControlActions(const qtcode::git::GitWorkingTreeStatus &status)
+{
+    const bool hasStagedFiles = !status.stagedFiles.isEmpty();
+    const bool hasCommitMessage = !m_commitMessageEdit->toPlainText().trimmed().isEmpty();
+    const bool gitReady = m_gitAvailable && m_gitService != nullptr;
+    const bool operationRunning = m_gitOperationWatcher != nullptr && m_gitOperationWatcher->isRunning();
+
+    m_stageAllButton->setEnabled(gitReady && !status.unstagedFiles.isEmpty() && !operationRunning);
+    m_unstageAllButton->setEnabled(gitReady && hasStagedFiles && !operationRunning);
+    m_commitButton->setEnabled(gitReady && hasStagedFiles && hasCommitMessage && !operationRunning);
+
+    if (status.commitsAhead > 0) {
+        m_pushButton->setText(i18n("Push (%1)", status.commitsAhead));
+    } else {
+        m_pushButton->setText(i18n("Push"));
+    }
+
+    m_pushButton->setEnabled(gitReady && status.commitsAhead > 0 && !operationRunning);
+
+    if (!gitReady) {
+        m_commitButton->setToolTip(i18n("Install Git to commit changes."));
+        m_pushButton->setToolTip(i18n("Install Git to push commits."));
+    } else {
+        m_commitButton->setToolTip(QString {});
+        m_pushButton->setToolTip(QString {});
+    }
+}
+
+void RepositoryPanel::onCommitMessageChanged()
+{
+    qtcode::git::GitWorkingTreeStatus status;
+    status.stagedFiles = QList<qtcode::git::ChangedFile> {};
+    for (int i = 0; i < m_stagedFilesList->count(); ++i) {
+        qtcode::git::ChangedFile file;
+        file.path = m_stagedFilesList->item(i)->data(Qt::UserRole).toString();
+        status.stagedFiles.append(file);
+    }
+    status.commitsAhead = m_commitsAhead;
+    updateSourceControlActions(status);
+}
+
+QString RepositoryPanel::resolveGitExecutable() const
+{
+    if (m_cliCapabilityService == nullptr) {
+        return {};
+    }
+
+    return m_cliCapabilityService->snapshot().git.executablePath;
+}
+
+bool RepositoryPanel::activeRepositoryPath(QString *repositoryPath) const
+{
+    if (repositoryPath != nullptr) {
+        repositoryPath->clear();
+    }
+
+    if (m_projectManager == nullptr) {
+        return false;
+    }
+
+    settings::ProjectRecord activeProject;
+    if (!m_projectManager->activeProject(&activeProject) || activeProject.rootPath.isEmpty()) {
+        return false;
+    }
+
+    if (repositoryPath != nullptr) {
+        *repositoryPath = activeProject.rootPath;
+    }
+
+    return true;
+}
+
+void RepositoryPanel::startGitOperation(
+    const std::function<qtcode::git::GitOperationResult()> &operation,
+    const QString &successMessage)
+{
+    if (m_gitService == nullptr || m_gitOperationWatcher == nullptr || !operation) {
+        return;
+    }
+
+    if (m_gitOperationWatcher->isRunning()) {
+        return;
+    }
+
+    m_pendingGitSuccessMessage = successMessage;
+
+    if (m_statusService != nullptr) {
+        m_statusService->showProgress(i18n("Running Git command…"));
+    }
+
+    m_commitButton->setEnabled(false);
+    m_pushButton->setEnabled(false);
+    m_stageAllButton->setEnabled(false);
+    m_unstageAllButton->setEnabled(false);
+
+    m_gitOperationWatcher->setFuture(QtConcurrent::run(operation));
+}
+
+void RepositoryPanel::showGitOperationResult(
+    const qtcode::git::GitOperationResult &result,
+    const QString &successMessage)
+{
+    if (!result.success) {
+        qCWarning(qtcodeUi) << "Git operation failed:" << result.errorMessage;
+        if (m_statusService != nullptr) {
+            m_statusService->showMessage(result.errorMessage, qtcode::core::StatusSeverity::Error);
+        }
+        refreshStatus(false);
+        return;
+    }
+
+    if (m_statusService != nullptr) {
+        m_statusService->showMessage(successMessage);
+    }
+
+    refreshStatus(false);
+}
+
+void RepositoryPanel::onGitOperationFinished()
+{
+    const qtcode::git::GitOperationResult result = m_gitOperationWatcher->result();
+    if (result.success && m_clearCommitMessageOnSuccess) {
+        m_commitMessageEdit->clear();
+        m_clearCommitMessageOnSuccess = false;
+    }
+
+    showGitOperationResult(result, m_pendingGitSuccessMessage);
+}
+
+void RepositoryPanel::onStageAllClicked()
+{
+    QString repositoryPath;
+    const QString gitExecutable = resolveGitExecutable();
+    if (!activeRepositoryPath(&repositoryPath) || gitExecutable.isEmpty() || m_gitService == nullptr) {
+        return;
+    }
+
+    startGitOperation([this, repositoryPath, gitExecutable]() {
+        return m_gitService->stageAll(repositoryPath, gitExecutable);
+    }, i18n("All changes staged."));
+}
+
+void RepositoryPanel::onUnstageAllClicked()
+{
+    QString repositoryPath;
+    const QString gitExecutable = resolveGitExecutable();
+    if (!activeRepositoryPath(&repositoryPath) || gitExecutable.isEmpty() || m_gitService == nullptr) {
+        return;
+    }
+
+    startGitOperation([this, repositoryPath, gitExecutable]() {
+        return m_gitService->unstageAll(repositoryPath, gitExecutable);
+    }, i18n("All staged changes removed."));
+}
+
+void RepositoryPanel::stageRelativePaths(const QStringList &relativePaths)
+{
+    QString repositoryPath;
+    const QString gitExecutable = resolveGitExecutable();
+    if (!activeRepositoryPath(&repositoryPath) || gitExecutable.isEmpty() || m_gitService == nullptr) {
+        return;
+    }
+
+    startGitOperation([this, repositoryPath, gitExecutable, relativePaths]() {
+        return m_gitService->stageFiles(repositoryPath, gitExecutable, relativePaths);
+    }, i18n("Selected changes staged."));
+}
+
+void RepositoryPanel::unstageRelativePaths(const QStringList &relativePaths)
+{
+    QString repositoryPath;
+    const QString gitExecutable = resolveGitExecutable();
+    if (!activeRepositoryPath(&repositoryPath) || gitExecutable.isEmpty() || m_gitService == nullptr) {
+        return;
+    }
+
+    startGitOperation([this, repositoryPath, gitExecutable, relativePaths]() {
+        return m_gitService->unstageFiles(repositoryPath, gitExecutable, relativePaths);
+    }, i18n("Selected changes unstaged."));
+}
+
+QStringList RepositoryPanel::selectedRelativePaths(QListWidget *list) const
+{
+    QStringList paths;
+    if (list == nullptr) {
+        return paths;
+    }
+
+    const QList<QListWidgetItem *> selectedItems = list->selectedItems();
+    paths.reserve(selectedItems.size());
+    for (QListWidgetItem *item : selectedItems) {
+        const QString path = item->data(Qt::UserRole).toString();
+        if (!path.isEmpty()) {
+            paths.append(path);
+        }
+    }
+
+    return paths;
+}
+
+void RepositoryPanel::showStagedFilesContextMenu(const QPoint &position)
+{
+    if (m_stagedFilesList == nullptr) {
+        return;
+    }
+
+    QListWidgetItem *item = m_stagedFilesList->itemAt(position);
+    if (item == nullptr) {
+        return;
+    }
+
+    if (!m_stagedFilesList->selectedItems().contains(item)) {
+        m_stagedFilesList->setCurrentItem(item);
+    }
+
+    const QStringList relativePaths = selectedRelativePaths(m_stagedFilesList);
+    if (relativePaths.isEmpty()) {
+        return;
+    }
+
+    QMenu menu(this);
+    menu.addAction(i18n("Unstage"), this, [this, relativePaths]() {
+        unstageRelativePaths(relativePaths);
+    });
+    menu.addAction(i18n("Open file"), this, [this, relativePaths]() {
+        const QString absolutePath = resolveChangedFilePath(relativePaths.first());
+        if (!absolutePath.isEmpty()) {
+            emit fileOpenRequested(absolutePath);
+        }
+    });
+
+    menu.exec(m_stagedFilesList->viewport()->mapToGlobal(position));
+}
+
+void RepositoryPanel::showUnstagedFilesContextMenu(const QPoint &position)
+{
+    if (m_unstagedFilesList == nullptr) {
+        return;
+    }
+
+    QListWidgetItem *item = m_unstagedFilesList->itemAt(position);
+    if (item == nullptr) {
+        return;
+    }
+
+    if (!m_unstagedFilesList->selectedItems().contains(item)) {
+        m_unstagedFilesList->setCurrentItem(item);
+    }
+
+    const QStringList relativePaths = selectedRelativePaths(m_unstagedFilesList);
+    if (relativePaths.isEmpty()) {
+        return;
+    }
+
+    QMenu menu(this);
+    menu.addAction(i18n("Stage"), this, [this, relativePaths]() {
+        stageRelativePaths(relativePaths);
+    });
+    menu.addAction(i18n("Open file"), this, [this, relativePaths]() {
+        const QString absolutePath = resolveChangedFilePath(relativePaths.first());
+        if (!absolutePath.isEmpty()) {
+            emit fileOpenRequested(absolutePath);
+        }
+    });
+
+    menu.exec(m_unstagedFilesList->viewport()->mapToGlobal(position));
+}
+
+void RepositoryPanel::onCommitClicked()
+{
+    QString repositoryPath;
+    const QString gitExecutable = resolveGitExecutable();
+    const QString message = m_commitMessageEdit->toPlainText().trimmed();
+    if (!activeRepositoryPath(&repositoryPath) || gitExecutable.isEmpty() || m_gitService == nullptr) {
+        return;
+    }
+
+    if (message.isEmpty()) {
+        if (m_statusService != nullptr) {
+            m_statusService->showMessage(
+                i18n("Enter a commit message before committing."),
+                qtcode::core::StatusSeverity::Error);
+        }
+        return;
+    }
+
+    m_clearCommitMessageOnSuccess = true;
+    startGitOperation([this, repositoryPath, gitExecutable, message]() {
+        return m_gitService->commit(repositoryPath, gitExecutable, message);
+    }, i18n("Commit created."));
+}
+
+void RepositoryPanel::onPushClicked()
+{
+    QString repositoryPath;
+    const QString gitExecutable = resolveGitExecutable();
+    if (!activeRepositoryPath(&repositoryPath) || gitExecutable.isEmpty() || m_gitService == nullptr) {
+        return;
+    }
+
+    if (m_commitsAhead <= 0) {
+        return;
+    }
+
+    const QMessageBox::StandardButton choice = QMessageBox::question(
+        this,
+        i18n("Push commits"),
+        m_commitsAhead == 1
+            ? i18n("Push 1 commit to the remote repository?")
+            : i18n("Push %1 commits to the remote repository?", m_commitsAhead),
+        QMessageBox::Yes | QMessageBox::No,
+        QMessageBox::No);
+    if (choice != QMessageBox::Yes) {
+        return;
+    }
+
+    startGitOperation([this, repositoryPath, gitExecutable]() {
+        return m_gitService->push(repositoryPath, gitExecutable);
+    }, i18n("Commits pushed."));
 }
 
 void RepositoryPanel::showIssuesContextMenu(const QPoint &position)

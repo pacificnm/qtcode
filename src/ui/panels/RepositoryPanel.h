@@ -5,14 +5,19 @@
 #include <QWidget>
 
 #include "git/GitCommitSummary.h"
+#include "git/GitOperationResult.h"
 #include "git/GitStatus.h"
 #include "github/GitHubCachePolicy.h"
 #include "github/GitHubModels.h"
+
+#include <functional>
 
 class QLabel;
 class QListView;
 class QListWidget;
 class QListWidgetItem;
+class QPlainTextEdit;
+class QPushButton;
 namespace qtcode::git {
 class GitService;
 } // namespace qtcode::git
@@ -72,10 +77,16 @@ signals:
 private slots:
     void onChangedFileClicked(QListWidgetItem *item);
     void onRefreshFinished();
+    void onGitOperationFinished();
     void onRepositorySelected(const QModelIndex &current, const QModelIndex &previous);
     void onActiveProjectChanged();
     void syncRepositorySelection();
     void onAutoRefreshTimer();
+    void onCommitMessageChanged();
+    void onCommitClicked();
+    void onPushClicked();
+    void onStageAllClicked();
+    void onUnstageAllClicked();
 
 private:
     void configureLayout();
@@ -84,8 +95,17 @@ private:
     void showEmptyState(const QString &message);
     void showErrorState(const QString &message);
     void applySnapshot(const qtcode::git::RepositoryGitSnapshot &snapshot);
-    void showChangedFiles(const qtcode::git::GitWorkingTreeStatus &status);
+    void applyWorkingTreeStatus(const qtcode::git::GitWorkingTreeStatus &status);
+    void updateSourceControlActions(const qtcode::git::GitWorkingTreeStatus &status);
     [[nodiscard]] QString resolveChangedFilePath(const QString &relativePath) const;
+    [[nodiscard]] QString resolveGitExecutable() const;
+    [[nodiscard]] bool activeRepositoryPath(QString *repositoryPath) const;
+    void startGitOperation(
+        const std::function<qtcode::git::GitOperationResult()> &operation,
+        const QString &successMessage);
+    void showGitOperationResult(
+        const qtcode::git::GitOperationResult &result,
+        const QString &successMessage);
     void showGitHubIssues(const qtcode::github::GitHubIssueListResult &result);
     void showGitHubPullRequests(const qtcode::github::GitHubPullRequestListResult &result);
     void onIssueSelected();
@@ -94,8 +114,13 @@ private:
     void updateAutoRefreshTimer();
     void showRepositoryContextMenu(const QPoint &position);
     void showIssuesContextMenu(const QPoint &position);
+    void showStagedFilesContextMenu(const QPoint &position);
+    void showUnstagedFilesContextMenu(const QPoint &position);
     void attachIssueToContext(int issueNumber);
     void removeRepositoryAtIndex(const QModelIndex &index);
+    void stageRelativePaths(const QStringList &relativePaths);
+    void unstageRelativePaths(const QStringList &relativePaths);
+    [[nodiscard]] QStringList selectedRelativePaths(QListWidget *list) const;
 
     qtcode::git::GitService *m_gitService = nullptr;
     qtcode::core::ProjectManager *m_projectManager = nullptr;
@@ -106,18 +131,31 @@ private:
     QListView *m_repositoryList = nullptr;
     QLabel *m_projectLabel = nullptr;
     QLabel *m_capabilityStateLabel = nullptr;
-    QLabel *m_changedFilesStateLabel = nullptr;
-    QListWidget *m_changedFilesList = nullptr;
+    QLabel *m_sourceControlStateLabel = nullptr;
+    QPlainTextEdit *m_commitMessageEdit = nullptr;
+    QPushButton *m_commitButton = nullptr;
+    QPushButton *m_pushButton = nullptr;
+    QLabel *m_stagedSectionLabel = nullptr;
+    QPushButton *m_unstageAllButton = nullptr;
+    QListWidget *m_stagedFilesList = nullptr;
+    QLabel *m_changesSectionLabel = nullptr;
+    QPushButton *m_stageAllButton = nullptr;
+    QListWidget *m_unstagedFilesList = nullptr;
     QLabel *m_issuesStateLabel = nullptr;
     QListWidget *m_issuesList = nullptr;
     QLabel *m_pullRequestsStateLabel = nullptr;
     QListWidget *m_pullRequestsList = nullptr;
     QFutureWatcher<RepositoryRefreshBundle> *m_refreshWatcher = nullptr;
+    QFutureWatcher<qtcode::git::GitOperationResult> *m_gitOperationWatcher = nullptr;
     QTimer *m_autoRefreshTimer = nullptr;
     QElapsedTimer m_refreshTimer;
     QString m_activeProjectId;
     bool m_showStatusFeedback = true;
     bool m_hasLoadedSnapshot = false;
+    bool m_gitAvailable = false;
+    int m_commitsAhead = 0;
+    QString m_pendingGitSuccessMessage;
+    bool m_clearCommitMessageOnSuccess = false;
 };
 
 } // namespace qtcode::ui

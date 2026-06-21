@@ -126,6 +126,26 @@ set_tests_properties(settings_persistence PROPERTIES
     TIMEOUT 30
 )
 
+qtcode_add_executable(qtcode_panel_layout_settings_test
+    settings/PanelLayoutSettingsTest.cpp
+)
+
+target_link_libraries(qtcode_panel_layout_settings_test
+    PRIVATE
+        qtcode_core
+        Qt6::Test
+)
+
+add_test(
+    NAME panel_layout_settings
+    COMMAND qtcode_panel_layout_settings_test
+)
+
+set_tests_properties(panel_layout_settings PROPERTIES
+    LABELS "unit;settings"
+    TIMEOUT 30
+)
+
 qtcode_add_executable(qtcode_file_operation_service_test
     core/FileOperationServiceTest.cpp
 )
@@ -191,6 +211,26 @@ add_test(
 set_tests_properties(conversation_view PROPERTIES
     LABELS "unit;ui"
     TIMEOUT 30
+)
+
+qtcode_add_executable(qtcode_git_cli_client_test
+    git/GitCliClientTest.cpp
+)
+
+target_link_libraries(qtcode_git_cli_client_test
+    PRIVATE
+        qtcode_git
+        Qt6::Test
+)
+
+add_test(
+    NAME git_cli_client
+    COMMAND qtcode_git_cli_client_test
+)
+
+set_tests_properties(git_cli_client PROPERTIES
+    LABELS "unit;git"
+    TIMEOUT 60
 )
 
 qtcode_add_executable(qtcode_terminal_manager_working_directory_test

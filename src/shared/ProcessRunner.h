@@ -19,7 +19,8 @@ public:
     [[nodiscard]] static ProcessResult run(
         const QString &program,
         const QStringList &arguments = {},
-        int timeoutMs = 5000);
+        int timeoutMs = 5000,
+        const QString &workingDirectory = {});
 };
 
 } // namespace qtcode::shared

@@ -180,7 +180,25 @@ PanelLayoutSettings PanelLayoutSettings::fromJson(const QJsonObject &json)
             json.value(QStringLiteral("storedTerminalHeight")).toInt(defaults.storedTerminalHeight);
     }
 
+    clampLeftColumnWidth(&layout.columnSizes);
+
     return layout;
+}
+
+void PanelLayoutSettings::clampLeftColumnWidth(QList<int> *columnSizes)
+{
+    if (columnSizes == nullptr || columnSizes->size() < 3) {
+        return;
+    }
+
+    const int originalLeft = columnSizes->at(0);
+    const int clampedLeft = qBound(kLeftColumnMinWidth, originalLeft, kLeftColumnMaxWidth);
+    if (clampedLeft == originalLeft) {
+        return;
+    }
+
+    (*columnSizes)[0] = clampedLeft;
+    (*columnSizes)[1] += originalLeft - clampedLeft;
 }
 
 PanelLayoutSettings PanelLayoutSettings::defaults()

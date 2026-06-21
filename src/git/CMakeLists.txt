@@ -1,4 +1,5 @@
 qtcode_add_module_library(qtcode_git STATIC
+    GitCliClient.cpp
     GitService.cpp
 )
 

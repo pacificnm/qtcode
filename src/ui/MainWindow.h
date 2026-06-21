@@ -5,6 +5,7 @@
 
 class QAction;
 class QCloseEvent;
+class QShowEvent;
 class QSplitter;
 class QStackedWidget;
 class QToolBar;
@@ -46,6 +47,7 @@ public:
 
 protected:
     void closeEvent(QCloseEvent *event) override;
+    void showEvent(QShowEvent *event) override;
 
 private slots:
     void resetPanelLayout();
@@ -70,6 +72,7 @@ private:
     [[nodiscard]] QString currentActiveRightPanel() const;
     [[nodiscard]] qtcode::settings::PanelLayoutSettings currentPanelLayout() const;
     void persistPanelLayout();
+    void finalizeInitialLayout();
 
     qtcode::core::ApplicationController *m_controller = nullptr;
     qtcode::core::SettingsService *m_settingsService = nullptr;
@@ -100,6 +103,7 @@ private:
     int m_storedRightColumnWidth = 320;
     int m_storedTerminalHeight = 240;
     bool m_rightColumnCollapsed = false;
+    bool m_needsInitialLayoutSync = true;
 };
 
 } // namespace qtcode::ui

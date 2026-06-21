@@ -15,9 +15,13 @@ inline constexpr auto kRightPanelSessions = "sessions";
 inline constexpr auto kRightPanelContext = "context";
 inline constexpr auto kRightPanelMcp = "mcp";
 
+inline constexpr int kLeftColumnDefaultWidth = 240;
+inline constexpr int kLeftColumnMinWidth = 200;
+inline constexpr int kLeftColumnMaxWidth = 320;
+
 struct PanelLayoutSettings
 {
-    QList<int> columnSizes {280, 640, 320};
+    QList<int> columnSizes {kLeftColumnDefaultWidth, 640, 320};
     QList<int> verticalSizes {560, 240};
     QString activeRightPanel = QString::fromLatin1(kRightPanelSessions);
     bool rightColumnCollapsed = false;
@@ -30,6 +34,7 @@ struct PanelLayoutSettings
     [[nodiscard]] QJsonObject toJson() const;
     [[nodiscard]] static PanelLayoutSettings fromJson(const QJsonObject &json);
     [[nodiscard]] static PanelLayoutSettings defaults();
+    static void clampLeftColumnWidth(QList<int> *columnSizes);
 };
 
 } // namespace qtcode::settings

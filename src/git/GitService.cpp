@@ -1,5 +1,6 @@
 #include "git/GitService.h"
 
+#include "git/GitCliClient.h"
 #include "git/GitCommitSummary.h"
 #include "shared/Logging.h"
 
@@ -99,43 +100,117 @@ bool populateHeadInfo(
     return true;
 }
 
-QString formatStatusFlags(unsigned int status)
+QString formatIndexStatus(unsigned int status)
 {
-    QStringList labels;
-
     if ((status & GIT_STATUS_INDEX_NEW) != 0U) {
-        labels.append(QStringLiteral("Staged new"));
+        return QStringLiteral("A");
     }
     if ((status & GIT_STATUS_INDEX_MODIFIED) != 0U) {
-        labels.append(QStringLiteral("Staged modified"));
+        return QStringLiteral("M");
     }
     if ((status & GIT_STATUS_INDEX_DELETED) != 0U) {
-        labels.append(QStringLiteral("Staged deleted"));
+        return QStringLiteral("D");
     }
     if ((status & GIT_STATUS_INDEX_RENAMED) != 0U) {
-        labels.append(QStringLiteral("Staged renamed"));
+        return QStringLiteral("R");
     }
+    if ((status & GIT_STATUS_INDEX_TYPECHANGE) != 0U) {
+        return QStringLiteral("T");
+    }
+
+    return QStringLiteral("M");
+}
+
+QString formatWorktreeStatus(unsigned int status)
+{
     if ((status & GIT_STATUS_WT_NEW) != 0U) {
-        labels.append(QStringLiteral("Untracked"));
+        return QStringLiteral("U");
     }
     if ((status & GIT_STATUS_WT_MODIFIED) != 0U) {
-        labels.append(QStringLiteral("Modified"));
+        return QStringLiteral("M");
     }
     if ((status & GIT_STATUS_WT_DELETED) != 0U) {
-        labels.append(QStringLiteral("Deleted"));
+        return QStringLiteral("D");
     }
     if ((status & GIT_STATUS_WT_RENAMED) != 0U) {
-        labels.append(QStringLiteral("Renamed"));
+        return QStringLiteral("R");
     }
     if ((status & GIT_STATUS_WT_TYPECHANGE) != 0U) {
-        labels.append(QStringLiteral("Type changed"));
+        return QStringLiteral("T");
     }
 
-    if (labels.isEmpty()) {
-        return QStringLiteral("Changed");
+    return QStringLiteral("M");
+}
+
+bool hasIndexChanges(unsigned int status)
+{
+    return (status
+            & (GIT_STATUS_INDEX_NEW | GIT_STATUS_INDEX_MODIFIED | GIT_STATUS_INDEX_DELETED
+                | GIT_STATUS_INDEX_RENAMED | GIT_STATUS_INDEX_TYPECHANGE))
+        != 0U;
+}
+
+bool hasWorktreeChanges(unsigned int status)
+{
+    return (status
+            & (GIT_STATUS_WT_NEW | GIT_STATUS_WT_MODIFIED | GIT_STATUS_WT_DELETED
+                | GIT_STATUS_WT_RENAMED | GIT_STATUS_WT_TYPECHANGE))
+        != 0U;
+}
+
+bool populateBranchTracking(git_repository *repository, GitWorkingTreeStatus *status)
+{
+    if (status == nullptr || status->isDetachedHead) {
+        return true;
     }
 
-    return labels.join(QStringLiteral(", "));
+    git_reference *head = nullptr;
+    if (git_repository_head(&head, repository) != 0) {
+        return true;
+    }
+
+    const char *branchName = nullptr;
+    if (git_branch_name(&branchName, head) != 0 || branchName == nullptr) {
+        git_reference_free(head);
+        return true;
+    }
+
+    git_buf upstreamName = {};
+    if (git_branch_upstream_name(&upstreamName, repository, branchName) != 0) {
+        git_reference_free(head);
+        return true;
+    }
+
+    git_oid localOid {};
+    git_oid upstreamOid {};
+    const char *localRef = git_reference_name(head);
+    if (localRef == nullptr
+        || git_reference_name_to_id(&localOid, repository, localRef) != 0
+        || git_reference_name_to_id(&upstreamOid, repository, upstreamName.ptr) != 0) {
+        git_buf_dispose(&upstreamName);
+        git_reference_free(head);
+        return true;
+    }
+
+    size_t ahead = 0;
+    size_t behind = 0;
+    if (git_graph_ahead_behind(&ahead, &behind, repository, &localOid, &upstreamOid) == 0) {
+        status->hasUpstream = true;
+        status->commitsAhead = static_cast<int>(ahead);
+        status->commitsBehind = static_cast<int>(behind);
+    }
+
+    git_buf_dispose(&upstreamName);
+    git_reference_free(head);
+    return true;
+}
+
+GitCliClient configuredGitCliClient(const QString &path, const QString &gitExecutable)
+{
+    GitCliClient client;
+    client.setExecutablePath(gitExecutable);
+    client.setWorkingDirectory(path);
+    return client;
 }
 
 QString changedFilePathFromEntry(const git_status_entry *entry)
@@ -276,7 +351,8 @@ bool GitService::loadWorkingTreeStatus(
     }
 
     const size_t entryCount = git_status_list_entrycount(statusList);
-    status->changedFiles.reserve(static_cast<int>(entryCount));
+    status->stagedFiles.reserve(static_cast<int>(entryCount));
+    status->unstagedFiles.reserve(static_cast<int>(entryCount));
 
     for (size_t index = 0; index < entryCount; ++index) {
         const git_status_entry *entry = git_status_byindex(statusList, index);
@@ -284,27 +360,83 @@ bool GitService::loadWorkingTreeStatus(
             continue;
         }
 
-        ChangedFile changedFile;
-        changedFile.path = changedFilePathFromEntry(entry);
-        changedFile.statusLabel = formatStatusFlags(entry->status);
-
-        if (changedFile.path.isEmpty()) {
+        const QString path = changedFilePathFromEntry(entry);
+        if (path.isEmpty()) {
             continue;
         }
 
-        status->changedFiles.append(changedFile);
+        if (hasIndexChanges(entry->status)) {
+            ChangedFile stagedFile;
+            stagedFile.path = path;
+            stagedFile.statusLabel = formatIndexStatus(entry->status);
+            status->stagedFiles.append(stagedFile);
+        }
+
+        if (hasWorktreeChanges(entry->status)) {
+            ChangedFile unstagedFile;
+            unstagedFile.path = path;
+            unstagedFile.statusLabel = formatWorktreeStatus(entry->status);
+            status->unstagedFiles.append(unstagedFile);
+        }
     }
 
-    std::sort(status->changedFiles.begin(), status->changedFiles.end(), [](const ChangedFile &left, const ChangedFile &right) {
-        return left.path.compare(right.path, Qt::CaseInsensitive) < 0;
-    });
+    auto sortChangedFiles = [](QList<ChangedFile> *files) {
+        std::sort(files->begin(), files->end(), [](const ChangedFile &left, const ChangedFile &right) {
+            return left.path.compare(right.path, Qt::CaseInsensitive) < 0;
+        });
+    };
+    sortChangedFiles(&status->stagedFiles);
+    sortChangedFiles(&status->unstagedFiles);
+
+    populateBranchTracking(repository, status);
 
     git_status_list_free(statusList);
     git_repository_free(repository);
 
-    qCInfo(qtcodeGit) << "Loaded" << status->changedFiles.size() << "changed file(s) for"
-                      << repositoryInfo.localPath;
+    qCInfo(qtcodeGit) << "Loaded" << status->stagedFiles.size() << "staged and"
+                      << status->unstagedFiles.size() << "unstaged file(s) for"
+                      << repositoryInfo.localPath
+                      << "ahead" << status->commitsAhead << "behind" << status->commitsBehind;
     return true;
+}
+
+GitOperationResult GitService::stageFiles(
+    const QString &path,
+    const QString &gitExecutable,
+    const QStringList &relativePaths) const
+{
+    return configuredGitCliClient(path, gitExecutable).stagePaths(relativePaths);
+}
+
+GitOperationResult GitService::stageAll(const QString &path, const QString &gitExecutable) const
+{
+    return configuredGitCliClient(path, gitExecutable).stageAll();
+}
+
+GitOperationResult GitService::unstageFiles(
+    const QString &path,
+    const QString &gitExecutable,
+    const QStringList &relativePaths) const
+{
+    return configuredGitCliClient(path, gitExecutable).unstagePaths(relativePaths);
+}
+
+GitOperationResult GitService::unstageAll(const QString &path, const QString &gitExecutable) const
+{
+    return configuredGitCliClient(path, gitExecutable).unstageAll();
+}
+
+GitOperationResult GitService::commit(
+    const QString &path,
+    const QString &gitExecutable,
+    const QString &message) const
+{
+    return configuredGitCliClient(path, gitExecutable).commit(message);
+}
+
+GitOperationResult GitService::push(const QString &path, const QString &gitExecutable) const
+{
+    return configuredGitCliClient(path, gitExecutable).push();
 }
 
 QString commitSubject(const git_commit *commit)

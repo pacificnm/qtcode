@@ -7,13 +7,17 @@ namespace qtcode::shared {
 ProcessResult ProcessRunner::run(
     const QString &program,
     const QStringList &arguments,
-    int timeoutMs)
+    int timeoutMs,
+    const QString &workingDirectory)
 {
     ProcessResult result;
 
     QProcess process;
     process.setProgram(program);
     process.setArguments(arguments);
+    if (!workingDirectory.isEmpty()) {
+        process.setWorkingDirectory(workingDirectory);
+    }
     process.start(QProcess::ReadOnly);
 
     if (!process.waitForStarted(timeoutMs)) {

@@ -30,6 +30,7 @@
 #include <QFileInfo>
 #include <QIcon>
 #include <QMenuBar>
+#include <QShowEvent>
 #include <QSignalBlocker>
 #include <QSize>
 #include <QSplitter>
@@ -124,7 +125,8 @@ void MainWindow::configureLayout()
         KTextEditor::Editor::instance()->setApplication(m_ktextEditorApplication);
     }
 
-    m_projectNavigationPanel->setMinimumWidth(240);
+    m_projectNavigationPanel->setMinimumWidth(qtcode::settings::kLeftColumnMinWidth);
+    m_projectNavigationPanel->setMaximumWidth(qtcode::settings::kLeftColumnMaxWidth);
     m_workspaceTabs->setMinimumWidth(320);
     m_terminalPanel->setMinimumHeight(120);
 
@@ -146,12 +148,12 @@ void MainWindow::configureLayout()
     m_rootHorizontalSplitter->addWidget(m_projectNavigationPanel);
     m_rootHorizontalSplitter->addWidget(m_mainVerticalSplitter);
     m_rootHorizontalSplitter->addWidget(m_rightPanelStack);
-    m_rootHorizontalSplitter->setStretchFactor(0, 1);
-    m_rootHorizontalSplitter->setStretchFactor(1, 2);
-    m_rootHorizontalSplitter->setStretchFactor(2, 1);
+    m_rootHorizontalSplitter->setStretchFactor(0, 0);
+    m_rootHorizontalSplitter->setStretchFactor(1, 1);
+    m_rootHorizontalSplitter->setStretchFactor(2, 0);
     m_rootHorizontalSplitter->setCollapsible(0, false);
     m_rootHorizontalSplitter->setCollapsible(1, false);
-    m_rootHorizontalSplitter->setCollapsible(2, false);
+    m_rootHorizontalSplitter->setCollapsible(2, true);
     connect(
         m_rootHorizontalSplitter,
         &QSplitter::splitterMoved,
@@ -639,6 +641,30 @@ void MainWindow::closeEvent(QCloseEvent *event)
     QMainWindow::closeEvent(event);
 }
 
+void MainWindow::showEvent(QShowEvent *event)
+{
+    QMainWindow::showEvent(event);
+
+    if (!m_needsInitialLayoutSync) {
+        return;
+    }
+
+    m_needsInitialLayoutSync = false;
+    finalizeInitialLayout();
+}
+
+void MainWindow::finalizeInitialLayout()
+{
+    if (m_rootHorizontalSplitter != nullptr) {
+        QList<int> sizes = m_rootHorizontalSplitter->sizes();
+        qtcode::settings::PanelLayoutSettings::clampLeftColumnWidth(&sizes);
+        m_rootHorizontalSplitter->setSizes(sizes);
+    }
+
+    syncRightColumnVisibility();
+    syncTerminalPanelHeight();
+}
+
 void MainWindow::saveCurrentFile()
 {
     if (m_workspaceTabs != nullptr) {
@@ -669,9 +695,11 @@ void MainWindow::applyPanelLayout(const qtcode::settings::PanelLayoutSettings &l
     resize(layout.windowWidth, layout.windowHeight);
 
     if (m_rootHorizontalSplitter != nullptr && layout.columnSizes.size() >= 3) {
-        m_rootHorizontalSplitter->setSizes(layout.columnSizes);
-        if (layout.columnSizes.at(2) > 120) {
-            m_storedRightColumnWidth = layout.columnSizes.at(2);
+        QList<int> columnSizes = layout.columnSizes;
+        qtcode::settings::PanelLayoutSettings::clampLeftColumnWidth(&columnSizes);
+        m_rootHorizontalSplitter->setSizes(columnSizes);
+        if (columnSizes.at(2) > 120) {
+            m_storedRightColumnWidth = columnSizes.at(2);
         }
     }
 
@@ -717,6 +745,7 @@ qtcode::settings::PanelLayoutSettings MainWindow::currentPanelLayout() const
     if (m_rootHorizontalSplitter != nullptr) {
         layout.columnSizes = m_rootHorizontalSplitter->sizes();
         if (layout.columnSizes.size() >= 3) {
+            qtcode::settings::PanelLayoutSettings::clampLeftColumnWidth(&layout.columnSizes);
             if (m_rightColumnCollapsed) {
                 layout.columnSizes[2] = 0;
             }

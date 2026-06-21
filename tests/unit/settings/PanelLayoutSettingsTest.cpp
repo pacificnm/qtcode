@@ -1,0 +1,41 @@
+#include "settings/SettingsModels.h"
+
+#include <QtTest>
+
+class PanelLayoutSettingsTest final : public QObject
+{
+    Q_OBJECT
+
+private slots:
+    void fromJsonClampsOversizedLeftColumn();
+    void clampLeftColumnWidthMovesExcessToCenter();
+};
+
+void PanelLayoutSettingsTest::fromJsonClampsOversizedLeftColumn()
+{
+    QJsonObject json;
+    json.insert(QStringLiteral("columnSizes"), QJsonArray {720, 400, 320});
+
+    const qtcode::settings::PanelLayoutSettings layout =
+        qtcode::settings::PanelLayoutSettings::fromJson(json);
+
+    QCOMPARE(layout.columnSizes.size(), 3);
+    QCOMPARE(layout.columnSizes.at(0), qtcode::settings::kLeftColumnMaxWidth);
+    QCOMPARE(layout.columnSizes.at(1), 800);
+    QCOMPARE(layout.columnSizes.at(2), 320);
+}
+
+void PanelLayoutSettingsTest::clampLeftColumnWidthMovesExcessToCenter()
+{
+    QList<int> sizes {520, 500, 320};
+
+    qtcode::settings::PanelLayoutSettings::clampLeftColumnWidth(&sizes);
+
+    QCOMPARE(sizes.at(0), qtcode::settings::kLeftColumnMaxWidth);
+    QCOMPARE(sizes.at(1), 700);
+    QCOMPARE(sizes.at(2), 320);
+}
+
+QTEST_MAIN(PanelLayoutSettingsTest)
+
+#include "PanelLayoutSettingsTest.moc"

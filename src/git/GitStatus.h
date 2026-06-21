@@ -15,7 +15,11 @@ struct GitWorkingTreeStatus
 {
     QString branchName;
     bool isDetachedHead = false;
-    QList<ChangedFile> changedFiles;
+    bool hasUpstream = false;
+    int commitsAhead = 0;
+    int commitsBehind = 0;
+    QList<ChangedFile> stagedFiles;
+    QList<ChangedFile> unstagedFiles;
 };
 
 } // namespace qtcode::git
