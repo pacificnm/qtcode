@@ -12,6 +12,8 @@
 
 Each visible terminal tab owns a QTermWidget instance. `TerminalManager` owns logical session state and creates widgets through a controlled factory.
 
+`TerminalManager::configureWidget()` applies the default Konsole-like appearance to every new and restored tab. The preferred bundled scheme is `WhiteOnBlack` (white foreground on a black background). If that scheme is missing from the QTermWidget install, QTCode falls back to `Linux`, then `GreenOnBlack`, and finally the QTermWidget built-in default while logging a warning.
+
 ## Session Metadata
 
 Store:
@@ -56,6 +58,9 @@ Project terminal profiles should eventually include:
 - startup command
 - title pattern
 - working directory behavior
+- color scheme override
+
+Today the global default color scheme is applied centrally in `TerminalManager::configureWidget()` and is not persisted per project.
 
 ## Safety
 

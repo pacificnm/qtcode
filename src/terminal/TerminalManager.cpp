@@ -18,6 +18,39 @@
 
 #include <algorithm>
 
+namespace {
+
+void applyDefaultColorScheme(QTermWidget *widget)
+{
+    if (widget == nullptr) {
+        return;
+    }
+
+    const QString preferredScheme = QString::fromLatin1(qtcode::terminal::kDefaultTerminalColorScheme);
+    const QStringList availableSchemes = QTermWidget::availableColorSchemes();
+    if (availableSchemes.contains(preferredScheme)) {
+        widget->setColorScheme(preferredScheme);
+        return;
+    }
+
+    static const QStringList fallbackSchemes = {
+        QStringLiteral("Linux"),
+        QStringLiteral("GreenOnBlack"),
+    };
+    for (const QString &fallbackScheme : fallbackSchemes) {
+        if (availableSchemes.contains(fallbackScheme)) {
+            qCWarning(qtcodeTerminal) << "Preferred terminal color scheme" << preferredScheme
+                                      << "is unavailable; using" << fallbackScheme;
+            widget->setColorScheme(fallbackScheme);
+            return;
+        }
+    }
+
+    qCWarning(qtcodeTerminal) << "No bundled terminal color scheme found; using QTermWidget default";
+}
+
+} // namespace
+
 namespace qtcode::terminal {
 
 TerminalManager::TerminalManager(storage::StorageService &storageService, QObject *parent)
@@ -479,6 +512,7 @@ bool TerminalManager::configureWidget(QTermWidget *widget, const TerminalSession
         return false;
     }
 
+    applyDefaultColorScheme(widget);
     widget->setShellProgram(session.shellPath);
     widget->setWorkingDirectory(session.workingDirectory);
     widget->setTerminalSizeHint(true);

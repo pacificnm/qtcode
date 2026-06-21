@@ -36,6 +36,7 @@ struct TerminalProfile
     const TerminalProfile &projectProfile);
 
 inline constexpr auto kDefaultShellSettingKey = "app.default_shell";
+inline constexpr auto kDefaultTerminalColorScheme = "WhiteOnBlack";
 inline constexpr auto kGlobalTerminalProfileSettingKey = "app.terminal_profile";
 inline constexpr auto kProjectTerminalProfileSettingKeyPrefix = "terminal.project_profile.";
 
