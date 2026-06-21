@@ -60,11 +60,6 @@ int QtCodeApplication::run()
             qCWarning(qtcodeApp) << "Smoke-test agent prompt failed:" << smokeTestError;
         }
 
-        QString diffSmokeError;
-        if (!m_controller->runSmokeTestDiffArtifactIfRequested(&diffSmokeError)) {
-            qCWarning(qtcodeApp) << "Smoke-test diff artifact failed:" << diffSmokeError;
-        }
-
         QString memorySmokeError;
         if (!m_controller->runSmokeTestMemorySearchIfRequested(&memorySmokeError)) {
             qCWarning(qtcodeApp) << "Smoke-test memory search failed:" << memorySmokeError;

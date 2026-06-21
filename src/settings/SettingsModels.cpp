@@ -39,10 +39,13 @@ QString normalizeRightPanelId(const QString &panelId, const QString &fallback)
 {
     if (panelId == QLatin1String(kRightPanelSessions)
         || panelId == QLatin1String(kRightPanelContext)
-        || panelId == QLatin1String(kRightPanelChanges)
         || panelId == QLatin1String(kRightPanelMcp)
         || panelId == QLatin1String(kRightPanelNone)) {
         return panelId;
+    }
+
+    if (panelId == QLatin1String("changes")) {
+        return QString::fromLatin1(kRightPanelNone);
     }
 
     return fallback;
@@ -129,9 +132,6 @@ PanelLayoutSettings PanelLayoutSettings::fromJson(const QJsonObject &json)
         layout.activeRightPanel = normalizeRightPanelId(
             json.value(QStringLiteral("activeRightPanel")).toString(),
             defaults.activeRightPanel);
-    } else if (json.contains(QStringLiteral("changesPanelVisible"))
-               && json.value(QStringLiteral("changesPanelVisible")).toBool()) {
-        layout.activeRightPanel = QString::fromLatin1(kRightPanelChanges);
     } else if (json.contains(QStringLiteral("contextPanelVisible"))
                && json.value(QStringLiteral("contextPanelVisible")).toBool()) {
         layout.activeRightPanel = QString::fromLatin1(kRightPanelContext);

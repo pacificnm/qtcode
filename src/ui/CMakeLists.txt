@@ -11,7 +11,6 @@ qtcode_add_module_library(qtcode_ui STATIC
     panels/McpServerPanel.cpp
     panels/TerminalPanel.cpp
     views/ConversationView.cpp
-    views/DiffReviewView.cpp
     views/ContextResultsView.cpp
     views/GitHubDetailView.cpp
 )

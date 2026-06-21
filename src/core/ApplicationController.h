@@ -67,7 +67,6 @@ public:
     [[nodiscard]] bool runSmokeTestAgentPromptIfRequested(
         QString *errorMessage = nullptr,
         QString *sessionId = nullptr);
-    [[nodiscard]] bool runSmokeTestDiffArtifactIfRequested(QString *errorMessage = nullptr);
     [[nodiscard]] bool runSmokeTestMemorySearchIfRequested(QString *errorMessage = nullptr);
 
 private:

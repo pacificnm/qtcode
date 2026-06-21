@@ -17,7 +17,6 @@
 #include "shared/Logging.h"
 #include "ui/views/ContextResultsView.h"
 #include "ui/views/ConversationView.h"
-#include "ui/views/DiffReviewView.h"
 
 #include <KLocalizedString>
 
@@ -114,11 +113,6 @@ QWidget *AgentPanel::conversationPanel() const
 QWidget *AgentPanel::contextPanel() const
 {
     return m_contextPanel;
-}
-
-QWidget *AgentPanel::changesPanel() const
-{
-    return m_changesPanel;
 }
 
 void AgentPanel::configureLayout()
@@ -229,30 +223,6 @@ void AgentPanel::configureLayout()
     m_contextResultsView = new ContextResultsView(m_contextPanel);
     contextLayout->addWidget(contextTitleLabel);
     contextLayout->addWidget(m_contextResultsView, 1);
-
-    m_changesPanel = new QWidget(this);
-    auto *changesLayout = new QVBoxLayout(m_changesPanel);
-    changesLayout->setContentsMargins(12, 12, 12, 12);
-    changesLayout->setSpacing(8);
-
-    auto *changesTitleLabel = new QLabel(i18n("Generated Changes"), m_changesPanel);
-    QFont changesTitleFont = changesTitleLabel->font();
-    changesTitleFont.setBold(true);
-    changesTitleLabel->setFont(changesTitleFont);
-
-    m_diffReviewView = new DiffReviewView(m_changesPanel);
-    connect(
-        m_diffReviewView,
-        &DiffReviewView::approveRequested,
-        this,
-        &AgentPanel::approveSelectedArtifact);
-    connect(
-        m_diffReviewView,
-        &DiffReviewView::rejectRequested,
-        this,
-        &AgentPanel::rejectSelectedArtifact);
-    changesLayout->addWidget(changesTitleLabel);
-    changesLayout->addWidget(m_diffReviewView, 1);
 
     setVisible(false);
 }
@@ -631,7 +601,6 @@ void AgentPanel::onSessionUpdated(qtcode::agents::AgentSession *session)
     }
 
     refreshConversation();
-    refreshDiffReview();
 
     const bool running = session->status() == qtcode::agents::AgentSessionStatus::Running;
     setPromptEnabled(!running && m_projectManager != nullptr && m_projectManager->hasActiveProject());
@@ -718,62 +687,6 @@ void AgentPanel::refreshSavedContextRetrieval()
     }
 
     m_contextResultsView->setPersistedRetrieval(retrieval, results);
-}
-
-void AgentPanel::refreshDiffReview()
-{
-    if (m_diffReviewView == nullptr || m_agentManager == nullptr || m_activeSessionId.isEmpty()) {
-        if (m_diffReviewView != nullptr) {
-            m_diffReviewView->clearSession();
-        }
-        return;
-    }
-
-    m_diffReviewView->setSession(m_agentManager->session(m_activeSessionId));
-}
-
-void AgentPanel::approveSelectedArtifact(const QString &artifactId)
-{
-    if (m_agentManager == nullptr || m_projectManager == nullptr || m_activeSessionId.isEmpty()) {
-        return;
-    }
-
-    settings::ProjectRecord activeProject;
-    if (!m_projectManager->activeProject(&activeProject)) {
-        showStatus(i18n("Select an active repository before approving changes."), qtcode::core::StatusSeverity::Warning);
-        return;
-    }
-
-    QString errorMessage;
-    if (!m_agentManager->approveArtifact(
-            m_activeSessionId,
-            artifactId,
-            activeProject.rootPath,
-            &errorMessage)) {
-        showStatus(
-            errorMessage.isEmpty() ? i18n("Could not approve the selected change.") : errorMessage,
-            qtcode::core::StatusSeverity::Error);
-        return;
-    }
-
-    refreshDiffReview();
-}
-
-void AgentPanel::rejectSelectedArtifact(const QString &artifactId)
-{
-    if (m_agentManager == nullptr || m_activeSessionId.isEmpty()) {
-        return;
-    }
-
-    QString errorMessage;
-    if (!m_agentManager->rejectArtifact(m_activeSessionId, artifactId, &errorMessage)) {
-        showStatus(
-            errorMessage.isEmpty() ? i18n("Could not reject the selected change.") : errorMessage,
-            qtcode::core::StatusSeverity::Error);
-        return;
-    }
-
-    refreshDiffReview();
 }
 
 void AgentPanel::updateSessionStatusDisplay(const qtcode::agents::AgentSession *session)
@@ -936,7 +849,6 @@ void AgentPanel::selectSession(const QString &sessionId)
     updateSessionStatusDisplay(session);
     updateRequestControls(session);
     refreshSavedContextRetrieval();
-    refreshDiffReview();
     refreshRequestOptionSelectors();
 
     if (m_projectManager != nullptr && m_projectManager->hasActiveProject()) {

@@ -53,7 +53,6 @@ private slots:
     void refreshEditorActions(bool hasActiveEditor, bool isModified);
     void onAgentSessionsPanelActionToggled(bool visible);
     void onContextPanelActionToggled(bool visible);
-    void onChangesPanelActionToggled(bool visible);
     void onMcpPanelActionToggled(bool visible);
 
 private:
@@ -85,7 +84,6 @@ private:
     QToolBar *m_activityToolBar = nullptr;
     QAction *m_agentSessionsPanelAction = nullptr;
     QAction *m_contextPanelAction = nullptr;
-    QAction *m_changesPanelAction = nullptr;
     QAction *m_mcpPanelAction = nullptr;
     QAction *m_saveFileAction = nullptr;
     QAction *m_closeFileTabAction = nullptr;

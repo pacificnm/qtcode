@@ -85,18 +85,4 @@ AgentSessionStatus agentSessionStatusFromLabel(const QString &label)
     return AgentSessionStatus::Idle;
 }
 
-QString artifactReviewStateLabel(ArtifactReviewState state)
-{
-    switch (state) {
-    case ArtifactReviewState::Pending:
-        return QStringLiteral("Pending");
-    case ArtifactReviewState::Approved:
-        return QStringLiteral("Approved");
-    case ArtifactReviewState::Rejected:
-        return QStringLiteral("Rejected");
-    }
-
-    return QStringLiteral("Unknown");
-}
-
 } // namespace qtcode::agents

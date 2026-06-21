@@ -22,7 +22,6 @@ Right-panel views:
 
 - Agent Sessions
 - Retrieved Context
-- Generated Changes
 - MCP Servers
 
 Only one right-panel view is visible at a time. Workspace tabs and terminal remain in the main column at all times.
@@ -71,7 +70,7 @@ The workspace editing slice is intentionally narrow. QTCode is still a developer
 - No language server, debugger, extension host, or project-wide refactoring system.
 - No multi-root workspace model in the first slice.
 - No binary-file editing in workspace tabs.
-- No automatic agent edits through the editor surface; agent mutations continue through existing artifact/diff flows.
+- No automatic agent edits through the editor surface; review agent file changes through git and the repository changed-files list.
 
 See [KTextEditor workspace spec](../specs/ktexteditor-workspace-spec.md) for the full non-goals list.
 
@@ -105,7 +104,6 @@ Expected surfaces:
 
 - **Agent Sessions** — agent selector, session list, and new session control.
 - **Retrieved Context** — context result viewer and attach/detach controls.
-- **Generated Changes** — diff review area and approve/reject controls.
 - **MCP Servers** — MCP server configuration and memory tooling.
 - **Activity bar** — right-edge icon buttons that switch the active right-panel view or hide the right column.
 

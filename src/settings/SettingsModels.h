@@ -13,7 +13,6 @@ inline constexpr auto kPanelLayoutSchemaVersion = 3;
 inline constexpr auto kRightPanelNone = "none";
 inline constexpr auto kRightPanelSessions = "sessions";
 inline constexpr auto kRightPanelContext = "context";
-inline constexpr auto kRightPanelChanges = "changes";
 inline constexpr auto kRightPanelMcp = "mcp";
 
 struct PanelLayoutSettings

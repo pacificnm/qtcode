@@ -124,7 +124,6 @@ void MainWindow::configureLayout()
     m_rightPanelStack->setMinimumWidth(240);
     m_rightPanelStack->addWidget(m_agentPanel->sessionPanel());
     m_rightPanelStack->addWidget(m_agentPanel->contextPanel());
-    m_rightPanelStack->addWidget(m_agentPanel->changesPanel());
     m_rightPanelStack->addWidget(m_mcpServerPanel);
 
     m_mainVerticalSplitter = new QSplitter(Qt::Vertical, this);
@@ -310,12 +309,6 @@ void MainWindow::configureActions()
     m_contextPanelAction->setCheckable(true);
     connect(m_contextPanelAction, &QAction::toggled, this, &MainWindow::onContextPanelActionToggled);
 
-    m_changesPanelAction = m_actionCollection->addAction(QStringLiteral("view_changes_panel"));
-    m_changesPanelAction->setText(i18n("Generated Changes"));
-    m_changesPanelAction->setIcon(QIcon::fromTheme(QStringLiteral("document-edit")));
-    m_changesPanelAction->setCheckable(true);
-    connect(m_changesPanelAction, &QAction::toggled, this, &MainWindow::onChangesPanelActionToggled);
-
     m_mcpPanelAction = m_actionCollection->addAction(QStringLiteral("view_mcp_panel"));
     m_mcpPanelAction->setText(i18n("MCP Servers"));
     m_mcpPanelAction->setIcon(QIcon::fromTheme(QStringLiteral("network-server")));
@@ -365,7 +358,6 @@ void MainWindow::configureMenus()
     auto *viewMenu = menuBar()->addMenu(i18n("&View"));
     viewMenu->addAction(m_agentSessionsPanelAction);
     viewMenu->addAction(m_contextPanelAction);
-    viewMenu->addAction(m_changesPanelAction);
     viewMenu->addAction(m_mcpPanelAction);
     viewMenu->addSeparator();
     viewMenu->addAction(m_actionCollection->action(QStringLiteral("view_show_repository")));
@@ -386,7 +378,6 @@ void MainWindow::configureActivityBar()
     m_activityToolBar->setIconSize(QSize(22, 22));
     m_activityToolBar->addAction(m_agentSessionsPanelAction);
     m_activityToolBar->addAction(m_contextPanelAction);
-    m_activityToolBar->addAction(m_changesPanelAction);
     m_activityToolBar->addAction(m_mcpPanelAction);
     addToolBar(Qt::RightToolBarArea, m_activityToolBar);
 }
@@ -415,18 +406,6 @@ void MainWindow::onContextPanelActionToggled(bool visible)
     }
 }
 
-void MainWindow::onChangesPanelActionToggled(bool visible)
-{
-    if (visible) {
-        setActiveRightPanelAction(QString::fromLatin1(qtcode::settings::kRightPanelChanges));
-        return;
-    }
-
-    if (currentActiveRightPanel() == QString::fromLatin1(qtcode::settings::kRightPanelChanges)) {
-        applyActiveRightPanel(QString::fromLatin1(qtcode::settings::kRightPanelNone));
-    }
-}
-
 void MainWindow::onMcpPanelActionToggled(bool visible)
 {
     if (visible) {
@@ -443,12 +422,10 @@ void MainWindow::setActiveRightPanelAction(const QString &panelId)
 {
     const QSignalBlocker sessionsBlocker(m_agentSessionsPanelAction);
     const QSignalBlocker contextBlocker(m_contextPanelAction);
-    const QSignalBlocker changesBlocker(m_changesPanelAction);
     const QSignalBlocker mcpBlocker(m_mcpPanelAction);
 
     m_agentSessionsPanelAction->setChecked(panelId == QString::fromLatin1(qtcode::settings::kRightPanelSessions));
     m_contextPanelAction->setChecked(panelId == QString::fromLatin1(qtcode::settings::kRightPanelContext));
-    m_changesPanelAction->setChecked(panelId == QString::fromLatin1(qtcode::settings::kRightPanelChanges));
     m_mcpPanelAction->setChecked(panelId == QString::fromLatin1(qtcode::settings::kRightPanelMcp));
 
     applyActiveRightPanel(panelId);
@@ -464,8 +441,6 @@ void MainWindow::applyActiveRightPanel(const QString &panelId)
         m_rightPanelStack->setCurrentWidget(m_agentPanel->sessionPanel());
     } else if (panelId == QString::fromLatin1(qtcode::settings::kRightPanelContext) && m_agentPanel != nullptr) {
         m_rightPanelStack->setCurrentWidget(m_agentPanel->contextPanel());
-    } else if (panelId == QString::fromLatin1(qtcode::settings::kRightPanelChanges) && m_agentPanel != nullptr) {
-        m_rightPanelStack->setCurrentWidget(m_agentPanel->changesPanel());
     } else if (panelId == QString::fromLatin1(qtcode::settings::kRightPanelMcp) && m_mcpServerPanel != nullptr) {
         m_rightPanelStack->setCurrentWidget(m_mcpServerPanel);
     }
@@ -481,10 +456,6 @@ QString MainWindow::currentActiveRightPanel() const
 
     if (m_contextPanelAction != nullptr && m_contextPanelAction->isChecked()) {
         return QString::fromLatin1(qtcode::settings::kRightPanelContext);
-    }
-
-    if (m_changesPanelAction != nullptr && m_changesPanelAction->isChecked()) {
-        return QString::fromLatin1(qtcode::settings::kRightPanelChanges);
     }
 
     if (m_mcpPanelAction != nullptr && m_mcpPanelAction->isChecked()) {

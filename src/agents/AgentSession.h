@@ -27,7 +27,6 @@ public:
     [[nodiscard]] QString title() const;
     [[nodiscard]] AgentSessionStatus status() const;
     [[nodiscard]] QList<AgentMessage> messages() const;
-    [[nodiscard]] QList<AgentArtifact> artifacts() const;
     [[nodiscard]] QString createdAt() const;
     [[nodiscard]] QString updatedAt() const;
     [[nodiscard]] QString lastErrorMessage() const;
@@ -42,12 +41,6 @@ public:
     void addMessage(const AgentMessage &message);
     [[nodiscard]] bool appendRoleOutput(const QString &role, const QString &text);
     [[nodiscard]] bool updateAssistantMessage(const QString &messageId, const QString &content);
-    void addArtifact(const AgentArtifact &artifact);
-    [[nodiscard]] bool updateArtifactReviewState(
-        const QString &artifactId,
-        ArtifactReviewState reviewState);
-    [[nodiscard]] AgentArtifact *artifactById(const QString &artifactId);
-    [[nodiscard]] const AgentArtifact *artifactById(const QString &artifactId) const;
     void touchUpdatedAt();
     void restoreFromPersistence(
         AgentSessionStatus status,
@@ -57,7 +50,6 @@ public:
 
 signals:
     void messageAdded(const qtcode::agents::AgentMessage &message);
-    void artifactAdded(const qtcode::agents::AgentArtifact &artifact);
     void statusChanged(qtcode::agents::AgentSessionStatus status);
 
 private:
@@ -67,7 +59,6 @@ private:
     QString m_title;
     AgentSessionStatus m_status = AgentSessionStatus::Idle;
     QList<AgentMessage> m_messages;
-    QList<AgentArtifact> m_artifacts;
     QString m_createdAt;
     QString m_updatedAt;
     QString m_lastErrorMessage;

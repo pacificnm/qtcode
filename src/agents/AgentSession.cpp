@@ -50,11 +50,6 @@ QList<AgentMessage> AgentSession::messages() const
     return m_messages;
 }
 
-QList<AgentArtifact> AgentSession::artifacts() const
-{
-    return m_artifacts;
-}
-
 QString AgentSession::createdAt() const
 {
     return m_createdAt;
@@ -149,52 +144,6 @@ void AgentSession::addMessage(const AgentMessage &message)
     m_messages.append(message);
     touchUpdatedAt();
     emit messageAdded(message);
-}
-
-void AgentSession::addArtifact(const AgentArtifact &artifact)
-{
-    m_artifacts.append(artifact);
-    touchUpdatedAt();
-    emit artifactAdded(artifact);
-}
-
-bool AgentSession::updateArtifactReviewState(
-    const QString &artifactId,
-    ArtifactReviewState reviewState)
-{
-    for (AgentArtifact &artifact : m_artifacts) {
-        if (artifact.id != artifactId) {
-            continue;
-        }
-
-        artifact.reviewState = reviewState;
-        touchUpdatedAt();
-        return true;
-    }
-
-    return false;
-}
-
-AgentArtifact *AgentSession::artifactById(const QString &artifactId)
-{
-    for (AgentArtifact &artifact : m_artifacts) {
-        if (artifact.id == artifactId) {
-            return &artifact;
-        }
-    }
-
-    return nullptr;
-}
-
-const AgentArtifact *AgentSession::artifactById(const QString &artifactId) const
-{
-    for (const AgentArtifact &artifact : m_artifacts) {
-        if (artifact.id == artifactId) {
-            return &artifact;
-        }
-    }
-
-    return nullptr;
 }
 
 void AgentSession::touchUpdatedAt()

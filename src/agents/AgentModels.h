@@ -36,7 +36,6 @@ enum class AgentRequestStatus {
 enum class AgentEventType {
     OutputText,
     StatusUpdate,
-    ArtifactReady,
     Error,
 };
 
@@ -55,22 +54,6 @@ struct AgentError
 {
     AgentErrorKind kind = AgentErrorKind::Unknown;
     QString message;
-};
-
-enum class ArtifactReviewState {
-    Pending,
-    Approved,
-    Rejected,
-};
-
-struct AgentArtifact
-{
-    QString id;
-    QString kind;
-    QString title;
-    QString content;
-    QString filePath;
-    ArtifactReviewState reviewState = ArtifactReviewState::Pending;
 };
 
 struct AgentMessage
@@ -109,7 +92,6 @@ struct AgentEvent
 {
     AgentEventType type = AgentEventType::OutputText;
     QString text;
-    AgentArtifact artifact;
     AgentError error;
     QString messageRole;
     bool startNewMessage = false;
@@ -119,12 +101,10 @@ struct AgentEvent
 [[nodiscard]] QString agentErrorKindLabel(AgentErrorKind kind);
 [[nodiscard]] QString agentSessionStatusLabel(AgentSessionStatus status);
 [[nodiscard]] AgentSessionStatus agentSessionStatusFromLabel(const QString &label);
-[[nodiscard]] QString artifactReviewStateLabel(ArtifactReviewState state);
 
 } // namespace qtcode::agents
 
 Q_DECLARE_METATYPE(qtcode::agents::AgentEvent)
 Q_DECLARE_METATYPE(qtcode::agents::AgentMessage)
-Q_DECLARE_METATYPE(qtcode::agents::AgentArtifact)
 Q_DECLARE_METATYPE(qtcode::agents::AgentRequestStatus)
 Q_DECLARE_METATYPE(qtcode::agents::AgentSessionStatus)

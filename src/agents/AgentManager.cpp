@@ -4,7 +4,6 @@
 #include "agents/AgentSession.h"
 #include "agents/adapters/CodexAgentAdapter.h"
 #include "agents/adapters/CursorAgentAdapter.h"
-#include "agents/DiffApplier.h"
 #include "settings/ProjectModels.h"
 #include "shared/Logging.h"
 #include "storage/repositories/AgentSessionRepository.h"
@@ -25,7 +24,6 @@ AgentManager::AgentManager(storage::StorageService &storageService, QObject *par
     qRegisterMetaType<qtcode::agents::AgentEvent>("qtcode::agents::AgentEvent");
     qRegisterMetaType<qtcode::agents::AgentRequestStatus>("qtcode::agents::AgentRequestStatus");
     qRegisterMetaType<qtcode::agents::AgentMessage>("qtcode::agents::AgentMessage");
-    qRegisterMetaType<qtcode::agents::AgentArtifact>("qtcode::agents::AgentArtifact");
     qRegisterMetaType<qtcode::agents::AgentSessionStatus>("qtcode::agents::AgentSessionStatus");
 }
 
@@ -463,115 +461,6 @@ bool AgentManager::isRequestActive(const QString &sessionId) const
     return activeSession != nullptr && activeSession->status() == AgentSessionStatus::Running;
 }
 
-bool AgentManager::addArtifact(
-    const QString &sessionId,
-    const AgentArtifact &artifact,
-    QString *errorMessage)
-{
-    AgentSession *activeSession = session(sessionId);
-    if (activeSession == nullptr) {
-        if (errorMessage != nullptr) {
-            *errorMessage = QStringLiteral("Agent session '%1' was not found.").arg(sessionId);
-        }
-        return false;
-    }
-
-    if (artifact.id.isEmpty() || artifact.kind.trimmed().isEmpty()) {
-        if (errorMessage != nullptr) {
-            *errorMessage = QStringLiteral("Artifact id and kind must not be empty.");
-        }
-        return false;
-    }
-
-    activeSession->addArtifact(artifact);
-    emit sessionUpdated(activeSession);
-    return true;
-}
-
-bool AgentManager::approveArtifact(
-    const QString &sessionId,
-    const QString &artifactId,
-    const QString &projectRoot,
-    QString *errorMessage)
-{
-    AgentSession *activeSession = session(sessionId);
-    if (activeSession == nullptr) {
-        if (errorMessage != nullptr) {
-            *errorMessage = QStringLiteral("Agent session '%1' was not found.").arg(sessionId);
-        }
-        return false;
-    }
-
-    AgentArtifact *artifact = activeSession->artifactById(artifactId);
-    if (artifact == nullptr) {
-        if (errorMessage != nullptr) {
-            *errorMessage = QStringLiteral("Artifact '%1' was not found.").arg(artifactId);
-        }
-        return false;
-    }
-
-    if (artifact->reviewState != ArtifactReviewState::Pending) {
-        if (errorMessage != nullptr) {
-            *errorMessage = QStringLiteral("Artifact '%1' is no longer pending review.").arg(artifactId);
-        }
-        return false;
-    }
-
-    if (!DiffApplier::applyArtifact(projectRoot, *artifact, errorMessage)) {
-        return false;
-    }
-
-    if (!activeSession->updateArtifactReviewState(artifactId, ArtifactReviewState::Approved)) {
-        if (errorMessage != nullptr) {
-            *errorMessage = QStringLiteral("Failed to mark artifact '%1' as approved.").arg(artifactId);
-        }
-        return false;
-    }
-
-    emit sessionUpdated(activeSession);
-    emit repositoryRefreshRequested();
-    return true;
-}
-
-bool AgentManager::rejectArtifact(
-    const QString &sessionId,
-    const QString &artifactId,
-    QString *errorMessage)
-{
-    AgentSession *activeSession = session(sessionId);
-    if (activeSession == nullptr) {
-        if (errorMessage != nullptr) {
-            *errorMessage = QStringLiteral("Agent session '%1' was not found.").arg(sessionId);
-        }
-        return false;
-    }
-
-    AgentArtifact *artifact = activeSession->artifactById(artifactId);
-    if (artifact == nullptr) {
-        if (errorMessage != nullptr) {
-            *errorMessage = QStringLiteral("Artifact '%1' was not found.").arg(artifactId);
-        }
-        return false;
-    }
-
-    if (artifact->reviewState != ArtifactReviewState::Pending) {
-        if (errorMessage != nullptr) {
-            *errorMessage = QStringLiteral("Artifact '%1' is no longer pending review.").arg(artifactId);
-        }
-        return false;
-    }
-
-    if (!activeSession->updateArtifactReviewState(artifactId, ArtifactReviewState::Rejected)) {
-        if (errorMessage != nullptr) {
-            *errorMessage = QStringLiteral("Failed to mark artifact '%1' as rejected.").arg(artifactId);
-        }
-        return false;
-    }
-
-    emit sessionUpdated(activeSession);
-    return true;
-}
-
 void AgentManager::onAdapterRequestFinished(
     AgentRequestStatus status,
     const QString &errorMessage)
@@ -825,10 +714,6 @@ void AgentManager::connectAdapter(AgentAdapter *adapter)
 
             if (event.type == AgentEventType::Error && !event.error.message.isEmpty()) {
                 activeSession->setLastErrorMessage(event.error.message);
-            }
-
-            if (event.type == AgentEventType::ArtifactReady && !event.artifact.id.isEmpty()) {
-                activeSession->addArtifact(event.artifact);
             }
 
             emit sessionUpdated(activeSession);

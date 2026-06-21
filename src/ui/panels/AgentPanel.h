@@ -31,7 +31,6 @@ namespace qtcode::ui {
 
 class ContextResultsView;
 class ConversationView;
-class DiffReviewView;
 
 class AgentPanel final : public QWidget
 {
@@ -49,7 +48,6 @@ public:
     [[nodiscard]] QWidget *sessionPanel() const;
     [[nodiscard]] QWidget *conversationPanel() const;
     [[nodiscard]] QWidget *contextPanel() const;
-    [[nodiscard]] QWidget *changesPanel() const;
 
 public slots:
     void attachIssueContext(const qtcode::github::GitHubIssueDetail &detail);
@@ -62,8 +60,6 @@ private slots:
     void sendPrompt();
     void onComposerActionClicked();
     void createNewSession();
-    void approveSelectedArtifact(const QString &artifactId);
-    void rejectSelectedArtifact(const QString &artifactId);
     void cancelActiveRequest();
     void onSessionListSelectionChanged();
     void onSessionUpdated(qtcode::agents::AgentSession *session);
@@ -75,7 +71,6 @@ protected:
 private:
     void configureLayout();
     void refreshConversation();
-    void refreshDiffReview();
     void updateSessionStatusDisplay(const qtcode::agents::AgentSession *session);
     void updateRequestControls(const qtcode::agents::AgentSession *session);
     void setPromptEnabled(bool enabled);
@@ -107,7 +102,6 @@ private:
     QWidget *m_sessionPanel = nullptr;
     QWidget *m_conversationPanel = nullptr;
     QWidget *m_contextPanel = nullptr;
-    QWidget *m_changesPanel = nullptr;
     QComboBox *m_agentSelector = nullptr;
     QComboBox *m_modelSelector = nullptr;
     QComboBox *m_executionModeSelector = nullptr;
@@ -117,7 +111,6 @@ private:
     ConversationView *m_conversationView = nullptr;
     QPlainTextEdit *m_promptInput = nullptr;
     QPushButton *m_sendButton = nullptr;
-    DiffReviewView *m_diffReviewView = nullptr;
     QString m_activeSessionId;
     bool m_refreshingSessionList = false;
     bool m_refreshingRequestOptions = false;
