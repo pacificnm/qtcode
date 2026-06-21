@@ -61,7 +61,7 @@ Purpose:
 
 Expected surfaces:
 
-- **Workspace tabs** — main work-area tab control owned by `WorkspaceTabs`. The permanent **AI Chat** tab hosts `AgentPanel::conversationPanel()` and cannot be closed. File tabs open beside it when requested from the folder tree (KTextEditor editor content arrives in a later milestone).
+- **Workspace tabs** — main work-area tab control owned by `WorkspaceTabs`. The permanent **AI Chat** tab hosts `AgentPanel::conversationPanel()` and cannot be closed. File tabs use KTextEditor via `EditorTab` when opened from the folder tree.
 - **Terminal panel** — shell tabs and project-aware command output beneath the workspace tabs.
 
 ### Prompt composer

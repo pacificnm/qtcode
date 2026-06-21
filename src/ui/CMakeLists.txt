@@ -6,6 +6,7 @@ qtcode_add_module_library(qtcode_ui STATIC
     panels/FileTreePanel.cpp
     panels/ProjectNavigationPanel.cpp
     panels/AgentPanel.cpp
+    panels/EditorTab.cpp
     panels/WorkspaceTabs.cpp
     panels/McpServerPanel.cpp
     panels/TerminalPanel.cpp

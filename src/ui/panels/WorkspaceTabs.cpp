@@ -1,21 +1,45 @@
 #include "ui/panels/WorkspaceTabs.h"
 
+#include "core/ProjectManager.h"
+#include "core/StatusModels.h"
+#include "core/StatusService.h"
 #include "shared/Logging.h"
+#include "ui/panels/EditorTab.h"
 
 #include <KLocalizedString>
 
+#include <QFile>
 #include <QFileInfo>
-#include <QLabel>
+#include <QMessageBox>
 #include <QTabBar>
 #include <QTabWidget>
 #include <QVBoxLayout>
 
 namespace qtcode::ui {
 
-WorkspaceTabs::WorkspaceTabs(QWidget *parent)
+namespace {
+
+constexpr int kBinarySampleSize = 8192;
+
+} // namespace
+
+WorkspaceTabs::WorkspaceTabs(
+    qtcode::core::StatusService *statusService,
+    qtcode::core::ProjectManager *projectManager,
+    QWidget *parent)
     : QWidget(parent)
+    , m_statusService(statusService)
+    , m_projectManager(projectManager)
 {
     configureLayout();
+
+    if (m_projectManager != nullptr) {
+        connect(
+            m_projectManager,
+            &qtcode::core::ProjectManager::activeProjectChanged,
+            this,
+            &WorkspaceTabs::onActiveProjectChanged);
+    }
 }
 
 void WorkspaceTabs::configureLayout()
@@ -28,6 +52,7 @@ void WorkspaceTabs::configureLayout()
     m_tabWidget->setDocumentMode(true);
     m_tabWidget->setTabsClosable(true);
     connect(m_tabWidget, &QTabWidget::tabCloseRequested, this, &WorkspaceTabs::onTabCloseRequested);
+    connect(m_tabWidget, &QTabWidget::currentChanged, this, &WorkspaceTabs::onCurrentTabChanged);
 
     layout->addWidget(m_tabWidget, 1);
 }
@@ -37,6 +62,8 @@ void WorkspaceTabs::setPermanentAiChatTab(QWidget *conversationPanel)
     if (m_tabWidget == nullptr || conversationPanel == nullptr) {
         return;
     }
+
+    m_aiChatPanel = conversationPanel;
 
     if (m_aiChatTabIndex >= 0) {
         QWidget *existingWidget = m_tabWidget->widget(m_aiChatTabIndex);
@@ -79,17 +106,50 @@ void WorkspaceTabs::requestOpenFile(const QString &absolutePath)
     }
 
     const QFileInfo fileInfo(pathKey);
-    auto *placeholder = new QLabel(
-        i18n("Editor tab for %1\n\nKTextEditor integration arrives in a later milestone.", fileInfo.fileName()),
-        m_tabWidget);
-    placeholder->setWordWrap(true);
-    placeholder->setAlignment(Qt::AlignTop | Qt::AlignLeft);
-    placeholder->setContentsMargins(12, 12, 12, 12);
+    if (!fileInfo.isFile() || !fileInfo.isReadable()) {
+        if (m_statusService != nullptr) {
+            m_statusService->showMessage(
+                i18n("Cannot open %1 in the editor.", fileInfo.fileName()),
+                qtcode::core::StatusSeverity::Warning);
+        }
+        return;
+    }
 
-    const int tabIndex = m_tabWidget->addTab(placeholder, fileInfo.fileName());
+    if (looksBinaryFile(pathKey)) {
+        const QString message = i18n("Cannot open %1 in the editor.", fileInfo.fileName());
+        if (m_statusService != nullptr) {
+            m_statusService->showMessage(message, qtcode::core::StatusSeverity::Warning);
+        }
+        QMessageBox::information(
+            this,
+            i18n("Unsupported File"),
+            i18n("%1 does not look like a text file.", fileInfo.fileName()));
+        return;
+    }
+
+    auto *editorTab = new EditorTab(pathKey, m_statusService, m_tabWidget);
+    if (!editorTab->isLoadSuccessful()) {
+        const QString message = editorTab->loadErrorMessage().isEmpty()
+            ? i18n("Could not open %1 in the editor.", fileInfo.fileName())
+            : editorTab->loadErrorMessage();
+        if (m_statusService != nullptr) {
+            m_statusService->showMessage(message, qtcode::core::StatusSeverity::Error);
+        }
+        QMessageBox::warning(this, i18n("Open Failed"), message);
+        editorTab->deleteLater();
+        return;
+    }
+
+    connect(editorTab, &EditorTab::modificationChanged, this, [this, editorTab](bool) {
+        updateEditorTabTitle(editorTab);
+    });
+
+    const int tabIndex = m_tabWidget->addTab(editorTab, editorTab->displayName());
     m_fileTabIndices.insert(pathKey, tabIndex);
+    updateEditorTabTitle(editorTab);
     m_tabWidget->setCurrentIndex(tabIndex);
-    qCInfo(qtcodeUi) << "Opened workspace tab for" << pathKey;
+    emit activeEditorStateChanged(hasActiveEditorTab(), currentEditorTabIsModified());
+    qCInfo(qtcodeUi) << "Opened editor tab for" << pathKey;
 }
 
 QString WorkspaceTabs::normalizedPath(const QString &absolutePath) const
@@ -99,30 +159,191 @@ QString WorkspaceTabs::normalizedPath(const QString &absolutePath) const
 
 void WorkspaceTabs::onTabCloseRequested(int index)
 {
-    if (m_tabWidget == nullptr || index == m_aiChatTabIndex) {
+    (void) closeEditorTabAt(index, true);
+}
+
+void WorkspaceTabs::closeCurrentEditorTab()
+{
+    if (m_tabWidget == nullptr) {
         return;
     }
 
-    const QString pathToRemove = m_fileTabIndices.key(index, QString());
-    if (!pathToRemove.isEmpty()) {
-        m_fileTabIndices.remove(pathToRemove);
+    (void) closeEditorTabAt(m_tabWidget->currentIndex(), true);
+}
+
+bool WorkspaceTabs::saveCurrentEditorTab()
+{
+    EditorTab *editorTab = currentEditorTab();
+    if (editorTab == nullptr) {
+        return false;
     }
+
+    QString saveError;
+    if (!editorTab->save(&saveError)) {
+        if (!saveError.isEmpty()) {
+            QMessageBox::warning(this, i18n("Save Failed"), saveError);
+        }
+        return false;
+    }
+
+    updateEditorTabTitle(editorTab);
+    return true;
+}
+
+bool WorkspaceTabs::hasActiveEditorTab() const
+{
+    return currentEditorTab() != nullptr;
+}
+
+bool WorkspaceTabs::currentEditorTabIsModified() const
+{
+    EditorTab *editorTab = currentEditorTab();
+    return editorTab != nullptr && editorTab->isModified();
+}
+
+bool WorkspaceTabs::closeAllEditorTabs(bool promptForDirty)
+{
+    if (m_tabWidget == nullptr) {
+        return true;
+    }
+
+    for (int index = m_tabWidget->count() - 1; index >= 0; --index) {
+        if (!isEditorTabIndex(index)) {
+            continue;
+        }
+
+        if (!closeEditorTabAt(index, promptForDirty)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool WorkspaceTabs::closeEditorTabAt(int index, bool promptForDirty)
+{
+    if (m_tabWidget == nullptr || index < 0 || index >= m_tabWidget->count()
+        || index == m_aiChatTabIndex) {
+        return true;
+    }
+
+    EditorTab *editorTab = editorTabAt(index);
+    if (editorTab == nullptr) {
+        return true;
+    }
+
+    if (promptForDirty) {
+        const EditorCloseChoice choice = editorTab->promptClose(this);
+        if (choice == EditorCloseChoice::Cancel) {
+            return false;
+        }
+    }
+
+    const QString pathKey = normalizedPath(editorTab->filePath());
+    m_fileTabIndices.remove(pathKey);
 
     QWidget *widget = m_tabWidget->widget(index);
     m_tabWidget->removeTab(index);
-
-    for (auto it = m_fileTabIndices.begin(); it != m_fileTabIndices.end(); ++it) {
-        if (it.value() > index) {
-            it.value() -= 1;
-        }
-    }
 
     if (m_aiChatTabIndex > index) {
         m_aiChatTabIndex -= 1;
     }
 
+    reindexFileTabs();
+
     if (widget != nullptr) {
         widget->deleteLater();
+    }
+
+    return true;
+}
+
+void WorkspaceTabs::onActiveProjectChanged()
+{
+    if (!closeAllEditorTabs(true)) {
+        return;
+    }
+}
+
+void WorkspaceTabs::onCurrentTabChanged(int index)
+{
+    Q_UNUSED(index)
+    emit activeEditorStateChanged(hasActiveEditorTab(), currentEditorTabIsModified());
+}
+
+EditorTab *WorkspaceTabs::editorTabAt(int index) const
+{
+    if (m_tabWidget == nullptr || index < 0 || index >= m_tabWidget->count()) {
+        return nullptr;
+    }
+
+    return qobject_cast<EditorTab *>(m_tabWidget->widget(index));
+}
+
+EditorTab *WorkspaceTabs::currentEditorTab() const
+{
+    if (m_tabWidget == nullptr) {
+        return nullptr;
+    }
+
+    return editorTabAt(m_tabWidget->currentIndex());
+}
+
+bool WorkspaceTabs::isEditorTabIndex(int index) const
+{
+    return editorTabAt(index) != nullptr;
+}
+
+bool WorkspaceTabs::looksBinaryFile(const QString &absolutePath) const
+{
+    QFile file(absolutePath);
+    if (!file.open(QIODevice::ReadOnly)) {
+        return false;
+    }
+
+    return file.read(kBinarySampleSize).contains('\0');
+}
+
+void WorkspaceTabs::updateEditorTabTitle(EditorTab *editorTab)
+{
+    if (m_tabWidget == nullptr || editorTab == nullptr) {
+        return;
+    }
+
+    const int index = m_tabWidget->indexOf(editorTab);
+    if (index < 0) {
+        return;
+    }
+
+    QString title = editorTab->displayName();
+    if (editorTab->isModified()) {
+        title = QStringLiteral("* %1").arg(title);
+    }
+
+    m_tabWidget->setTabText(index, title);
+    emit activeEditorStateChanged(hasActiveEditorTab(), currentEditorTabIsModified());
+}
+
+void WorkspaceTabs::reindexFileTabs()
+{
+    m_fileTabIndices.clear();
+    if (m_tabWidget == nullptr) {
+        m_aiChatTabIndex = -1;
+        return;
+    }
+
+    for (int index = 0; index < m_tabWidget->count(); ++index) {
+        if (m_aiChatPanel != nullptr && m_tabWidget->widget(index) == m_aiChatPanel) {
+            m_aiChatTabIndex = index;
+            continue;
+        }
+
+        EditorTab *editorTab = editorTabAt(index);
+        if (editorTab == nullptr) {
+            continue;
+        }
+
+        m_fileTabIndices.insert(normalizedPath(editorTab->filePath()), index);
     }
 }
 
