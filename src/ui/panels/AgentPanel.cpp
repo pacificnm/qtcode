@@ -95,6 +95,11 @@ AgentPanel::AgentPanel(
     }
 }
 
+QWidget *AgentPanel::sessionPanel() const
+{
+    return m_sessionPanel;
+}
+
 QWidget *AgentPanel::conversationPanel() const
 {
     return m_conversationPanel;
@@ -112,29 +117,50 @@ QWidget *AgentPanel::changesPanel() const
 
 void AgentPanel::configureLayout()
 {
+    m_sessionPanel = new QWidget(this);
+    auto *sessionLayout = new QVBoxLayout(m_sessionPanel);
+    sessionLayout->setContentsMargins(12, 12, 12, 12);
+    sessionLayout->setSpacing(8);
+
+    auto *sessionTitleLabel = new QLabel(i18n("Agent Sessions"), m_sessionPanel);
+    QFont sessionTitleFont = sessionTitleLabel->font();
+    sessionTitleFont.setBold(true);
+    sessionTitleLabel->setFont(sessionTitleFont);
+
+    auto *agentSelectorLabel = new QLabel(i18n("Agent"), m_sessionPanel);
+    m_agentSelector = new QComboBox(m_sessionPanel);
+    m_agentSelector->setSizeAdjustPolicy(QComboBox::AdjustToContents);
+
+    auto *sessionHeaderLayout = new QHBoxLayout();
+    auto *sessionListLabel = new QLabel(i18n("Sessions"), m_sessionPanel);
+    m_newSessionButton = new QPushButton(i18n("New session"), m_sessionPanel);
+    sessionHeaderLayout->addWidget(sessionListLabel);
+    sessionHeaderLayout->addStretch();
+    sessionHeaderLayout->addWidget(m_newSessionButton);
+
+    m_sessionList = new QListWidget(m_sessionPanel);
+    m_sessionList->setSelectionMode(QAbstractItemView::SingleSelection);
+
+    connect(m_newSessionButton, &QPushButton::clicked, this, &AgentPanel::createNewSession);
+    connect(m_sessionList, &QListWidget::currentRowChanged, this, [this]() {
+        onSessionListSelectionChanged();
+    });
+
+    sessionLayout->addWidget(sessionTitleLabel);
+    sessionLayout->addWidget(agentSelectorLabel);
+    sessionLayout->addWidget(m_agentSelector);
+    sessionLayout->addLayout(sessionHeaderLayout);
+    sessionLayout->addWidget(m_sessionList, 1);
+
     m_conversationPanel = new QWidget(this);
     auto *conversationLayout = new QVBoxLayout(m_conversationPanel);
     conversationLayout->setContentsMargins(12, 12, 12, 12);
     conversationLayout->setSpacing(8);
 
-    auto *titleLabel = new QLabel(i18n("AI Agent"), m_conversationPanel);
+    auto *titleLabel = new QLabel(i18n("AI Chat"), m_conversationPanel);
     QFont titleFont = titleLabel->font();
     titleFont.setBold(true);
     titleLabel->setFont(titleFont);
-
-    auto *agentSelectorLabel = new QLabel(i18n("Agent"), m_conversationPanel);
-    m_agentSelector = new QComboBox(m_conversationPanel);
-    m_agentSelector->setSizeAdjustPolicy(QComboBox::AdjustToContents);
-
-    auto *sessionHeaderLayout = new QHBoxLayout();
-    auto *sessionListLabel = new QLabel(i18n("Sessions"), m_conversationPanel);
-    m_newSessionButton = new QPushButton(i18n("New session"), m_conversationPanel);
-    sessionHeaderLayout->addWidget(sessionListLabel);
-    sessionHeaderLayout->addStretch();
-    sessionHeaderLayout->addWidget(m_newSessionButton);
-
-    m_sessionList = new QListWidget(m_conversationPanel);
-    m_sessionList->setSelectionMode(QAbstractItemView::SingleSelection);
 
     m_stateLabel = new QLabel(m_conversationPanel);
     m_stateLabel->setWordWrap(true);
@@ -155,16 +181,7 @@ void AgentPanel::configureLayout()
     m_cancelButton->setVisible(false);
     connect(m_cancelButton, &QPushButton::clicked, this, &AgentPanel::cancelActiveRequest);
 
-    connect(m_newSessionButton, &QPushButton::clicked, this, &AgentPanel::createNewSession);
-    connect(m_sessionList, &QListWidget::currentRowChanged, this, [this]() {
-        onSessionListSelectionChanged();
-    });
-
     conversationLayout->addWidget(titleLabel);
-    conversationLayout->addWidget(agentSelectorLabel);
-    conversationLayout->addWidget(m_agentSelector);
-    conversationLayout->addLayout(sessionHeaderLayout);
-    conversationLayout->addWidget(m_sessionList);
     conversationLayout->addWidget(m_stateLabel);
     conversationLayout->addWidget(m_conversationView, 1);
     conversationLayout->addWidget(m_promptInput);
