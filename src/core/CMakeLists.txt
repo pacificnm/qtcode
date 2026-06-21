@@ -1,5 +1,6 @@
 qtcode_add_module_library(qtcode_core STATIC
     ApplicationController.cpp
+    AppConfigService.cpp
     CliCapabilityService.cpp
     ContextManager.cpp
     FileOperationService.cpp
@@ -8,6 +9,7 @@ qtcode_add_module_library(qtcode_core STATIC
     SettingsService.cpp
     StatusService.cpp
     WorkspaceInstaller.cpp
+    ../settings/AppConfig.cpp
     ../settings/SettingsModels.cpp
     ../settings/McpServerModels.cpp
 )
@@ -24,6 +26,7 @@ target_link_libraries(qtcode_core
         Qt6::Core
         Qt6::Concurrent
         KF6::I18n
+        KF6::ConfigCore
         qtcode_agents
         qtcode_terminal
         qtcode_git

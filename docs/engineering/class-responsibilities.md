@@ -6,13 +6,17 @@
 
 Owns process-level application setup, metadata, localization hooks, and startup handoff.
 
+### `AppConfigService`
+
+Loads and saves the KDE config file that contains startup-time app preferences before SQLite is opened.
+
 ### `ApplicationController`
 
-Wires services together, initializes storage, loads settings, restores last state, and coordinates shutdown.
+Wires services together, loads app config before storage, initializes storage, restores last state, and coordinates shutdown.
 
 ### `MainWindow`
 
-Owns top-level layout, `KActionCollection`-backed actions, menus, toolbar, dock/panel arrangement, and major navigation state. Menu and toolbar actions delegate workflow behavior to panels and services. The left column uses `ProjectNavigationPanel` for repository and file-tree views. The main column uses `WorkspaceTabs` for the permanent AI chat tab and file tabs above the terminal splitter.
+Owns top-level layout, `KActionCollection`-backed actions, menus, toolbar, dock/panel arrangement, and major navigation state. Menu and toolbar actions delegate workflow behavior to panels and services. The File menu includes a modal Settings dialog that edits KDE config-backed startup preferences. The left column uses `ProjectNavigationPanel` for repository and file-tree views. The main column uses `WorkspaceTabs` for the permanent AI chat tab and file tabs above the terminal splitter.
 
 ### `ProjectNavigationPanel`
 

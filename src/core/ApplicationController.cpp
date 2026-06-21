@@ -1,5 +1,6 @@
 #include "core/ApplicationController.h"
 
+#include "core/AppConfigService.h"
 #include "core/CliCapabilityService.h"
 #include "core/McpServerService.h"
 #include "core/ProjectManager.h"
@@ -49,6 +50,13 @@ bool ApplicationController::initialize(QString *errorMessage)
     qtcode::shared::ScopedPerformanceTimer startupTimer(
         qtcodeCore(),
         QStringLiteral("ApplicationController initialization"));
+
+    m_appConfigService = std::make_unique<AppConfigService>();
+    if (!m_appConfigService->load(errorMessage)) {
+        qCWarning(qtcodeCore) << "Failed to load application config:"
+                              << (errorMessage != nullptr ? *errorMessage : QString());
+        // Continue with defaults so the app remains usable.
+    }
 
     m_storageService = std::make_unique<storage::StorageService>();
     if (!m_storageService->open(errorMessage)) {
@@ -106,7 +114,9 @@ bool ApplicationController::initialize(QString *errorMessage)
     m_workspaceInstaller = std::make_unique<WorkspaceInstaller>();
     applyIntegrationPathsFromCapabilities();
 
-    if (!m_projectManager->restoreState(errorMessage)) {
+    const bool restoreActiveProject = m_appConfigService == nullptr
+        || m_appConfigService->config().restoreLastProjectOnStartup;
+    if (!m_projectManager->restoreState(restoreActiveProject, errorMessage)) {
         qCWarning(qtcodeCore) << "Failed to restore project state:"
                               << (errorMessage != nullptr ? *errorMessage : QString());
         return false;
@@ -221,6 +231,7 @@ void ApplicationController::shutdown()
     m_projectManager.reset();
     m_gitService.reset();
     m_settingsService.reset();
+    m_appConfigService.reset();
 
     if (m_storageService == nullptr) {
         return;
@@ -229,6 +240,11 @@ void ApplicationController::shutdown()
     m_storageService->close();
     m_storageService.reset();
     qCInfo(qtcodeCore) << "Application services shut down";
+}
+
+AppConfigService *ApplicationController::appConfigService() const
+{
+    return m_appConfigService.get();
 }
 
 storage::StorageService *ApplicationController::storageService() const

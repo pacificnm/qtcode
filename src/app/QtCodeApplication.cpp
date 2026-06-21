@@ -3,6 +3,7 @@
 #include "agents/AgentManager.h"
 #include "agents/AgentSession.h"
 #include "core/ApplicationController.h"
+#include "core/AppConfigService.h"
 #include "shared/Logging.h"
 #include "ui/MainWindow.h"
 
@@ -50,7 +51,12 @@ int QtCodeApplication::run()
     int exitCode = 0;
     {
         qtcode::ui::MainWindow mainWindow(m_controller.get());
-        mainWindow.show();
+        if (m_controller->appConfigService() != nullptr
+            && m_controller->appConfigService()->config().startMaximized) {
+            mainWindow.showMaximized();
+        } else {
+            mainWindow.show();
+        }
 
         qCInfo(qtcodeApp) << "Main window shown";
 

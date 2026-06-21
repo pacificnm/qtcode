@@ -2,6 +2,7 @@
 
 #include "core/ApplicationController.h"
 #include "core/StatusService.h"
+#include "core/AppConfigService.h"
 #include "agents/AgentManager.h"
 #include "core/SettingsService.h"
 #include "settings/SettingsModels.h"
@@ -13,6 +14,7 @@
 #include "ui/panels/RepositoryPanel.h"
 #include "ui/panels/TerminalPanel.h"
 #include "ui/panels/WorkspaceTabs.h"
+#include "ui/dialogs/SettingsDialog.h"
 #include "ui/views/ContextResultsView.h"
 #include "ui/StatusBar.h"
 
@@ -27,8 +29,10 @@
 #include <QActionGroup>
 #include <QApplication>
 #include <QCloseEvent>
+#include <QDialog>
 #include <QFileInfo>
 #include <QIcon>
+#include <QKeySequence>
 #include <QMenu>
 #include <QMenuBar>
 #include <QShowEvent>
@@ -277,6 +281,15 @@ void MainWindow::configureActions()
     m_saveFileAction = KStandardAction::save(this, &MainWindow::saveCurrentFile, m_actionCollection);
     m_saveFileAction->setEnabled(false);
 
+    m_settingsAction = m_actionCollection->addAction(QStringLiteral("file_settings"));
+    m_settingsAction->setText(i18n("Settings..."));
+    m_settingsAction->setShortcut(QKeySequence::Preferences);
+    connect(
+        m_settingsAction,
+        &QAction::triggered,
+        this,
+        &MainWindow::openSettingsDialog);
+
     m_closeFileTabAction = m_actionCollection->addAction(QStringLiteral("file_close_editor_tab"));
     m_closeFileTabAction->setText(i18n("Close File Tab"));
     m_closeFileTabAction->setIcon(QIcon::fromTheme(QStringLiteral("window-close")));
@@ -418,6 +431,8 @@ void MainWindow::configureMenus()
     auto *fileMenu = menuBar()->addMenu(i18n("&File"));
     fileMenu->addAction(m_actionCollection->action(QStringLiteral("file_add_repository")));
     fileMenu->addAction(m_actionCollection->action(QStringLiteral("file_refresh_status")));
+    fileMenu->addAction(m_settingsAction);
+    fileMenu->addSeparator();
     fileMenu->addAction(m_actionCollection->action(QStringLiteral("file_new_terminal_tab")));
     fileMenu->addSeparator();
     fileMenu->addAction(m_newFileAction);
@@ -689,6 +704,21 @@ void MainWindow::saveCurrentFile()
 {
     if (m_workspaceTabs != nullptr) {
         (void) m_workspaceTabs->saveCurrentEditorTab();
+    }
+}
+
+void MainWindow::openSettingsDialog()
+{
+    SettingsDialog dialog(
+        m_controller != nullptr ? m_controller->appConfigService() : nullptr,
+        this);
+
+    if (dialog.exec() != QDialog::Accepted) {
+        return;
+    }
+
+    if (m_controller != nullptr && m_controller->statusService() != nullptr) {
+        m_controller->statusService()->showMessage(i18n("Settings saved."));
     }
 }
 

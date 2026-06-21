@@ -27,7 +27,9 @@ public:
         git::GitService &gitService,
         QObject *parent = nullptr);
 
-    [[nodiscard]] bool restoreState(QString *errorMessage = nullptr);
+    [[nodiscard]] bool restoreState(
+        bool restoreActiveProject,
+        QString *errorMessage = nullptr);
     [[nodiscard]] bool addLocalRepository(
         const QString &path,
         settings::ProjectRecord *project,

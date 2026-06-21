@@ -71,6 +71,25 @@ check_kf6_i18n() {
   fail "missing KF6I18n (install libkf6i18n-dev)"
 }
 
+check_kf6_config() {
+  if pkg-config --exists KF6ConfigCore 2>/dev/null; then
+    ok "pkg-config module KF6ConfigCore"
+    return
+  fi
+
+  local cmake_config
+  for cmake_config in \
+    /usr/lib/x86_64-linux-gnu/cmake/KF6Config/KF6ConfigConfig.cmake \
+    /usr/lib/cmake/KF6Config/KF6ConfigConfig.cmake; do
+    if [[ -f "$cmake_config" ]]; then
+      ok "KF6Config (CMake config at $cmake_config)"
+      return
+    fi
+  done
+
+  fail "missing KF6Config (install libkf6config-dev)"
+}
+
 check_kf6_xmlgui() {
   if pkg-config --exists KF6XmlGui 2>/dev/null; then
     ok "pkg-config module KF6XmlGui"
@@ -184,12 +203,13 @@ else
   fail "no C++ compiler found"
 fi
 
-if command_exists pkg-config; then
+  if command_exists pkg-config; then
   ok "pkg-config"
   check_pkg_config_module Qt6Core
   check_pkg_config_module Qt6Widgets
   check_pkg_config_module KF6CoreAddons
   check_kf6_i18n
+  check_kf6_config
   check_kf6_xmlgui
   check_kf6_texteditor
   check_kf6_wallet

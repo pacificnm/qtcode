@@ -9,6 +9,7 @@ class StorageService;
 
 namespace qtcode::core {
 
+class AppConfigService;
 class SettingsService;
 class StatusService;
 class ProjectManager;
@@ -53,6 +54,7 @@ public:
     [[nodiscard]] bool initialize(QString *errorMessage = nullptr);
     void shutdown();
 
+    [[nodiscard]] AppConfigService *appConfigService() const;
     [[nodiscard]] storage::StorageService *storageService() const;
     [[nodiscard]] SettingsService *settingsService() const;
     [[nodiscard]] StatusService *statusService() const;
@@ -75,6 +77,7 @@ private:
     void scheduleStartupMcpHealthChecks();
     void applyIntegrationPathsFromCapabilities();
 
+    std::unique_ptr<AppConfigService> m_appConfigService;
     std::unique_ptr<storage::StorageService> m_storageService;
     std::unique_ptr<SettingsService> m_settingsService;
     std::unique_ptr<StatusService> m_statusService;

@@ -31,7 +31,9 @@ All durable local settings and metadata are stored in `qtcode.db`, including:
 | GitHub cache | cached issue and pull request summaries |
 | MCP servers | configured memory server records |
 
-There is no separate settings file outside SQLite for panel layout or project selection. If you back up `qtcode.db`, you back up the settings that matter for day-to-day use.
+Most durable local settings live in SQLite, including panel layout and project selection. If you back up `qtcode.db`, you back up the state that matters for day-to-day use.
+
+QTCode also keeps a small KDE config file for app-level preferences that must load before SQLite opens, such as startup behavior. That file uses the normal KDE INI-style config format and lives beside the rest of the user's KDE application config data.
 
 ## Migration Behavior
 
@@ -116,6 +118,8 @@ Restoring an older schema version is safe only if the backup came from the same 
 - KDE Wallet or OS keychain entries if added in future releases
 
 Back up those systems separately when they matter to your workflow.
+
+If you want a full QTCode profile backup, include the KDE config file as well. It stores startup-time app preferences separately from SQLite.
 
 ## Verification Commands
 

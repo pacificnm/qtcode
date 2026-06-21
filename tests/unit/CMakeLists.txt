@@ -168,6 +168,26 @@ set_tests_properties(panel_layout_settings PROPERTIES
     TIMEOUT 30
 )
 
+qtcode_add_executable(qtcode_app_config_service_test
+    core/AppConfigServiceTest.cpp
+)
+
+target_link_libraries(qtcode_app_config_service_test
+    PRIVATE
+        qtcode_core
+        Qt6::Test
+)
+
+add_test(
+    NAME app_config_service
+    COMMAND qtcode_app_config_service_test
+)
+
+set_tests_properties(app_config_service PROPERTIES
+    LABELS "unit;core;settings"
+    TIMEOUT 30
+)
+
 qtcode_add_executable(qtcode_file_operation_service_test
     core/FileOperationServiceTest.cpp
 )

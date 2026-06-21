@@ -89,6 +89,7 @@ Start here:
 ### Feature Specs
 
 - [QTCommands specification](docs/specs/qtcommands-spec.md)
+- [Settings specification](docs/specs/settings-spec.md)
 - [KTextEditor workspace specification](docs/specs/ktexteditor-workspace-spec.md)
 - [QTCommands design](docs/design/qtcommands-design.md)
 
@@ -131,6 +132,7 @@ Start here:
 - [ADR 0009: QTCommands must be repo-native](docs/adrs/0009-qtcommands-repo-native.md)
 - [ADR 0010: Use KF6 XmlGui for application actions, menus, and toolbars](docs/adrs/0010-kf6-xmlgui-action-collections.md)
 - [ADR 0011: Add KTextEditor workspace tabs for focused file editing](docs/adrs/0011-ktexteditor-workspace-tabs.md)
+- [ADR 0012: Split startup configuration from SQLite-backed settings](docs/adrs/0012-settings-persistence-and-configuration.md)
 
 ## Current Status
 

@@ -31,6 +31,7 @@ sudo apt install \
   qt6-base-dev \
   libkf6coreaddons-dev \
   libkf6i18n-dev \
+  libkf6config-dev \
   libkf6xmlgui-dev \
   libkf6texteditor-dev \
   libkf6wallet-dev \
@@ -50,6 +51,8 @@ Notes:
 - Some KDE Frameworks 6 packages, including `KF6I18n`, `KF6XmlGui`, and `KF6TextEditor`, ship CMake config files
   instead of pkg-config modules on current Ubuntu releases. `scripts/check-toolchain`
   accepts either a `.pc` file or the installed `KF6*Config.cmake` for those modules.
+- `libkf6config-dev` provides `KSharedConfig` and `KConfigGroup` for QTCode's
+  KDE-style application config file.
 - `libkf6xmlgui-dev` provides `KActionCollection`, `KStandardAction`, and `KHelpMenu`
   used by `MainWindow` for menus, toolbars, and the About dialog. See
   [ADR 0010: Use KF6 XmlGui for application actions, menus, and toolbars](adrs/0010-kf6-xmlgui-action-collections.md).

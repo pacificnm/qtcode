@@ -33,6 +33,7 @@ qtcode/
         DiffReviewView.h
     core/
       ApplicationController.h
+      AppConfigService.h
       ProjectManager.h
       ContextManager.h
       SettingsService.h

@@ -2,7 +2,7 @@
 
 This documentation set turns the planning prompt in `PROMPT.md` into durable product, design, and engineering artifacts for QTCode.
 
-QTCode is a lightweight native KDE/Linux developer cockpit for AI-assisted development, terminal workflows, GitHub work, Git operations, and project memory. The editor is intentionally optional and secondary.
+QTCode is a lightweight native KDE/Linux developer cockpit for AI-assisted development, terminal workflows, GitHub work, Git operations, project memory, and repo-native QTCommands. The editor is intentionally optional and secondary.
 
 ## Reading Order
 
@@ -17,12 +17,13 @@ QTCode is a lightweight native KDE/Linux developer cockpit for AI-assisted devel
 9. `github-repo-conventions.md`
 10. `scripts/README.md`
 11. `specs/qtcommands-spec.md`
-12. `specs/ktexteditor-workspace-spec.md`
-13. `design/qtcommands-design.md`
-14. `engineering/beta-setup-guide.md`
-15. `engineering/packaging-notes.md`
-16. `milestones/`
-17. `adrs/`
+12. `specs/settings-spec.md`
+13. `specs/ktexteditor-workspace-spec.md`
+14. `design/qtcommands-design.md`
+15. `engineering/beta-setup-guide.md`
+16. `engineering/packaging-notes.md`
+17. `milestones/`
+18. `adrs/`
 
 ## Folder Guide
 

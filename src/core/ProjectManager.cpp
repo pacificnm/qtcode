@@ -23,10 +23,18 @@ ProjectManager::ProjectManager(storage::StorageService &storageService, git::Git
 {
 }
 
-bool ProjectManager::restoreState(QString *errorMessage)
+bool ProjectManager::restoreState(bool restoreActiveProject, QString *errorMessage)
 {
     if (!refreshProjects(errorMessage)) {
         return false;
+    }
+
+    if (!restoreActiveProject) {
+        m_activeProjectId.clear();
+        emit projectsChanged();
+        emit activeProjectChanged(QString());
+        qCInfo(qtcodeCore) << "Project restore skipped by application config";
+        return true;
     }
 
     storage::SettingsRepository settingsRepository(m_storageService);

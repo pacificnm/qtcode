@@ -62,6 +62,7 @@ private:
     void configureActions();
     void configureMenus();
     void configureActivityBar();
+    void openSettingsDialog();
     void applyPanelLayout(const qtcode::settings::PanelLayoutSettings &layout);
     void applyActiveRightPanel(const QString &panelId);
     void syncRightColumnVisibility();
@@ -93,6 +94,7 @@ private:
     QAction *m_contextPanelAction = nullptr;
     QAction *m_mcpPanelAction = nullptr;
     QAction *m_saveFileAction = nullptr;
+    QAction *m_settingsAction = nullptr;
     QAction *m_closeFileTabAction = nullptr;
     QAction *m_newFileAction = nullptr;
     QAction *m_newFolderAction = nullptr;

@@ -34,6 +34,14 @@ if(NOT KF6I18n_FOUND)
         "On Ubuntu/Debian: sudo apt install libkf6i18n-dev")
 endif()
 
+find_package(KF6Config QUIET)
+if(NOT KF6Config_FOUND)
+    qtcode_report_missing_dependency(
+        "KF6Config"
+        "KDE application configuration file support through KConfig"
+        "On Ubuntu/Debian: sudo apt install libkf6config-dev")
+endif()
+
 find_package(KF6XmlGui QUIET)
 if(NOT KF6XmlGui_FOUND)
     qtcode_report_missing_dependency(
@@ -110,6 +118,7 @@ target_link_libraries(QtCodeExternalDependencies INTERFACE
     Qt6::Concurrent
     KF6::CoreAddons
     KF6::I18n
+    KF6::ConfigCore
     KF6::XmlGui
     KF6::TextEditor
     KF6::Wallet
