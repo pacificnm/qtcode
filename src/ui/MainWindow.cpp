@@ -84,29 +84,24 @@ void MainWindow::configureLayout()
     m_mcpServerPanel->setMinimumWidth(280);
     m_terminalPanel->setMinimumHeight(120);
 
-    m_horizontalSplitter = new QSplitter(Qt::Horizontal, this);
-    m_horizontalSplitter->addWidget(m_agentPanel);
-    m_horizontalSplitter->addWidget(m_mcpServerPanel);
-    m_horizontalSplitter->setStretchFactor(0, 2);
-    m_horizontalSplitter->setStretchFactor(1, 1);
-    m_horizontalSplitter->setCollapsible(0, false);
-    m_horizontalSplitter->setCollapsible(1, false);
-
-    m_rightVerticalSplitter = new QSplitter(Qt::Vertical, this);
-    m_rightVerticalSplitter->addWidget(m_horizontalSplitter);
-    m_rightVerticalSplitter->addWidget(m_terminalPanel);
-    m_rightVerticalSplitter->setStretchFactor(0, 3);
-    m_rightVerticalSplitter->setStretchFactor(1, 1);
-    m_rightVerticalSplitter->setCollapsible(0, false);
-    m_rightVerticalSplitter->setCollapsible(1, false);
+    m_middleVerticalSplitter = new QSplitter(Qt::Vertical, this);
+    m_middleVerticalSplitter->addWidget(m_agentPanel);
+    m_middleVerticalSplitter->addWidget(m_terminalPanel);
+    m_middleVerticalSplitter->setStretchFactor(0, 3);
+    m_middleVerticalSplitter->setStretchFactor(1, 1);
+    m_middleVerticalSplitter->setCollapsible(0, false);
+    m_middleVerticalSplitter->setCollapsible(1, false);
 
     m_rootHorizontalSplitter = new QSplitter(Qt::Horizontal, this);
     m_rootHorizontalSplitter->addWidget(m_repositoryPanel);
-    m_rootHorizontalSplitter->addWidget(m_rightVerticalSplitter);
+    m_rootHorizontalSplitter->addWidget(m_middleVerticalSplitter);
+    m_rootHorizontalSplitter->addWidget(m_mcpServerPanel);
     m_rootHorizontalSplitter->setStretchFactor(0, 1);
-    m_rootHorizontalSplitter->setStretchFactor(1, 3);
+    m_rootHorizontalSplitter->setStretchFactor(1, 2);
+    m_rootHorizontalSplitter->setStretchFactor(2, 1);
     m_rootHorizontalSplitter->setCollapsible(0, false);
     m_rootHorizontalSplitter->setCollapsible(1, false);
+    m_rootHorizontalSplitter->setCollapsible(2, false);
 
     if (m_controller != nullptr && m_controller->agentManager() != nullptr) {
         connect(
@@ -219,16 +214,16 @@ void MainWindow::applyPanelLayout(const qtcode::settings::PanelLayoutSettings &l
 {
     resize(layout.windowWidth, layout.windowHeight);
 
-    if (m_rootHorizontalSplitter != nullptr && layout.columnSizes.size() >= 2) {
+    if (m_rootHorizontalSplitter != nullptr && layout.columnSizes.size() >= 3) {
         m_rootHorizontalSplitter->setSizes(layout.columnSizes);
+    } else if (m_rootHorizontalSplitter != nullptr && layout.columnSizes.size() >= 2) {
+        QList<int> sizes = layout.columnSizes;
+        sizes.append(m_mcpServerPanel != nullptr ? m_mcpServerPanel->minimumWidth() : 320);
+        m_rootHorizontalSplitter->setSizes(sizes);
     }
 
-    if (m_horizontalSplitter != nullptr && layout.horizontalSizes.size() >= 2) {
-        m_horizontalSplitter->setSizes(layout.horizontalSizes);
-    }
-
-    if (m_rightVerticalSplitter != nullptr && layout.verticalSizes.size() >= 2) {
-        m_rightVerticalSplitter->setSizes(layout.verticalSizes);
+    if (m_middleVerticalSplitter != nullptr && layout.verticalSizes.size() >= 2) {
+        m_middleVerticalSplitter->setSizes(layout.verticalSizes);
     }
 }
 
@@ -242,12 +237,8 @@ qtcode::settings::PanelLayoutSettings MainWindow::currentPanelLayout() const
         layout.columnSizes = m_rootHorizontalSplitter->sizes();
     }
 
-    if (m_horizontalSplitter != nullptr) {
-        layout.horizontalSizes = m_horizontalSplitter->sizes();
-    }
-
-    if (m_rightVerticalSplitter != nullptr) {
-        layout.verticalSizes = m_rightVerticalSplitter->sizes();
+    if (m_middleVerticalSplitter != nullptr) {
+        layout.verticalSizes = m_middleVerticalSplitter->sizes();
     }
 
     return layout;
