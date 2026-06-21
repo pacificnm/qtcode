@@ -657,7 +657,9 @@ void AgentPanel::refreshConversation()
         return;
     }
 
-    m_conversationView->setMessages(session->messages());
+    const bool running = session->status() == qtcode::agents::AgentSessionStatus::Running;
+    const QString activityText = running ? session->lastStatusUpdate().trimmed() : QString();
+    m_conversationView->syncMessages(session->messages(), running, activityText);
 }
 
 void AgentPanel::refreshSavedContextRetrieval()

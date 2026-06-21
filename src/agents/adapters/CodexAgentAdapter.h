@@ -2,6 +2,7 @@
 
 #include "agents/AgentAdapter.h"
 
+#include <QHash>
 #include <QJsonObject>
 #include <QProcess>
 
@@ -36,6 +37,9 @@ private slots:
 
 private:
     void emitNormalizedEvent(const QJsonObject &eventObject);
+    void emitAgentMessageText(const QString &itemId, const QString &fullText);
+    void emitCommandExecutionItem(const QJsonObject &item);
+    void emitStatusText(const QString &text);
     void finishRequest(AgentRequestStatus status, const QString &errorMessage);
     [[nodiscard]] static AgentError errorFromProcess(
         QProcess::ProcessError processError,
@@ -45,6 +49,7 @@ private:
     QProcess *m_process = nullptr;
     bool m_requestInFlight = false;
     QString m_pendingOutput;
+    QHash<QString, int> m_itemEmittedLengths;
 };
 
 } // namespace qtcode::agents

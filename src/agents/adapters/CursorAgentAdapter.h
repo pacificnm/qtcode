@@ -36,8 +36,13 @@ private slots:
 
 private:
     void emitNormalizedEvent(const QJsonObject &eventObject);
-    void emitOutputText(const QString &text);
+    void emitAssistantStreamText(const QString &text);
+    void emitActivityText(const QString &text);
+    void emitStatusText(const QString &text);
+    void emitOutputText(const QString &text, bool startNewMessage = false);
     void emitAssistantMessageObject(const QJsonObject &messageObject);
+    void emitToolCallEvent(const QJsonObject &eventObject);
+    [[nodiscard]] static QString extractShellCommand(const QJsonObject &eventObject);
     void finishRequest(AgentRequestStatus status, const QString &errorMessage);
     [[nodiscard]] static AgentError errorFromProcess(
         QProcess::ProcessError processError,
@@ -48,6 +53,7 @@ private:
     bool m_requestInFlight = false;
     bool m_receivedAssistantOutput = false;
     QString m_pendingOutput;
+    QString m_accumulatedAssistantText;
 };
 
 } // namespace qtcode::agents

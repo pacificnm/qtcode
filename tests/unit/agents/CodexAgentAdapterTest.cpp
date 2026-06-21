@@ -64,6 +64,59 @@ namespace {
     return scriptPath;
 }
 
+[[nodiscard]] QString createFakeCodexMultiMessageScript(const QString &directoryPath)
+{
+    const QString scriptPath = QDir(directoryPath).filePath(QStringLiteral("fake_codex_multi"));
+    QFile script(scriptPath);
+    if (!script.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        return {};
+    }
+
+    QTextStream stream(&script);
+    stream << "#!/bin/sh\n";
+    stream << "printf '%s\\n' "
+              << "'{\"type\":\"turn.started\"}' "
+              << "'{\"type\":\"item.completed\",\"item\":{\"id\":\"item_0\",\"type\":\"agent_message\",\"text\":\"First reply.\"}}' "
+              << "'{\"type\":\"item.completed\",\"item\":{\"id\":\"item_1\",\"type\":\"command_execution\",\"command\":\"git status\",\"status\":\"completed\"}}' "
+              << "'{\"type\":\"item.completed\",\"item\":{\"id\":\"item_2\",\"type\":\"agent_message\",\"text\":\"Second reply.\"}}' "
+              << "'{\"type\":\"turn.completed\",\"usage\":{\"input_tokens\":1,\"output_tokens\":1}}'\n";
+    stream << "exit 0\n";
+    script.close();
+
+    if (!QFile::setPermissions(
+            scriptPath,
+            QFile::ExeUser | QFile::ReadUser | QFile::ReadGroup | QFile::ReadOther)) {
+        return {};
+    }
+
+    return scriptPath;
+}
+
+[[nodiscard]] QString createFakeCodexUpdatedScript(const QString &directoryPath)
+{
+    const QString scriptPath = QDir(directoryPath).filePath(QStringLiteral("fake_codex_updated"));
+    QFile script(scriptPath);
+    if (!script.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        return {};
+    }
+
+    QTextStream stream(&script);
+    stream << "#!/bin/sh\n";
+    stream << "printf '%s\\n' "
+              << "'{\"type\":\"item.updated\",\"item\":{\"id\":\"item_0\",\"type\":\"agent_message\",\"text\":\"Hel\"}}' "
+              << "'{\"type\":\"item.completed\",\"item\":{\"id\":\"item_0\",\"type\":\"agent_message\",\"text\":\"Hello\"}}'\n";
+    stream << "exit 0\n";
+    script.close();
+
+    if (!QFile::setPermissions(
+            scriptPath,
+            QFile::ExeUser | QFile::ReadUser | QFile::ReadGroup | QFile::ReadOther)) {
+        return {};
+    }
+
+    return scriptPath;
+}
+
 [[nodiscard]] bool findErrorEvent(
     const QSignalSpy &eventSpy,
     qtcode::agents::AgentErrorKind expectedKind,
@@ -103,6 +156,8 @@ private slots:
     void failedToStartExecutableMapsMissingExecutableError();
     void processFailureMapsToProcessFailedError();
     void jsonOutputEmitsAssistantReply();
+    void multipleAgentMessagesStartNewMessages();
+    void updatedAndCompletedEventsDoNotDuplicateText();
 };
 
 void CodexAgentAdapterTest::initTestCase()
@@ -266,6 +321,83 @@ void CodexAgentAdapterTest::jsonOutputEmitsAssistantReply()
     }
 
     QVERIFY(sawOutputText);
+}
+
+void CodexAgentAdapterTest::multipleAgentMessagesStartNewMessages()
+{
+    QTemporaryDir tempDir;
+    QVERIFY(tempDir.isValid());
+
+    const QString scriptPath = createFakeCodexMultiMessageScript(tempDir.path());
+    QVERIFY(!scriptPath.isEmpty());
+
+    qtcode::agents::CodexAgentAdapter adapter;
+    adapter.setExecutablePath(scriptPath);
+
+    QSignalSpy eventSpy(&adapter, &qtcode::agents::AgentAdapter::eventEmitted);
+    QSignalSpy finishedSpy(&adapter, &qtcode::agents::AgentAdapter::requestFinished);
+
+    qtcode::agents::AgentRequest request;
+    request.prompt = QStringLiteral("Summarize repository status.");
+    request.workingDirectory = tempDir.path();
+
+    QString errorMessage;
+    QVERIFY(adapter.startRequest(request, &errorMessage));
+
+    QTRY_COMPARE_WITH_TIMEOUT(finishedSpy.count(), 1, 5000);
+
+    QStringList outputTexts;
+    bool sawActivity = false;
+    for (int index = 0; index < eventSpy.count(); ++index) {
+        const auto event = eventSpy.at(index).at(0).value<qtcode::agents::AgentEvent>();
+        if (event.type == qtcode::agents::AgentEventType::OutputText
+            && event.messageRole != QStringLiteral("activity")) {
+            outputTexts.append(event.text);
+        }
+        if (event.messageRole == QStringLiteral("activity")) {
+            sawActivity = true;
+        }
+    }
+
+    QCOMPARE(outputTexts.size(), 2);
+    QCOMPARE(outputTexts.at(0), QStringLiteral("First reply."));
+    QCOMPARE(outputTexts.at(1), QStringLiteral("Second reply."));
+    QVERIFY(sawActivity);
+}
+
+void CodexAgentAdapterTest::updatedAndCompletedEventsDoNotDuplicateText()
+{
+    QTemporaryDir tempDir;
+    QVERIFY(tempDir.isValid());
+
+    const QString scriptPath = createFakeCodexUpdatedScript(tempDir.path());
+    QVERIFY(!scriptPath.isEmpty());
+
+    qtcode::agents::CodexAgentAdapter adapter;
+    adapter.setExecutablePath(scriptPath);
+
+    QSignalSpy eventSpy(&adapter, &qtcode::agents::AgentAdapter::eventEmitted);
+    QSignalSpy finishedSpy(&adapter, &qtcode::agents::AgentAdapter::requestFinished);
+
+    qtcode::agents::AgentRequest request;
+    request.prompt = QStringLiteral("Say hello.");
+    request.workingDirectory = tempDir.path();
+
+    QString errorMessage;
+    QVERIFY(adapter.startRequest(request, &errorMessage));
+
+    QTRY_COMPARE_WITH_TIMEOUT(finishedSpy.count(), 1, 5000);
+
+    QString combinedOutput;
+    for (int index = 0; index < eventSpy.count(); ++index) {
+        const auto event = eventSpy.at(index).at(0).value<qtcode::agents::AgentEvent>();
+        if (event.type == qtcode::agents::AgentEventType::OutputText
+            && event.messageRole != QStringLiteral("activity")) {
+            combinedOutput.append(event.text);
+        }
+    }
+
+    QCOMPARE(combinedOutput, QStringLiteral("Hello"));
 }
 
 QTEST_MAIN(CodexAgentAdapterTest)

@@ -40,7 +40,7 @@ public:
     void setLastStatusUpdate(const QString &statusUpdate);
     void clearLastStatusUpdate();
     void addMessage(const AgentMessage &message);
-    [[nodiscard]] bool appendAssistantOutput(const QString &text);
+    [[nodiscard]] bool appendRoleOutput(const QString &role, const QString &text);
     [[nodiscard]] bool updateAssistantMessage(const QString &messageId, const QString &content);
     void addArtifact(const AgentArtifact &artifact);
     [[nodiscard]] bool updateArtifactReviewState(
