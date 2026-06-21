@@ -196,8 +196,6 @@ void ConversationView::syncMessages(
     m_messages = messages;
     applyGeneratingState();
     updateEmptyState();
-    m_contentWidget->adjustSize();
-
     if (stickToBottom || m_cachedStickToBottom) {
         scrollViewToBottom();
     }
@@ -401,8 +399,8 @@ void ConversationView::updateOverlayGeometry()
     }
 
     if (m_stickyPrompt != nullptr && m_stickyPrompt->isVisible()) {
-        m_stickyPrompt->setFixedWidth(width());
-        m_stickyPrompt->move(0, 0);
+        m_stickyPrompt->setFixedWidth(area.width());
+        m_stickyPrompt->move(viewport->mapTo(this, QPoint(0, 0)));
     }
 }
 

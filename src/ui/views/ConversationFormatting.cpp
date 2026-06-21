@@ -141,8 +141,8 @@ QString formatCodeBlockHtml(const QString &language, const QString &code, const 
         code.toHtmlEscaped().replace(QLatin1Char('\n'), QStringLiteral("<br/>"));
 
     QString html = QStringLiteral(
-                       "<pre style=\"font-family:monospace;font-size:12px;line-height:1.45;"
-                       "color:%1;margin:6px 0;white-space:pre-wrap;overflow-wrap:anywhere;\">%2</pre>")
+                       "<div style=\"font-family:monospace;font-size:12px;"
+                       "color:%1;margin:6px 0;\">%2</div>")
                        .arg(blockText.name(QColor::HexRgb), escapedCode);
 
     if (!language.trimmed().isEmpty()) {

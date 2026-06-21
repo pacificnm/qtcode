@@ -8,7 +8,6 @@
 
 #include <QAbstractScrollArea>
 #include <QPushButton>
-#include <QLabel>
 #include <QLayout>
 #include <QtTest>
 
@@ -34,11 +33,12 @@ class ConversationTurnWidgetTest final : public QObject
 
 private slots:
     void assistantReplyUsesFullViewportWidth();
-    void humanPromptUsesFullBubbleWidth();
+    void humanPromptUsesRightAlignedBubbleWidth();
     void pastTurnWithAiContentStartsCollapsed();
     void activityGroupsStartCollapsed();
     void richTextBlocksAvoidNestedScrolling();
     void longAssistantReplyWithCodeBlockIsNotClipped();
+    void narrowChatWrapsLongUnbrokenAssistantText();
 };
 
 void ConversationTurnWidgetTest::assistantReplyUsesFullViewportWidth()
@@ -75,26 +75,13 @@ void ConversationTurnWidgetTest::assistantReplyUsesFullViewportWidth()
         QCoreApplication::processEvents();
     }
 
-    const QList<QLabel *> blocks = turnWidget.findChildren<QLabel *>(
-        QStringLiteral("conversationRichTextBlock"));
-    QVERIFY2(blocks.size() >= 2, "Turn should render human and assistant rich text blocks");
-
-    QLabel *assistantBlock = nullptr;
-    for (QLabel *block : blocks) {
-        if (block->parentWidget() != nullptr
-            && block->parentWidget()->objectName() == QStringLiteral("conversationHumanBubble")) {
-            continue;
-        }
-
-        assistantBlock = block;
-        break;
-    }
-
+    QWidget *assistantBlock =
+        turnWidget.findChild<QWidget *>(QStringLiteral("conversationAssistantMessageBlock"));
     QVERIFY2(assistantBlock != nullptr, "Assistant reply block should exist");
 
-    const QString plainText = assistantBlock->text();
-    QVERIFY(plainText.startsWith(QStringLiteral("I'll inspect")));
-    QVERIFY(plainText.contains(QStringLiteral("proposing a fix")));
+    const QString html = assistantBlock->property("conversationHtml").toString();
+    QVERIFY(html.startsWith(QStringLiteral("I'll inspect")));
+    QVERIFY(html.contains(QStringLiteral("proposing a fix")));
 
     const int expectedWidth = qMax(
         turnWidget.width(),
@@ -118,7 +105,7 @@ void ConversationTurnWidgetTest::assistantReplyUsesFullViewportWidth()
         "Assistant reply should lay out more than a single clipped line");
 }
 
-void ConversationTurnWidgetTest::humanPromptUsesFullBubbleWidth()
+void ConversationTurnWidgetTest::humanPromptUsesRightAlignedBubbleWidth()
 {
     qtcode::ui::ConversationTurnWidget turnWidget;
     turnWidget.resize(480, 640);
@@ -141,7 +128,8 @@ void ConversationTurnWidgetTest::humanPromptUsesFullBubbleWidth()
         QCoreApplication::processEvents();
     }
 
-    QLabel *humanBlock = turnWidget.findChild<QLabel *>(QStringLiteral("conversationRichTextBlock"));
+    QWidget *humanBlock =
+        turnWidget.findChild<QWidget *>(QStringLiteral("conversationUserPromptBlock"));
     QVERIFY2(humanBlock != nullptr, "Human prompt block should exist");
 
     const QWidget *humanBubble = humanBlock->parentWidget();
@@ -151,15 +139,32 @@ void ConversationTurnWidgetTest::humanPromptUsesFullBubbleWidth()
         "Human block should live inside the bubble frame");
 
     const QMargins bubbleMargins = humanBubble->layout()->contentsMargins();
-    const int expectedBubbleWidth = turnWidget.width();
+    const int maxBubbleWidth = turnWidget.width() * 86 / 100 + 2;
+    QVERIFY2(
+        humanBubble->width() <= maxBubbleWidth,
+        qPrintable(QStringLiteral(
+            "Human prompt bubble should be bounded like a Cursor-style chat bubble "
+            "(bubbleWidth=%1 maxBubbleWidth=%2 turnWidth=%3)")
+            .arg(humanBubble->width())
+            .arg(maxBubbleWidth)
+            .arg(turnWidget.width())));
+    QVERIFY2(
+        humanBubble->x() > 0,
+        qPrintable(QStringLiteral(
+            "Human prompt bubble should be right aligned with left breathing room "
+            "(bubbleX=%1 bubbleWidth=%2 turnWidth=%3)")
+            .arg(humanBubble->x())
+            .arg(humanBubble->width())
+            .arg(turnWidget.width())));
+
     const int bubbleContentWidth =
-        expectedBubbleWidth - bubbleMargins.left() - bubbleMargins.right();
+        humanBubble->width() - bubbleMargins.left() - bubbleMargins.right();
     QVERIFY2(bubbleContentWidth > 100, "Human bubble should have a meaningful layout width");
 
     QVERIFY2(
         humanBlock->width() >= bubbleContentWidth - 8,
         qPrintable(QStringLiteral(
-            "Human prompt text should use the full chat column width "
+            "Human prompt text should fill the prompt bubble content width "
             "(blockWidth=%1 bubbleContentWidth=%2 bubbleWidth=%3 turnWidth=%4)")
             .arg(humanBlock->width())
             .arg(bubbleContentWidth)
@@ -318,21 +323,10 @@ void ConversationTurnWidgetTest::longAssistantReplyWithCodeBlockIsNotClipped()
         QCoreApplication::processEvents();
     }
 
-    const QList<QLabel *> blocks = turnWidget.findChildren<QLabel *>(
-        QStringLiteral("conversationRichTextBlock"));
-    QLabel *assistantBlock = nullptr;
-    for (QLabel *block : blocks) {
-        if (block->parentWidget() != nullptr
-            && block->parentWidget()->objectName() == QStringLiteral("conversationHumanBubble")) {
-            continue;
-        }
-
-        assistantBlock = block;
-        break;
-    }
-
+    QWidget *assistantBlock =
+        turnWidget.findChild<QWidget *>(QStringLiteral("conversationAssistantMessageBlock"));
     QVERIFY2(assistantBlock != nullptr, "Assistant reply block should exist");
-    QVERIFY(assistantBlock->text().contains(QStringLiteral("setMaximumHeight")));
+    QVERIFY(assistantBlock->property("conversationHtml").toString().contains(QStringLiteral("setMaximumHeight")));
 
     const int contentHeight = assistantBlock->heightForWidth(assistantBlock->width());
     QVERIFY2(
@@ -341,6 +335,50 @@ void ConversationTurnWidgetTest::longAssistantReplyWithCodeBlockIsNotClipped()
     QVERIFY2(
         contentHeight > assistantBlock->fontMetrics().height() * 4,
         "Assistant reply should occupy multiple lines of height");
+}
+
+void ConversationTurnWidgetTest::narrowChatWrapsLongUnbrokenAssistantText()
+{
+    qtcode::ui::ConversationTurnWidget turnWidget;
+    turnWidget.resize(320, 520);
+    turnWidget.show();
+    QCoreApplication::processEvents();
+
+    qtcode::ui::ConversationTurn turn;
+    turn.userMessage = makeMessage(
+        QStringLiteral("u1"),
+        QStringLiteral("user"),
+        QStringLiteral("Open the generated file path."));
+    turn.responses = {
+        makeMessage(
+            QStringLiteral("a1"),
+            QStringLiteral("assistant"),
+            QStringLiteral(
+                "The relevant path is "
+                "/home/jaimie/qtcode/src/ui/views/"
+                "conversation_renderer_with_a_very_long_generated_file_name_that_must_wrap.cpp "
+                "and it should remain visible in a narrow chat tab.")),
+    };
+
+    turnWidget.setTurn(turn);
+    for (int attempt = 0; attempt < 8; ++attempt) {
+        QCoreApplication::processEvents();
+    }
+
+    QWidget *assistantBlock =
+        turnWidget.findChild<QWidget *>(QStringLiteral("conversationAssistantMessageBlock"));
+    QVERIFY2(assistantBlock != nullptr, "Assistant reply block should exist");
+    QVERIFY2(
+        assistantBlock->width() <= turnWidget.width(),
+        "Assistant reply should stay inside the narrow chat column");
+
+    const int contentHeight = assistantBlock->heightForWidth(assistantBlock->width());
+    QVERIFY2(
+        assistantBlock->height() + 2 >= contentHeight,
+        "Narrow long-path assistant reply should not be vertically clipped");
+    QVERIFY2(
+        contentHeight > assistantBlock->fontMetrics().height() * 2,
+        "Long unbroken path should wrap to multiple visual lines");
 }
 
 QObject *buildConversationTurnWidgetTest()

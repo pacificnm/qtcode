@@ -19,19 +19,24 @@ namespace qtcode::ui {
 
 namespace {
 
-class ConversationRichTextBlock final : public QLabel
+constexpr int kPromptBubbleMaxWidthPercent = 86;
+
+class ConversationDocumentBlock final : public QLabel
 {
 public:
-    explicit ConversationRichTextBlock(QWidget *parent = nullptr)
+    explicit ConversationDocumentBlock(
+        const QString &objectName,
+        QWidget *parent = nullptr)
         : QLabel(parent)
     {
-        setObjectName(QStringLiteral("conversationRichTextBlock"));
+        setObjectName(objectName);
         setWordWrap(true);
         setTextFormat(Qt::RichText);
         setTextInteractionFlags(Qt::TextSelectableByMouse | Qt::LinksAccessibleByMouse);
         setOpenExternalLinks(false);
         setAlignment(Qt::AlignTop | Qt::AlignLeft);
         setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Minimum);
+        setStyleSheet(QStringLiteral("background: transparent;"));
     }
 
     [[nodiscard]] bool hasHeightForWidth() const override
@@ -43,6 +48,31 @@ public:
     {
         return QLabel::heightForWidth(width);
     }
+
+    [[nodiscard]] QSize sizeHint() const override
+    {
+        return QLabel::sizeHint();
+    }
+
+    [[nodiscard]] QSize minimumSizeHint() const override
+    {
+        return QLabel::minimumSizeHint();
+    }
+
+    void setHtml(const QString &html)
+    {
+        if (m_html == html) {
+            return;
+        }
+
+        m_html = html;
+        setText(html);
+        setProperty("conversationHtml", html);
+        updateGeometry();
+    }
+
+private:
+    QString m_html;
 };
 
 QString displayActivityDetail(const ParsedActivity &parsed)
@@ -81,8 +111,9 @@ ConversationTurnWidget::ConversationTurnWidget(QWidget *parent)
     bubbleLayout->setContentsMargins(10, 8, 10, 8);
     bubbleLayout->setSpacing(0);
 
-    m_humanContent = new ConversationRichTextBlock(m_humanBubble);
-    m_humanContent->setStyleSheet(QStringLiteral("background: transparent;"));
+    m_humanContent = new ConversationDocumentBlock(
+        QStringLiteral("conversationUserPromptBlock"),
+        m_humanBubble);
     bubbleLayout->addWidget(m_humanContent);
 
     m_collapsedSummary = new QPushButton(this);
@@ -104,7 +135,15 @@ ConversationTurnWidget::ConversationTurnWidget(QWidget *parent)
     m_footerLabel->setCursor(Qt::PointingHandCursor);
     m_footerLabel->installEventFilter(this);
 
-    layout->addWidget(m_humanBubble);
+    auto *bubbleRow = new QWidget(this);
+    bubbleRow->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Minimum);
+    auto *bubbleRowLayout = new QHBoxLayout(bubbleRow);
+    bubbleRowLayout->setContentsMargins(0, 0, 0, 0);
+    bubbleRowLayout->setSpacing(0);
+    bubbleRowLayout->addStretch(1);
+    bubbleRowLayout->addWidget(m_humanBubble);
+
+    layout->addWidget(bubbleRow);
     layout->addWidget(m_collapsedSummary, 0, Qt::AlignLeft);
     layout->addWidget(m_aiContainer, 0);
     layout->addWidget(m_footerLabel, 0, Qt::AlignLeft);
@@ -129,15 +168,16 @@ void ConversationTurnWidget::setTurn(const ConversationTurn &turn)
     m_turn = turn;
     m_signature = turn.signature();
 
-    m_humanContent->setText(formatContentHtml(turn.userMessage.content, palette()));
-    m_humanContent->updateGeometry();
+    if (auto *humanContent = static_cast<ConversationDocumentBlock *>(m_humanContent)) {
+        humanContent->setHtml(formatContentHtml(turn.userMessage.content, palette()));
+    }
     m_humanBubble->setVisible(!turn.userMessage.content.trimmed().isEmpty()
         || turn.userMessage.id != QStringLiteral("orphan-user"));
+    updateHumanBubbleWidth();
 
     rebuildAiContent(turn);
     updateFooter(turn);
     applyPresentation();
-    syncBlockWidths();
 }
 
 void ConversationTurnWidget::setPresentation(const TurnPresentation &presentation)
@@ -161,49 +201,9 @@ void ConversationTurnWidget::resizeEvent(QResizeEvent *event)
 {
     QWidget::resizeEvent(event);
 
-    if (m_shuttingDown) {
-        return;
+    if (!m_shuttingDown) {
+        updateHumanBubbleWidth();
     }
-
-    syncBlockWidths();
-}
-
-void ConversationTurnWidget::syncBlockWidths()
-{
-    if (m_shuttingDown) {
-        return;
-    }
-
-    const int turnWidth = width();
-    if (turnWidth <= 0) {
-        return;
-    }
-
-    for (QLabel *block : m_assistantBlocks) {
-        if (block == nullptr) {
-            continue;
-        }
-
-        const int blockWidth = qMax(120, turnWidth);
-        block->setMaximumWidth(blockWidth);
-        block->setMinimumWidth(0);
-        block->setMinimumHeight(0);
-        block->setMaximumHeight(QWIDGETSIZE_MAX);
-        block->updateGeometry();
-    }
-
-    if (m_humanContent != nullptr && m_humanBubble != nullptr && m_humanBubble->layout() != nullptr) {
-        const QMargins bubbleMargins = m_humanBubble->layout()->contentsMargins();
-        const int humanWidth =
-            qMax(120, turnWidth - bubbleMargins.left() - bubbleMargins.right());
-        m_humanContent->setMaximumWidth(humanWidth);
-        m_humanContent->setMinimumWidth(0);
-        m_humanContent->setMinimumHeight(0);
-        m_humanContent->setMaximumHeight(QWIDGETSIZE_MAX);
-        m_humanContent->updateGeometry();
-    }
-
-    updateGeometry();
 }
 
 bool ConversationTurnWidget::eventFilter(QObject *watched, QEvent *event)
@@ -268,7 +268,7 @@ void ConversationTurnWidget::rebuildAiContent(const ConversationTurn &turn)
         m_aiLayout->addWidget(group);
     }
 
-    syncBlockWidths();
+    updateGeometry();
 }
 
 void ConversationTurnWidget::applyPresentation()
@@ -316,6 +316,27 @@ void ConversationTurnWidget::setDimmed(bool dimmed)
 void ConversationTurnWidget::updateFooter(const ConversationTurn &turn)
 {
     m_footerLabel->setText(turn.footerSummaryText());
+}
+
+void ConversationTurnWidget::updateHumanBubbleWidth()
+{
+    if (m_humanBubble == nullptr) {
+        return;
+    }
+
+    const int availableWidth = width();
+    if (availableWidth <= 0) {
+        return;
+    }
+
+    const int bubbleWidth = qMax(260, availableWidth * kPromptBubbleMaxWidthPercent / 100);
+    const int targetWidth = qMin(availableWidth, bubbleWidth);
+    if (m_humanBubble->minimumWidth() == targetWidth
+        && m_humanBubble->maximumWidth() == targetWidth) {
+        return;
+    }
+
+    m_humanBubble->setFixedWidth(targetWidth);
 }
 
 QWidget *ConversationTurnWidget::createToolCallCard(
@@ -368,10 +389,10 @@ QWidget *ConversationTurnWidget::createToolCallCard(
 QWidget *ConversationTurnWidget::createAssistantBlock(
     const qtcode::agents::AgentMessage &message)
 {
-    auto *block = new ConversationRichTextBlock(m_aiContainer);
-    block->setStyleSheet(QStringLiteral("background: transparent;"));
-    block->setText(formatContentHtml(message.content, palette()));
-    block->updateGeometry();
+    auto *block = new ConversationDocumentBlock(
+        QStringLiteral("conversationAssistantMessageBlock"),
+        m_aiContainer);
+    block->setHtml(formatContentHtml(message.content, palette()));
     m_assistantBlocks.append(block);
     return block;
 }

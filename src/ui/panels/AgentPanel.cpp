@@ -202,12 +202,16 @@ void AgentPanel::configureLayout()
     connect(m_sendButton, &QPushButton::clicked, this, &AgentPanel::onComposerActionClicked);
 
     m_modelSelector = new QComboBox(m_conversationPanel);
-    m_modelSelector->setSizeAdjustPolicy(QComboBox::AdjustToContents);
+    m_modelSelector->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
+    m_modelSelector->setMinimumContentsLength(14);
+    m_modelSelector->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::Fixed);
     m_modelSelector->setToolTip(i18n("Model for the active agent session"));
     connect(m_modelSelector, &QComboBox::currentIndexChanged, this, &AgentPanel::onRequestOptionsChanged);
 
     m_executionModeSelector = new QComboBox(m_conversationPanel);
-    m_executionModeSelector->setSizeAdjustPolicy(QComboBox::AdjustToContents);
+    m_executionModeSelector->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
+    m_executionModeSelector->setMinimumContentsLength(10);
+    m_executionModeSelector->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Fixed);
     m_executionModeSelector->setToolTip(i18n("Execution mode for the active agent session"));
     connect(
         m_executionModeSelector,

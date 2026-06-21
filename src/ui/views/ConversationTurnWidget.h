@@ -9,6 +9,7 @@ class QLabel;
 class QPushButton;
 class QResizeEvent;
 class QVBoxLayout;
+class QWidget;
 
 namespace qtcode::ui {
 
@@ -46,12 +47,12 @@ private:
     QWidget *createToolCallCard(const qtcode::agents::AgentMessage &message) const;
     QWidget *createAssistantBlock(const qtcode::agents::AgentMessage &message);
     void applyHumanBubbleStyle();
-    void syncBlockWidths();
     void updateFooter(const ConversationTurn &turn);
+    void updateHumanBubbleWidth();
 
     QFrame *m_humanBubble = nullptr;
-    QLabel *m_humanContent = nullptr;
-    QList<QLabel *> m_assistantBlocks;
+    QWidget *m_humanContent = nullptr;
+    QList<QWidget *> m_assistantBlocks;
     QWidget *m_aiContainer = nullptr;
     QVBoxLayout *m_aiLayout = nullptr;
     QPushButton *m_collapsedSummary = nullptr;
