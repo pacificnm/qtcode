@@ -22,6 +22,7 @@
 #include <QPushButton>
 #include <QShowEvent>
 #include <QSignalBlocker>
+#include <QSizePolicy>
 #include <QVBoxLayout>
 #include <QtConcurrent>
 #include <QFutureWatcher>
@@ -170,7 +171,8 @@ void StageChangesDialog::configureLayout()
 
     m_commitMessageEdit = new QPlainTextEdit(this);
     m_commitMessageEdit->setPlaceholderText(i18n("Commit message"));
-    m_commitMessageEdit->setMaximumHeight(96);
+    m_commitMessageEdit->setFixedHeight(96);
+    m_commitMessageEdit->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
     m_commitMessageEdit->setTabChangesFocus(true);
     connect(m_commitMessageEdit, &QPlainTextEdit::textChanged, this, &StageChangesDialog::onCommitMessageChanged);
 
@@ -178,12 +180,6 @@ void StageChangesDialog::configureLayout()
     m_pushButton = new QPushButton(i18n("Push"), this);
     connect(m_commitButton, &QPushButton::clicked, this, &StageChangesDialog::onCommitClicked);
     connect(m_pushButton, &QPushButton::clicked, this, &StageChangesDialog::onPushClicked);
-
-    auto *actionsLayout = new QHBoxLayout();
-    actionsLayout->setContentsMargins(0, 0, 0, 0);
-    actionsLayout->addWidget(m_commitButton);
-    actionsLayout->addWidget(m_pushButton);
-    actionsLayout->addStretch();
 
     m_stagedSectionLabel = new QLabel(i18n("Staged changes"), this);
     m_stagedSectionLabel->setFont(sectionFont);
@@ -208,17 +204,25 @@ void StageChangesDialog::configureLayout()
         this,
         &StageChangesDialog::showStagedFilesContextMenu);
 
-    auto *buttonBox = new QDialogButtonBox(QDialogButtonBox::Close, this);
+    auto *changesArea = new QWidget(this);
+    auto *changesLayout = new QVBoxLayout(changesArea);
+    changesLayout->setContentsMargins(0, 0, 0, 0);
+    changesLayout->setSpacing(8);
+    changesLayout->addWidget(m_stateLabel);
+    changesLayout->addLayout(unstagedHeader);
+    changesLayout->addWidget(m_unstagedFilesList, 1);
+    changesLayout->addLayout(stagedHeader);
+    changesLayout->addWidget(m_stagedFilesList, 1);
+
+    auto *buttonBox = new QDialogButtonBox(this);
+    buttonBox->addButton(m_commitButton, QDialogButtonBox::ActionRole);
+    buttonBox->addButton(m_pushButton, QDialogButtonBox::ActionRole);
+    buttonBox->addButton(QDialogButtonBox::Close);
     connect(buttonBox, &QDialogButtonBox::rejected, this, &QDialog::reject);
 
     layout->addWidget(descriptionLabel);
-    layout->addWidget(m_stateLabel);
     layout->addWidget(m_commitMessageEdit);
-    layout->addLayout(actionsLayout);
-    layout->addLayout(unstagedHeader);
-    layout->addWidget(m_unstagedFilesList);
-    layout->addLayout(stagedHeader);
-    layout->addWidget(m_stagedFilesList, 1);
+    layout->addWidget(changesArea, 1);
     layout->addWidget(buttonBox);
 }
 
@@ -241,12 +245,9 @@ void StageChangesDialog::applyWorkingTreeStatus(const qtcode::git::GitWorkingTre
     const bool hasUnstagedFiles = !status.unstagedFiles.isEmpty();
     const bool hasWorkingTreeChanges = hasStagedFiles || hasUnstagedFiles;
 
-    setWidgetVisibleIfChanged(m_commitMessageEdit, true);
-    setWidgetVisibleIfChanged(m_commitButton, true);
-    setWidgetVisibleIfChanged(m_pushButton, true);
-    setWidgetVisibleIfChanged(m_unstagedSectionLabel, true);
+    setWidgetVisibleIfChanged(m_unstagedSectionLabel, hasUnstagedFiles);
     setWidgetVisibleIfChanged(m_stageAllButton, hasUnstagedFiles);
-    setWidgetVisibleIfChanged(m_stagedSectionLabel, true);
+    setWidgetVisibleIfChanged(m_stagedSectionLabel, hasStagedFiles);
     setWidgetVisibleIfChanged(m_unstageAllButton, hasStagedFiles);
 
     if (!hasWorkingTreeChanges) {
