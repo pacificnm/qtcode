@@ -23,6 +23,7 @@ public:
     [[nodiscard]] bool listSessions(
         QList<terminal::TerminalSession> *sessions,
         QString *errorMessage = nullptr) const;
+    [[nodiscard]] bool deleteSession(const QString &sessionId, QString *errorMessage = nullptr);
 
 private:
     StorageService &m_storageService;

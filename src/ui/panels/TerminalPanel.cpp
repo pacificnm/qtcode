@@ -7,12 +7,21 @@
 
 #include <KLocalizedString>
 
+#include <QHBoxLayout>
+#include <QIcon>
 #include <QLabel>
 #include <QMouseEvent>
 #include <QPushButton>
 #include <QShowEvent>
 #include <QTabWidget>
+#include <QToolButton>
 #include <QVBoxLayout>
+
+namespace {
+
+constexpr auto kTerminalSessionIdProperty = "qtcode_session_id";
+
+} // namespace
 
 namespace qtcode::ui {
 
@@ -35,20 +44,31 @@ void TerminalPanel::configureLayout()
     layout->setContentsMargins(12, 12, 12, 12);
     layout->setSpacing(8);
 
+    auto *headerLayout = new QHBoxLayout();
+    headerLayout->setContentsMargins(0, 0, 0, 0);
+
     auto *titleLabel = new QLabel(i18n("Terminal"), this);
     QFont titleFont = titleLabel->font();
     titleFont.setBold(true);
     titleLabel->setFont(titleFont);
 
+    m_newTerminalButton = new QToolButton(this);
+    m_newTerminalButton->setIcon(QIcon::fromTheme(QStringLiteral("tab-new")));
+    m_newTerminalButton->setToolTip(i18n("New Terminal Tab"));
+    m_newTerminalButton->setAccessibleName(i18n("New Terminal Tab"));
+    m_newTerminalButton->setAutoRaise(true);
+    connect(m_newTerminalButton, &QToolButton::clicked, this, &TerminalPanel::addTerminalTab);
+
+    headerLayout->addWidget(titleLabel);
+    headerLayout->addStretch();
+    headerLayout->addWidget(m_newTerminalButton);
+
     m_tabWidget = new QTabWidget(this);
-    m_tabWidget->setTabsClosable(false);
+    m_tabWidget->setTabsClosable(true);
+    connect(m_tabWidget, &QTabWidget::tabCloseRequested, this, &TerminalPanel::closeTerminalTab);
 
-    m_newTerminalButton = new QPushButton(i18n("New terminal tab"), this);
-    connect(m_newTerminalButton, &QPushButton::clicked, this, &TerminalPanel::addTerminalTab);
-
-    layout->addWidget(titleLabel);
+    layout->addLayout(headerLayout);
     layout->addWidget(m_tabWidget, 1);
-    layout->addWidget(m_newTerminalButton);
 }
 
 void TerminalPanel::restoreOrCreateInitialTabs()
@@ -117,6 +137,30 @@ void TerminalPanel::addTerminalTabFromSession(
     m_tabWidget->setCurrentWidget(terminalWidget);
 }
 
+void TerminalPanel::closeTerminalTab(int index)
+{
+    if (m_tabWidget == nullptr || index < 0 || index >= m_tabWidget->count()) {
+        return;
+    }
+
+    QWidget *terminalWidget = m_tabWidget->widget(index);
+    const QString sessionId = sessionIdForWidget(terminalWidget);
+
+    m_tabWidget->removeTab(index);
+    delete terminalWidget;
+
+    if (m_terminalManager != nullptr && !sessionId.isEmpty()) {
+        QString errorMessage;
+        if (!m_terminalManager->closeSession(sessionId, &errorMessage)) {
+            qCWarning(qtcodeTerminal) << "Failed to close terminal session:" << errorMessage;
+        }
+    }
+
+    if (m_tabWidget->count() > 0) {
+        focusCurrentTerminal();
+    }
+}
+
 void TerminalPanel::focusCurrentTerminal()
 {
     if (QWidget *terminalWidget = currentTerminalWidget(); terminalWidget != nullptr) {
@@ -131,6 +175,15 @@ QWidget *TerminalPanel::currentTerminalWidget() const
     }
 
     return m_tabWidget->currentWidget();
+}
+
+QString TerminalPanel::sessionIdForWidget(QWidget *widget)
+{
+    if (widget == nullptr) {
+        return {};
+    }
+
+    return widget->property(kTerminalSessionIdProperty).toString();
 }
 
 void TerminalPanel::showEvent(QShowEvent *event)

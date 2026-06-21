@@ -136,4 +136,36 @@ bool TerminalSessionRepository::listSessions(
     return true;
 }
 
+bool TerminalSessionRepository::deleteSession(const QString &sessionId, QString *errorMessage)
+{
+    if (sessionId.isEmpty()) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("Terminal session id must not be empty.");
+        }
+        return false;
+    }
+
+    QSqlQuery query(m_storageService.database());
+    query.prepare(QStringLiteral("DELETE FROM terminal_sessions WHERE id = :id"));
+    query.bindValue(QStringLiteral(":id"), sessionId);
+
+    if (!query.exec()) {
+        const QString message = query.lastError().text();
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("Failed to delete terminal session: %1").arg(message);
+        }
+        qCWarning(qtcodeStorage) << "Failed to delete terminal session" << message;
+        return false;
+    }
+
+    if (query.numRowsAffected() == 0) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("Terminal session '%1' was not found.").arg(sessionId);
+        }
+        return false;
+    }
+
+    return true;
+}
+
 } // namespace qtcode::storage

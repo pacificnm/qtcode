@@ -16,6 +16,8 @@
 #include <QJsonDocument>
 #include <QUuid>
 
+#include <algorithm>
+
 namespace qtcode::terminal {
 
 TerminalManager::TerminalManager(storage::StorageService &storageService, QObject *parent)
@@ -320,6 +322,8 @@ bool TerminalManager::createTerminal(
     *session = newSession;
     *widget = terminalWidget;
 
+    terminalWidget->setProperty("qtcode_session_id", newSession.id);
+
     qCInfo(qtcodeTerminal) << "Created terminal session" << newSession.id << "in"
                            << newSession.workingDirectory << "with shell" << newSession.shellPath;
     return true;
@@ -351,6 +355,8 @@ bool TerminalManager::restoreTerminal(
 
     *widget = terminalWidget;
 
+    terminalWidget->setProperty("qtcode_session_id", session.id);
+
     qCInfo(qtcodeTerminal) << "Restored terminal session" << session.id << "in"
                            << session.workingDirectory;
     return true;
@@ -359,6 +365,37 @@ bool TerminalManager::restoreTerminal(
 QList<TerminalSession> TerminalManager::sessions() const
 {
     return m_sessions;
+}
+
+bool TerminalManager::closeSession(const QString &sessionId, QString *errorMessage)
+{
+    if (sessionId.isEmpty()) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("Terminal session id must not be empty.");
+        }
+        return false;
+    }
+
+    const auto sessionIt = std::find_if(
+        m_sessions.begin(),
+        m_sessions.end(),
+        [&sessionId](const TerminalSession &session) { return session.id == sessionId; });
+    if (sessionIt == m_sessions.end()) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("Terminal session '%1' was not found.").arg(sessionId);
+        }
+        return false;
+    }
+
+    if (!removePersistedSession(sessionId, errorMessage)) {
+        return false;
+    }
+
+    m_sessions.erase(sessionIt);
+    emit sessionsChanged();
+
+    qCInfo(qtcodeTerminal) << "Closed terminal session" << sessionId;
+    return true;
 }
 
 bool TerminalManager::loadGlobalProfile(QString *errorMessage)
@@ -387,6 +424,12 @@ bool TerminalManager::persistSession(const TerminalSession &session, QString *er
 {
     storage::TerminalSessionRepository repository(m_storageService);
     return repository.insertSession(session, errorMessage);
+}
+
+bool TerminalManager::removePersistedSession(const QString &sessionId, QString *errorMessage)
+{
+    storage::TerminalSessionRepository repository(m_storageService);
+    return repository.deleteSession(sessionId, errorMessage);
 }
 
 TerminalSession TerminalManager::buildSessionForProject(
