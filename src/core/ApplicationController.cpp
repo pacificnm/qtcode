@@ -17,6 +17,7 @@
 #include "terminal/TerminalManager.h"
 #include "agents/AgentManager.h"
 #include "agents/adapters/CodexAgentAdapter.h"
+#include "agents/adapters/CursorAgentAdapter.h"
 #include "agents/AgentModels.h"
 #include "agents/AgentSession.h"
 #include "terminal/TerminalProfile.h"
@@ -28,6 +29,7 @@
 #include <algorithm>
 
 #include <QByteArray>
+#include <QStandardPaths>
 
 namespace qtcode::core {
 
@@ -521,20 +523,29 @@ void ApplicationController::applyIntegrationPathsFromCapabilities()
         return;
     }
 
-    agents::AgentAdapter *registeredAdapter = m_agentManager->adapter(QStringLiteral("codex"));
-    if (registeredAdapter == nullptr) {
-        return;
-    }
+    auto applyAgentExecutable = [this](const QString &agentKey, const QString &executableName) {
+        agents::AgentAdapter *registeredAdapter = m_agentManager->adapter(agentKey);
+        if (registeredAdapter == nullptr) {
+            return;
+        }
 
-    auto *codexAdapter = qobject_cast<agents::CodexAgentAdapter *>(registeredAdapter);
-    if (codexAdapter == nullptr) {
-        return;
-    }
+        const QString executablePath = QStandardPaths::findExecutable(executableName);
+        if (executablePath.isEmpty()) {
+            return;
+        }
 
-    const CliToolCapability &agentCli = m_cliCapabilityService->snapshot().agentCli;
-    if (agentCli.toolId == QStringLiteral("codex") && !agentCli.executablePath.isEmpty()) {
-        codexAdapter->setExecutablePath(agentCli.executablePath);
-    }
+        if (auto *codexAdapter = qobject_cast<agents::CodexAgentAdapter *>(registeredAdapter)) {
+            codexAdapter->setExecutablePath(executablePath);
+            return;
+        }
+
+        if (auto *cursorAdapter = qobject_cast<agents::CursorAgentAdapter *>(registeredAdapter)) {
+            cursorAdapter->setExecutablePath(executablePath);
+        }
+    };
+
+    applyAgentExecutable(QStringLiteral("codex"), QStringLiteral("codex"));
+    applyAgentExecutable(QStringLiteral("cursor"), QStringLiteral("cursor"));
 }
 
 void ApplicationController::scheduleStartupMcpHealthChecks()

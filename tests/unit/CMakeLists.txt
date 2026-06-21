@@ -41,6 +41,27 @@ set_tests_properties(codex_agent_adapter PROPERTIES
     TIMEOUT 30
 )
 
+qtcode_add_executable(qtcode_cursor_agent_adapter_test
+    agents/CursorAgentAdapterTest.cpp
+)
+
+target_link_libraries(qtcode_cursor_agent_adapter_test
+    PRIVATE
+        qtcode_agents
+        qtcode_memory
+        Qt6::Test
+)
+
+add_test(
+    NAME cursor_agent_adapter
+    COMMAND qtcode_cursor_agent_adapter_test
+)
+
+set_tests_properties(cursor_agent_adapter PROPERTIES
+    LABELS "unit;agents"
+    TIMEOUT 30
+)
+
 qtcode_add_executable(qtcode_settings_persistence_test
     storage/SettingsPersistenceTest.cpp
 )
